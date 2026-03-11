@@ -4,6 +4,7 @@ import { ref, query, onValue, update, push, set, serverTimestamp, get } from 'fi
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
+import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane } from "react-icons/lia";
 
@@ -25,7 +26,7 @@ const SolicitacaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage,
                     return;
                 }
                 setLoadingProfile(true);
-                const userRef = ref(db, `users/${userId}`);
+                const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
                 try {
                     const snapshot = await get(userRef);
                     setConsumerProfile(snapshot.exists() ? snapshot.val() : solicitacao.dadosUsuario);
@@ -158,7 +159,7 @@ const AdminProcuradoriaDashboard = () => {
     useEffect(() => {
         if (!isAuthReady) return;
 
-        const solicitacoesRef = ref(db, 'procuradoria-mulher');
+        const solicitacoesRef = ref(db, `${config.cityCollection}/procuradoria-mulher`);
         const q = query(solicitacoesRef);
 
         const unsubscribe = onValue(q, (snapshot) => {
@@ -240,7 +241,7 @@ const AdminProcuradoriaDashboard = () => {
     };
 
     const handleStatusChange = async (id, newStatus) => {
-        const itemRef = ref(db, `procuradoria-mulher/${id}`);
+        const itemRef = ref(db, `${config.cityCollection}/procuradoria-mulher/${id}`);
         await update(itemRef, { status: newStatus });
         await sendNotification({ ...selectedSolicitacao, id, status: newStatus });
         alert('Status atualizado!');
@@ -248,7 +249,7 @@ const AdminProcuradoriaDashboard = () => {
     };
 
     const handleSendMessage = async (id, text) => {
-        const messagesRef = ref(db, `procuradoria-mulher/${id}/messages`);
+        const messagesRef = ref(db, `${config.cityCollection}/procuradoria-mulher/${id}/messages`);
         const newMessageRef = push(messagesRef);
         await set(newMessageRef, { text, sender: 'admin', timestamp: serverTimestamp() });
         await sendNotification({ ...selectedSolicitacao, id });
@@ -261,7 +262,7 @@ const AdminProcuradoriaDashboard = () => {
         reader.readAsDataURL(file);
         reader.onload = async () => {
             const fileData = { name: file.name, type: file.type, data: reader.result, sender: 'admin', timestamp: serverTimestamp() };
-            const itemRef = ref(db, `procuradoria-mulher/${id}`);
+            const itemRef = ref(db, `${config.cityCollection}/procuradoria-mulher/${id}`);
             const snapshot = await get(itemRef);
             const currentData = snapshot.val();
             const currentFiles = currentData.arquivos || [];

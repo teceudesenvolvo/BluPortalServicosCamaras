@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
 import { db } from '../../firebase';
+import config from '../../config';
 import { ref, get, set } from 'firebase/database';
 
 // Ícones
@@ -22,7 +23,7 @@ const ConfigurarPanico = () => {
     const fetchConfig = useCallback(async () => {
         if (!currentUser) return;
         setLoading(true);
-        const configRef = ref(db, `procuradoria-mulher-btn-panico/${currentUser.uid}`);
+        const configRef = ref(db, `${config.cityCollection}/procuradoria-mulher-btn-panico/${currentUser.uid}`);
         try {
             const snapshot = await get(configRef);
             if (snapshot.exists()) {
@@ -38,7 +39,7 @@ const ConfigurarPanico = () => {
     // Busca perfil do usuário
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) return;
-        const userRef = ref(db, 'users/' + currentUser.uid);
+        const userRef = ref(db, `${config.cityCollection}/users/${currentUser.uid}`);
         const snapshot = await get(userRef);
         if (snapshot.exists()) {
             setLoggedInUserData(snapshot.val());
@@ -75,7 +76,7 @@ const ConfigurarPanico = () => {
         setSuccess('');
 
         try {
-            const configRef = ref(db, `procuradoria-mulher-btn-panico/${currentUser.uid}`);
+            const configRef = ref(db, `${config.cityCollection}/procuradoria-mulher-btn-panico/${currentUser.uid}`);
             await set(configRef, contato);
             setSuccess('Contato de emergência salvo com sucesso!');
         } catch (err) {

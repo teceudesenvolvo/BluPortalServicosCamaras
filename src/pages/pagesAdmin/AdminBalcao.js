@@ -4,6 +4,7 @@ import { ref, query, onValue, update, push, set, serverTimestamp, get } from 'fi
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
+import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import { LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane } from "react-icons/lia";
 
@@ -25,7 +26,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                     return;
                 }
                 setLoadingProfile(true);
-                const userRef = ref(db, `users/${userId}`);
+                const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
                 try {
                     const snapshot = await get(userRef);
                     setConsumerProfile(snapshot.exists() ? snapshot.val() : solicitacao.dadosUsuario);
@@ -142,7 +143,7 @@ const AdminBalcaoDashboard = () => {
     useEffect(() => {
         if (!isAuthReady) return;
 
-        const solicitacoesRef = ref(db, 'balcao-cidadao');
+        const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
         const q = query(solicitacoesRef);
 
         const unsubscribe = onValue(q, (snapshot) => {
@@ -224,7 +225,7 @@ const AdminBalcaoDashboard = () => {
     };
 
     const handleStatusChange = async (id, newStatus) => {
-        const itemRef = ref(db, `balcao-cidadao/${id}`);
+        const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
         await update(itemRef, { status: newStatus });
         await sendNotification({ ...selectedSolicitacao, id, status: newStatus });
         alert('Status atualizado!');
@@ -232,7 +233,7 @@ const AdminBalcaoDashboard = () => {
     };
 
     const handleSendMessage = async (id, text) => {
-        const messagesRef = ref(db, `balcao-cidadao/${id}/messages`);
+        const messagesRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}/messages`);
         const newMessageRef = push(messagesRef);
         await set(newMessageRef, { text, sender: 'admin', timestamp: serverTimestamp() });
         await sendNotification({ ...selectedSolicitacao, id });
@@ -261,7 +262,7 @@ const AdminBalcaoDashboard = () => {
         reader.readAsDataURL(file);
         reader.onload = async () => {
             const fileData = { name: file.name, type: file.type, data: reader.result, sender: 'admin', timestamp: serverTimestamp() };
-            const itemRef = ref(db, `balcao-cidadao/${id}`);
+            const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
             const snapshot = await get(itemRef);
             const currentData = snapshot.val();
             const currentFiles = currentData.arquivos || [];

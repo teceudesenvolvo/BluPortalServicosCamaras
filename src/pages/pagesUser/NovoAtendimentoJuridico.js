@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
 import { db } from '../../firebase'; // Usa apenas o Realtime Database
+import config from '../../config'; // Importa a configuração
 import { ref, get, push, set, serverTimestamp } from 'firebase/database'; // Funções do Realtime Database
  
 // Ícones
@@ -46,7 +47,7 @@ const NovoAtendimentoJuridico = () => {
         }
 
         const userId = currentUser.uid;
-        const userRef = ref(db, 'users/' + userId); // Usa db
+    const userRef = ref(db, `${config.cityCollection}/users/${userId}`); // Usa db
         try {
             const snapshot = await get(userRef);
             if (snapshot.exists()) {
@@ -109,7 +110,7 @@ const NovoAtendimentoJuridico = () => {
             };
 
             // Cria uma nova referência com um ID único na coleção 'atendimento-juridico'
-            const novaSolicitacaoRef = push(ref(db, 'atendimento-juridico'));
+      const novaSolicitacaoRef = push(ref(db, `${config.cityCollection}/atendimento-juridico`));
 
             // Salva os dados no Realtime Database
             await set(novaSolicitacaoRef, {

@@ -1,0 +1,29 @@
+{
+  "rules": {
+    "$city": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "users": {
+        ".indexOn": ["tipo"]
+      },
+      "denuncias-procon": {
+        ".indexOn": ["userId"]
+      },
+      "atendimento-juridico": {
+        ".indexOn": ["userId"]
+      },
+      "balcao-cidadao": {
+        ".indexOn": ["userId"]
+      },
+      "ouvidoria": {
+        ".indexOn": ["userId"]
+      },
+      "procuradoria-mulher": {
+        ".indexOn": ["userId"]
+      },
+      "solicitacoes-vereadores": {
+        ".indexOn": ["userId"]
+      }
+    }
+  }
+}

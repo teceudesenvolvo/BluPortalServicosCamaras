@@ -4,6 +4,7 @@ import { ref, query, onValue, update, push, set, serverTimestamp, get } from 'fi
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
+import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane } from "react-icons/lia";
 
@@ -25,7 +26,7 @@ const ManifestacaoModal = ({ manifestacao, onClose, onStatusChange, onSendMessag
                     return;
                 }
                 setLoadingProfile(true);
-                const userRef = ref(db, `users/${userId}`);
+                const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
                 try {
                     const snapshot = await get(userRef);
                     setConsumerProfile(snapshot.exists() ? snapshot.val() : manifestacao.dadosUsuario);
@@ -151,7 +152,7 @@ const AdminOuvidoriaDashboard = () => {
     useEffect(() => {
         if (!isAuthReady) return;
 
-        const manifestacoesRef = ref(db, 'ouvidoria');
+        const manifestacoesRef = ref(db, `${config.cityCollection}/ouvidoria`);
         const q = query(manifestacoesRef);
 
         const unsubscribe = onValue(q, (snapshot) => {
@@ -233,7 +234,7 @@ const AdminOuvidoriaDashboard = () => {
     };
 
     const handleStatusChange = async (id, newStatus) => {
-        const itemRef = ref(db, `ouvidoria/${id}`);
+        const itemRef = ref(db, `${config.cityCollection}/ouvidoria/${id}`);
         await update(itemRef, { status: newStatus });
         await sendNotification({ ...selectedManifestacao, id, status: newStatus });
         alert('Status atualizado!');
@@ -241,7 +242,7 @@ const AdminOuvidoriaDashboard = () => {
     };
 
     const handleSendMessage = async (id, text) => {
-        const messagesRef = ref(db, `ouvidoria/${id}/messages`);
+        const messagesRef = ref(db, `${config.cityCollection}/ouvidoria/${id}/messages`);
         const newMessageRef = push(messagesRef);
         await set(newMessageRef, { text, sender: 'admin', timestamp: serverTimestamp() });
         await sendNotification({ ...selectedManifestacao, id });
@@ -254,7 +255,7 @@ const AdminOuvidoriaDashboard = () => {
         reader.readAsDataURL(file);
         reader.onload = async () => {
             const fileData = { name: file.name, type: file.type, data: reader.result, sender: 'admin', timestamp: serverTimestamp() };
-            const itemRef = ref(db, `ouvidoria/${id}`);
+            const itemRef = ref(db, `${config.cityCollection}/ouvidoria/${id}`);
             const snapshot = await get(itemRef);
             const currentData = snapshot.val();
             const currentFiles = currentData.arquivos || [];

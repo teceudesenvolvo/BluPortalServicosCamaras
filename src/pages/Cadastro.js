@@ -6,6 +6,7 @@ import { ref, set } from 'firebase/database';
 // Importa o hook de autenticação e a instância do auth
 import { useAuth } from '../contexts/FirebaseAuthContext';
 import { auth, db } from '../firebase';
+import config from '../config'; // Importa a configuração
 
 import Brasao from '../assets/logo-paraipaba.png';
 import Logo from '../assets/logo-paraipaba-azul.png';
@@ -51,7 +52,7 @@ const CadastroPage = () => {
             const user = userCredential.user;
 
             // Salva informações adicionais do usuário no Realtime Database
-            await set(ref(db, 'users/' + user.uid), {
+      await set(ref(db, `${config.cityCollection}/users/${user.uid}`), {
                 name: `${name} ${surname}`,
                 email: user.email,
                 sexo: sexo,

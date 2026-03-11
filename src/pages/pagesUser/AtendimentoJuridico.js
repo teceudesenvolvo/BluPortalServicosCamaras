@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { db } from '../../firebase'; // Usa apenas o Realtime Database
 import Sidebar from '../../components/Sidebar';
+import config from '../../config';
 import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database'; // Funções do Realtime Database
 
 // Ícones
@@ -68,7 +69,7 @@ const AtendimentoJuridico = () => {
 
             setLoading(true);
             try {
-                const atendimentosRef = ref(db, 'atendimento-juridico');
+                const atendimentosRef = ref(db, `${config.cityCollection}/atendimento-juridico`);
                 const q = query(atendimentosRef, orderByChild('userId'), equalTo(currentUser.uid));
 
                 onValue(q, (snapshot) => {
@@ -103,7 +104,7 @@ const AtendimentoJuridico = () => {
         }
 
         const userId = currentUser.uid;
-        const userRef = ref(db, 'users/' + userId); // Usa db
+        const userRef = ref(db, `${config.cityCollection}/users/${userId}`); // Usa db
         try {
             const snapshot = await get(userRef);
             if (snapshot.exists()) {

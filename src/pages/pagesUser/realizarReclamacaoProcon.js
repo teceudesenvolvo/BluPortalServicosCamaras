@@ -6,6 +6,7 @@ import pdfFonts from 'pdfmake/build/vfs_fonts';
 
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { db } from '../../firebase';
+import config from '../../config'; // Importa a configuração
 import Sidebar from '../../components/Sidebar'; // Importa o componente Sidebar real
 
 pdfMake.vfs = pdfFonts.vfs;
@@ -67,7 +68,7 @@ const AddProducts = () => {
         }
 
         // Busca os dados do perfil do usuário no Realtime Database
-        const userRef = ref(db, 'users/' + userId);
+    const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
         try {
             const snapshot = await get(userRef);
             if (snapshot.exists()) {
@@ -261,13 +262,14 @@ const AddProducts = () => {
             companyName: empresaInfo?.razao_social || '',
             cnpjEmpresaReclamada: empresaInfo?.cnpj || reclamacaoFormData.cnpj,
             arquivos: fileData,
+            userId: userId, // Adiciona o userId no nível raiz do objeto
             createdAt: timestamp,
             userDataAtTimeOfComplaint: dadosUsuarioParaSalvar, // Salva o objeto completo do usuário
         };
 
         try {
             // Envia os dados para o nó 'denuncias-procon' no Realtime Database
-            await push(ref(db, 'denuncias-procon'), reclamacaoDataFinal);
+      await push(ref(db, `${config.cityCollection}/denuncias-procon`), reclamacaoDataFinal);
 
             gerarPDF(protocolo, loggedInUserData, reclamacaoFormData, empresaInfo);
             alert(`Reclamação registrada com sucesso! Protocolo: ${protocolo}`);

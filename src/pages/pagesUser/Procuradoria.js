@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { db } from '../../firebase';
 import Sidebar from '../../components/Sidebar';
+import config from '../../config';
 import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database';
 
 // Ícones
@@ -63,7 +64,7 @@ const Procuradoria = () => {
         }
 
         // 1. Buscar o contato de emergência
-        const configRef = ref(db, `procuradoria-mulher-btn-panico/${currentUser.uid}`);
+        const configRef = ref(db, `${config.cityCollection}/procuradoria-mulher-btn-panico/${currentUser.uid}`);
         const snapshot = await get(configRef);
 
         if (!snapshot.exists() || !snapshot.val().telefone) {
@@ -103,7 +104,7 @@ const Procuradoria = () => {
 
             setLoading(true);
             try {
-                const solicitacoesRef = ref(db, 'procuradoria-mulher');
+                const solicitacoesRef = ref(db, `${config.cityCollection}/procuradoria-mulher`);
                 const q = query(solicitacoesRef, orderByChild('userId'), equalTo(currentUser.uid));
 
                 onValue(q, (snapshot) => {
@@ -132,7 +133,7 @@ const Procuradoria = () => {
 
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) return;
-        const userRef = ref(db, 'users/' + currentUser.uid);
+        const userRef = ref(db, `${config.cityCollection}/users/${currentUser.uid}`);
         try {
             const snapshot = await get(userRef);
             if (snapshot.exists()) {

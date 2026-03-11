@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate,  } from 'react-router-dom';
-import Logo from '../assets/logo-pacatuba.png';
+import Logo from '../assets/logo-paraipaba.png';
 import {
     LiaTachometerAltSolid,
     LiaGavelSolid,
@@ -15,6 +15,7 @@ import {
 } from "react-icons/lia";
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebase';
+import config from '../config'; // Importa a configuração
 import { ref, get } from 'firebase/database';
 
 // --- Componente: Ítem do Menu Lateral (interno ao Sidebar) ---
@@ -39,7 +40,7 @@ const AdminSidebar = () => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 // Se o usuário estiver logado, busca o perfil no Realtime Database
-                const userRef = ref(db, `users/${user.uid}`);
+        const userRef = ref(db, `${config.cityCollection}/users/${user.uid}`);
                 try {
                     const snapshot = await get(userRef);
                     if (snapshot.exists()) {
@@ -91,7 +92,7 @@ const AdminSidebar = () => {
     return (
         <div className="dashboard-sidebar">
             <div className="sidebar-header">
-                <img src={Logo} alt="Logo Pacatuba" className="sidebar-logo" style={{ height: '120px', width: 'auto' }} />
+                <img src={Logo} alt="Logo Paraipaba" className="sidebar-logo" style={{ height: '120px', width: 'auto' }} />
                 <button className="sidebar-hamburger-btn" onClick={handleMobileMenuToggle}>
                     {isMobileMenuOpen ? <LiaTimesSolid size={24} /> : <LiaBarsSolid size={24} />}
                 </button>

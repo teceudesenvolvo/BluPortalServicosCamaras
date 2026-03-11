@@ -4,6 +4,7 @@ import { ref, query, onValue, update, push, set, serverTimestamp, get } from 'fi
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
+import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane } from "react-icons/lia";
 
@@ -27,7 +28,7 @@ const SolicitacaoJuridicoModal = ({ solicitacao, onClose, onStatusChange, onSend
                     return;
                 }
                 setLoadingProfile(true);
-                const userRef = ref(db, `users/${userId}`);
+                const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
                 try {
                     const snapshot = await get(userRef);
                     setConsumerProfile(snapshot.exists() ? snapshot.val() : solicitacao.dadosUsuario);
@@ -167,7 +168,7 @@ const AdminJuridicoDashboard = () => {
     useEffect(() => {
         if (!isAuthReady) return;
 
-        const solicitacoesRef = ref(db, 'atendimento-juridico');
+        const solicitacoesRef = ref(db, `${config.cityCollection}/atendimento-juridico`);
         const q = query(solicitacoesRef);
 
         const unsubscribe = onValue(q, (snapshot) => {
@@ -270,7 +271,7 @@ const AdminJuridicoDashboard = () => {
     };
 
     const handleStatusChange = async (solicitacaoId, newStatus) => {
-        const solicitacaoRef = ref(db, `atendimento-juridico/${solicitacaoId}`);
+        const solicitacaoRef = ref(db, `${config.cityCollection}/atendimento-juridico/${solicitacaoId}`);
         await update(solicitacaoRef, { status: newStatus });
         await sendNotification({ ...selectedSolicitacao, id: solicitacaoId, status: newStatus });
         alert('Status atualizado com sucesso!');
@@ -278,7 +279,7 @@ const AdminJuridicoDashboard = () => {
     };
 
     const handleSendMessage = async (solicitacaoId, messageText) => {
-        const messagesRef = ref(db, `atendimento-juridico/${solicitacaoId}/messages`);
+        const messagesRef = ref(db, `${config.cityCollection}/atendimento-juridico/${solicitacaoId}/messages`);
         const newMessageRef = push(messagesRef);
         await set(newMessageRef, {
             text: messageText,
@@ -295,7 +296,7 @@ const AdminJuridicoDashboard = () => {
         reader.readAsDataURL(file);
         reader.onload = async () => {
             const fileData = { name: file.name, type: file.type, data: reader.result, sender: 'admin', timestamp: serverTimestamp() };
-            const solicitacaoRef = ref(db, `atendimento-juridico/${solicitacaoId}`);
+            const solicitacaoRef = ref(db, `${config.cityCollection}/atendimento-juridico/${solicitacaoId}`);
             try {
                 const snapshot = await get(solicitacaoRef);
                 const solicitacaoAtual = snapshot.val();

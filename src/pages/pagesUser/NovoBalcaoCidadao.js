@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
 import { db } from '../../firebase';
+import config from '../../config'; // Importa a configuração
 import { ref, get, push, set, serverTimestamp } from 'firebase/database';
 
 // Ícones
@@ -34,7 +35,7 @@ const NovoBalcaoCidadao = () => {
             return;
         }
         const userId = currentUser.uid;
-        const userRef = ref(db, 'users/' + userId);
+    const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
         try {
             const snapshot = await get(userRef);
             if (snapshot.exists()) {
@@ -83,7 +84,7 @@ const NovoBalcaoCidadao = () => {
                 phone: loggedInUserData?.phone || 'Não informado',
             };
 
-            const novaSolicitacaoRef = push(ref(db, 'balcao-cidadao'));
+      const novaSolicitacaoRef = push(ref(db, `${config.cityCollection}/balcao-cidadao`));
 
             await set(novaSolicitacaoRef, {
                 dadosSolicitacao: formData,

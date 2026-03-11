@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Splide, SplideSlide } from '@splidejs/react-splide';
 import { db } from '../firebase'; // Importa a configuração do DB
 import { ref, query, orderByChild, equalTo, get } from 'firebase/database'; // Importa funções do Realtime Database
+import config from '../config'; // Importa a configuração
 import { LiaUser } from 'react-icons/lia'; // Ícone de usuário padrão
 
 // Componente: Card do Vereador (agora parte deste módulo)
@@ -39,7 +40,7 @@ const VereadoresSlider = () => {
         const fetchVereadores = async () => {
             setLoading(true);
             setError(null);
-            const usersRef = ref(db, 'users');
+      const usersRef = ref(db, `${config.cityCollection}/users`);
             // Cria uma query para buscar usuários onde o campo 'tipo' é igual a 'Vereador'
             const vereadoresQuery = query(usersRef, orderByChild('tipo'), equalTo('Vereador'));
 

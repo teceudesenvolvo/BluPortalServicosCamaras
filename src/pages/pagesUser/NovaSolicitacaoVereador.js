@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
 import { db } from '../../firebase';
+import config from '../../config';
 import { ref, get, push, set, serverTimestamp, query, orderByChild, equalTo } from 'firebase/database';
 
 // Ícones
@@ -31,7 +32,7 @@ const NovaSolicitacaoVereador = () => {
     useEffect(() => {
         const fetchVereadores = async () => {
             try {
-                const usersRef = ref(db, 'users');
+                const usersRef = ref(db, `${config.cityCollection}/users`);
                 const q = query(usersRef, orderByChild('tipo'), equalTo('Vereador'));
                 const snapshot = await get(q);
 
@@ -55,7 +56,7 @@ const NovaSolicitacaoVereador = () => {
 
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) return;
-        const userRef = ref(db, 'users/' + currentUser.uid);
+        const userRef = ref(db, `${config.cityCollection}/users/${currentUser.uid}`);
         try {
             const snapshot = await get(userRef);
             if (snapshot.exists()) {
@@ -111,7 +112,7 @@ const NovaSolicitacaoVereador = () => {
                 city: loggedInUserData?.city || 'Não informado',
             };
 
-            const novaSolicitacaoRef = push(ref(db, 'solicitacoes-vereadores'));
+            const novaSolicitacaoRef = push(ref(db, `${config.cityCollection}/solicitacoes-vereadores`));
 
             await set(novaSolicitacaoRef, {
                 dadosSolicitacao: formData,

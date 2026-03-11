@@ -7,6 +7,7 @@ import { signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { useAuth } from '../contexts/FirebaseAuthContext';
 import { auth, db } from '../firebase';
 import Sidebar from '../components/Sidebar'; // Sidebar do Cidadão
+import config from '../config'; // Importa a configuração
 import AdminSidebar from '../components/AdminSidebar'; // Sidebar do Admin
 
 // Ícones
@@ -39,7 +40,7 @@ const Perfil = () => {
         setError(null);
         
         const userId = userAuth.uid;
-        const userRef = ref(db, 'users/' + userId);
+        const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
         
         try {
             const snapshot = await get(userRef);
@@ -94,7 +95,7 @@ const Perfil = () => {
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                setEditableProfileData(prev => ({ ...prev, avatar: reader.result }));
+                setEditableProfileData(prev => ({ ...prev, avatarBase64: reader.result }));
             };
             reader.readAsDataURL(file);
         }
@@ -103,7 +104,7 @@ const Perfil = () => {
     const handleSave = async () => {
         if (!userAuth) return;
         setLoadingProfile(true);
-        const userRef = ref(db, 'users/' + userAuth.uid);
+    const userRef = ref(db, `${config.cityCollection}/users/${userAuth.uid}`);
         try {
             await update(userRef, editableProfileData);
             setProfileData(editableProfileData); // Atualiza o estado principal

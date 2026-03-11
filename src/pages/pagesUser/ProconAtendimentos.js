@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 // Importações do Firebase
 import { getDatabase, ref, query, orderByChild, equalTo, get } from 'firebase/database';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
+import config from '../../config'; // Importa a configuração
 import Sidebar from '../../components/Sidebar';
 
 import {
@@ -170,7 +171,7 @@ const ProconAtendimento = () => {
         setError(null);
         
         const db = getDatabase();
-        const complaintsRef = ref(db, 'denuncias-procon');
+        const complaintsRef = ref(db, `${config.cityCollection}/denuncias-procon`);
         
         try {
             const q = query(complaintsRef, orderByChild('userId'), equalTo(user.uid));
@@ -200,7 +201,7 @@ const ProconAtendimento = () => {
     const fetchUserProfile = useCallback(async () => {
         if (!user) return;
         const db = getDatabase();
-        const userRef = ref(db, 'users/' + user.uid); // Busca o usuário específico pelo UID
+        const userRef = ref(db, `${config.cityCollection}/users/${user.uid}`); // Busca o usuário específico pelo UID
         try {
             const snapshot = await get(userRef);
             if (snapshot.exists()) {

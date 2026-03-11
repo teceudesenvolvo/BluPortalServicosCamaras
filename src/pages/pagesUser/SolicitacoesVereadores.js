@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { db } from '../../firebase';
 import Sidebar from '../../components/Sidebar';
+import config from '../../config';
 import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database';
 
 // Ícones
@@ -68,7 +69,7 @@ const SolicitacoesVereadores = () => {
 
             setLoading(true);
             try {
-                const solicitacoesRef = ref(db, 'solicitacoes-vereadores');
+                const solicitacoesRef = ref(db, `${config.cityCollection}/solicitacoes-vereadores`);
                 const q = query(solicitacoesRef, orderByChild('userId'), equalTo(currentUser.uid));
 
                 onValue(q, (snapshot) => {
@@ -97,7 +98,7 @@ const SolicitacoesVereadores = () => {
 
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) return;
-        const userRef = ref(db, 'users/' + currentUser.uid);
+        const userRef = ref(db, `${config.cityCollection}/users/${currentUser.uid}`);
         try {
             const snapshot = await get(userRef);
             if (snapshot.exists()) {

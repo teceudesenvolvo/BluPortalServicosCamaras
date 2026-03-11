@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ref, onValue, update, push, set, serverTimestamp } from 'firebase/database';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
+import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import { LiaTimesSolid, LiaSaveSolid, LiaUserEditSolid } from "react-icons/lia";
 
@@ -106,7 +107,7 @@ const AdminUsersDashboard = () => {
     useEffect(() => {
         if (!isAuthReady) return;
 
-        const usersRef = ref(db, 'users');
+        const usersRef = ref(db, `${config.cityCollection}/users`);
         const unsubscribe = onValue(usersRef, (snapshot) => {
             const data = snapshot.val();
             const fetchedUsers = data ? Object.keys(data).map(key => ({ uid: key, ...data[key] })) : [];
@@ -141,7 +142,7 @@ const AdminUsersDashboard = () => {
     };
 
     const handleSaveUser = async (userId, updatedData) => {
-        const userRef = ref(db, `users/${userId}`);
+        const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
         try {
             await update(userRef, updatedData);
             await sendNotification({ uid: userId, email: updatedData.email });

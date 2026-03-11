@@ -4,6 +4,7 @@ import { ref, query, onValue, update, push, set, serverTimestamp, get } from 'fi
 import Chart from 'chart.js/auto'; // Importa Chart.js
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase'; // Importa as instâncias corretas do Firebase
+import config from '../../config'; // Importa a configuração
 import AdminSidebar from '../../components/AdminSidebar'; // Importa o novo Sidebar de Admin
 import { LiaTimesSolid, LiaPaperclipSolid, LiaUploadSolid, LiaPaperPlane } from "react-icons/lia";
 
@@ -33,7 +34,7 @@ const ComplaintDetailsModal = ({ denuncia, onClose, onStatusChange, onSendMessag
 
                 setLoadingProfile(true);
                 // 3. Busca o perfil mais recente do usuário na coleção 'users' usando o userId.
-                const userRef = ref(db, `users/${userId}`);
+        const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
                 console.log(userRef);
                 try {
                     const snapshot = await get(userRef);
@@ -211,7 +212,7 @@ const AdminProconDashboard = () => {
     useEffect(() => {
         if (!isAuthReady || !userId) return;
 
-        const denunciasRef = ref(db, 'denuncias-procon');
+        const denunciasRef = ref(db, `${config.cityCollection}/denuncias-procon`);
         
         // Consultar todas as denúncias
         const q = query(denunciasRef);
@@ -338,7 +339,7 @@ const AdminProconDashboard = () => {
         }
 
         // Busca o perfil do usuário para garantir que os dados estão atualizados
-        const userRef = ref(db, `users/${denuncia.userId}`);
+    const userRef = ref(db, `${config.cityCollection}/users/${denuncia.userId}`);
         let userProfile = denuncia.userDataAtTimeOfComplaint; // Fallback
 
         try {
@@ -367,7 +368,7 @@ const AdminProconDashboard = () => {
     };
 
     const handleStatusChange = async (denunciaId, newStatus) => {
-        const denunciaRef = ref(db, `denuncias-procon/${denunciaId}`);
+    const denunciaRef = ref(db, `${config.cityCollection}/denuncias-procon/${denunciaId}`);
         await update(denunciaRef, { status: newStatus });
         await sendNotification({ ...selectedDenuncia, id: denunciaId, status: newStatus });
         alert('Status atualizado com sucesso!');
@@ -375,7 +376,7 @@ const AdminProconDashboard = () => {
     };
 
     const handleSendMessage = async (denunciaId, messageText) => {
-        const messagesRef = ref(db, `denuncias-procon/${denunciaId}/messages`);
+    const messagesRef = ref(db, `${config.cityCollection}/denuncias-procon/${denunciaId}/messages`);
         const newMessageRef = push(messagesRef);
         await set(newMessageRef, {
             text: messageText,
@@ -406,7 +407,7 @@ const AdminProconDashboard = () => {
                 timestamp: serverTimestamp(),
             };
 
-            const denunciaRef = ref(db, `denuncias-procon/${denunciaId}`);
+    const denunciaRef = ref(db, `${config.cityCollection}/denuncias-procon/${denunciaId}`);
             try {
                 const snapshot = await get(denunciaRef);
                 const denunciaAtual = snapshot.val();

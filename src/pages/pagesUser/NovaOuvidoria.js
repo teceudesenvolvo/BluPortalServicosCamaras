@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
 import { db } from '../../firebase';
+import config from '../../config';
 import { ref, get, push, set, serverTimestamp } from 'firebase/database';
 
 // Ícones
@@ -29,7 +30,7 @@ const NovaOuvidoria = () => {
 
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) return;
-        const userRef = ref(db, 'users/' + currentUser.uid);
+        const userRef = ref(db, `${config.cityCollection}/users/${currentUser.uid}`);
         try {
             const snapshot = await get(userRef);
             if (snapshot.exists()) {
@@ -95,7 +96,7 @@ const NovaOuvidoria = () => {
                 };
             }
 
-            const novaManifestacaoRef = push(ref(db, 'ouvidoria'));
+            const novaManifestacaoRef = push(ref(db, `${config.cityCollection}/ouvidoria`));
 
             await set(novaManifestacaoRef, {
                 dadosManifestacao: { ...formData, anexos },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 
@@ -6,9 +6,10 @@ import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/aut
 import { useAuth } from '../contexts/FirebaseAuthContext';
 import { auth, db } from '../firebase';
 import { ref, get } from 'firebase/database';
+import config from '../config'; // Importa a configuração
  
-import Brasao from '../assets/logo-paraipaba.png';
-import Logo from '../assets/logo-paraipaba-azul.png';
+import Brasao from '../assets/logo-paraipaba.png'; // Logo redonda/brasão
+import Logo from '../assets/logo-paraipaba-azul.png'; // Logo horizontal
 
 const LoginPage = () => {
     const navigate = useNavigate();
@@ -19,53 +20,48 @@ const LoginPage = () => {
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
 
+    // Função centralizada para redirecionar o usuário com base no seu tipo/role.
+    const redirectUser = useCallback((userType) => {
+        switch (userType) {
+            case 'Admin':
+                navigate('/admin-users', { replace: true });
+                break;
+            case 'Vereador':
+                navigate('/admin-vereadores', { replace: true });
+                break;
+            case 'Juridico':
+                navigate('/admin-juridico', { replace: true });
+                break;
+            case 'Procuradoria':
+                navigate('/admin-procuradoria', { replace: true });
+                break;
+            case 'Procon':
+                navigate('/admin-procon', { replace: true });
+                break;
+            case 'Ouvidoria':
+                navigate('/admin-ouvidoria', { replace: true });
+                break;
+            case 'Balcão':
+                navigate('/admin-balcao', { replace: true });
+                break;
+            default: // Cidadão ou tipo não definido
+                navigate('/dashboard', { replace: true });
+        }
+    }, [navigate]);
+
     // Efeito para redirecionar se o usuário já estiver logado.
     useEffect(() => {
         if (currentUser) {
             const checkUserTypeAndRedirect = async (user) => {
-                // Busca o tipo de usuário no Realtime Database
-                const userRef = ref(db, `users/${user.uid}`);
+        const userRef = ref(db, `${config.cityCollection}/users/${user.uid}`);
                 const snapshot = await get(userRef);
-
-                if (snapshot.exists()) {
-                    const userData = snapshot.val();
-                    const userType = userData.tipo;
-
-                    // Redireciona com base no tipo de usuário
-                    switch (userType) {
-                        case 'Admin':
-                            navigate('/admin-users', { replace: true });
-                            break;
-                        case 'Vereador':
-                            navigate('/admin-vereadores', { replace: true });
-                            break;
-                        case 'Juridico':
-                            navigate('/admin-juridico', { replace: true });
-                            break;
-                        case 'Procuradoria':
-                            navigate('/admin-procuradoria', { replace: true });
-                            break;
-                        case 'Procon':
-                            navigate('/admin-procon', { replace: true });
-                            break;
-                        case 'Ouvidoria':
-                            navigate('/admin-ouvidoria', { replace: true });
-                            break;
-                        case 'Balcão':
-                            navigate('/admin-balcao', { replace: true });
-                            break;
-                        default: // Cidadão ou tipo não definido
-                            navigate('/dashboard', { replace: true });
-                    }
-                } else {
-                    // Se não encontrar perfil, vai para o dashboard padrão
-                    navigate('/dashboard', { replace: true });
-                }
+                const userType = snapshot.exists() ? snapshot.val().tipo : 'Cidadão';
+                redirectUser(userType);
             };
 
             checkUserTypeAndRedirect(currentUser);
         }
-    }, [currentUser, navigate]);
+    }, [currentUser, redirectUser]);
 
     // Evita renderizar o formulário de login se o usuário já estiver logado e o redirecionamento estiver prestes a acontecer.
     if (currentUser) {
@@ -78,59 +74,22 @@ const LoginPage = () => {
         setLoading(true);
 
         try {
-            // Chama a função de login do Firebase
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            const user = userCredential.user;
+            // Apenas realiza o login. O hook `useEffect` acima será acionado
+            // automaticamente quando o `currentUser` for atualizado pelo `useAuth`
+            // e cuidará do redirecionamento.
+            await signInWithEmailAndPassword(auth, email, password);
+            // Não é preciso fazer mais nada aqui. O redirecionamento é reativo.
 
-            // Busca o tipo de usuário no Realtime Database
-            const userRef = ref(db, `users/${user.uid}`);
-            const snapshot = await get(userRef);
-
-            if (snapshot.exists()) {
-                const userData = snapshot.val();
-                const userType = userData.tipo;
-
-                // Redireciona com base no tipo de usuário
-                switch (userType) {
-                    case 'Admin':
-                        navigate('/admin-users', { replace: true });
-                        break;
-                    case 'Vereador':
-                        navigate('/admin-vereadores', { replace: true });
-                        break;
-                    case 'Juridico':
-                        navigate('/admin-juridico', { replace: true });
-                        break;
-                    case 'Procuradoria':
-                        navigate('/admin-procuradoria', { replace: true });
-                        break;
-                    case 'Procon':
-                        navigate('/admin-procon', { replace: true });
-                        break;
-                    case 'Ouvidoria':
-                        navigate('/admin-ouvidoria', { replace: true });
-                        break;
-                    case 'Balcão':
-                        navigate('/admin-balcao', { replace: true });
-                        break;
-                    default: // Cidadão ou tipo não definido
-                        navigate('/dashboard', { replace: true });
-                }
-            } else {
-                // Se não encontrar perfil, vai para o dashboard padrão
-                navigate('/dashboard', { replace: true });
-            }
         } catch (err) {
             console.error("Erro de login:", err);
             setLoading(false);
 
-            // Tratamento de erros comuns do Firebase (em Português)
-            if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+            // Tratamento de erros comuns do Firebase (em Português), unificando mensagens
+            // para maior segurança e simplicidade. O código 'auth/invalid-credential' é mais recente.
+            if (['auth/user-not-found', 'auth/wrong-password', 'auth/invalid-email', 'auth/invalid-credential'].includes(err.code)) {
                 setError('Credenciais inválidas. Verifique seu e-mail e senha.');
-            } else if (err.code === 'auth/invalid-email') {
-                setError('O formato do e-mail é inválido.');
             } else if (err.code === 'auth/too-many-requests') {
-                setError('Acesso temporariamente bloqueado. Tente novamente mais tarde.');
+                setError('Acesso temporariamente bloqueado por muitas tentativas. Tente novamente mais tarde.');
             } else {
                 setError('Ocorreu um erro ao tentar logar. Tente novamente.');
             }

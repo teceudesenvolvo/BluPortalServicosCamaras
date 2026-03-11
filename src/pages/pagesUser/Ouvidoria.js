@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { db } from '../../firebase';
 import Sidebar from '../../components/Sidebar';
+import config from '../../config';
 import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database';
 
 // Ícones
@@ -66,7 +67,7 @@ const Ouvidoria = () => {
 
             setLoading(true);
             try {
-                const manifestacoesRef = ref(db, 'ouvidoria');
+                const manifestacoesRef = ref(db, `${config.cityCollection}/ouvidoria`);
                 const q = query(manifestacoesRef, orderByChild('userId'), equalTo(currentUser.uid));
 
                 onValue(q, (snapshot) => {
@@ -95,7 +96,7 @@ const Ouvidoria = () => {
 
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) return;
-        const userRef = ref(db, 'users/' + currentUser.uid);
+        const userRef = ref(db, `${config.cityCollection}/users/${currentUser.uid}`);
         try {
             const snapshot = await get(userRef);
             if (snapshot.exists()) {

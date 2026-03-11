@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext'; // Para obter dados do usuário
 import Sidebar from '../../components/Sidebar'; 
 import { ref, get } from 'firebase/database'; // Importa o Realtime Database
+import config from '../../config'; // Importa a configuração
 import { db } from '../../firebase'; // Importa a instância do db
 import {
     LiaBookOpenSolid,
@@ -60,7 +61,7 @@ const DashboardPage = () => {
         }
 
         const userId = user.uid;
-        const userRef = ref(db, 'users/' + userId);
+    const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
         try {
             const snapshot = await get(userRef);
             if (snapshot.exists()) {
@@ -113,7 +114,7 @@ const DashboardPage = () => {
                 <header className="page-header-container">
                     
                     <div className="header-title-section">
-                        <h1>Câmara Municipal de Pacatuba</h1>
+                        <h1>Câmara Municipal de Paraipaba</h1>
                         <p>Seja bem-vindo ao Portal de Serviços</p>
                     </div>
                     <div className="user-profile">

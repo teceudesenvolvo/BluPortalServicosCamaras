@@ -4,6 +4,7 @@ import { ref, query, onValue, update, push, set, serverTimestamp, get } from 'fi
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
+import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane } from "react-icons/lia";
 
@@ -25,7 +26,7 @@ const SolicitacaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage,
                     return;
                 }
                 setLoadingProfile(true);
-                const userRef = ref(db, `users/${userId}`);
+                const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
                 try {
                     const snapshot = await get(userRef);
                     setConsumerProfile(snapshot.exists() ? snapshot.val() : solicitacao.dadosUsuario);
@@ -158,7 +159,7 @@ const AdminVereadoresDashboard = () => {
         const fetchUserProfile = async () => {
             const user = auth.currentUser;
             if (user) {
-                const userRef = ref(db, `users/${user.uid}`);
+                const userRef = ref(db, `${config.cityCollection}/users/${user.uid}`);
                 const snapshot = await get(userRef);
                 if (snapshot.exists()) {
                     setLoggedInUserData(snapshot.val());
@@ -172,7 +173,7 @@ const AdminVereadoresDashboard = () => {
     useEffect(() => {
         if (!isAuthReady || !loggedInUserData) return;
 
-        const solicitacoesRef = ref(db, 'solicitacoes-vereadores');
+        const solicitacoesRef = ref(db, `${config.cityCollection}/solicitacoes-vereadores`);
         const q = query(solicitacoesRef);
 
         const unsubscribe = onValue(q, (snapshot) => {
@@ -261,7 +262,7 @@ const AdminVereadoresDashboard = () => {
     };
 
     const handleStatusChange = async (id, newStatus) => {
-        const itemRef = ref(db, `solicitacoes-vereadores/${id}`);
+        const itemRef = ref(db, `${config.cityCollection}/solicitacoes-vereadores/${id}`);
         await update(itemRef, { status: newStatus });
         await sendNotification({ ...selectedSolicitacao, id, status: newStatus });
         alert('Status atualizado!');
@@ -269,7 +270,7 @@ const AdminVereadoresDashboard = () => {
     };
 
     const handleSendMessage = async (id, text) => {
-        const messagesRef = ref(db, `solicitacoes-vereadores/${id}/messages`);
+        const messagesRef = ref(db, `${config.cityCollection}/solicitacoes-vereadores/${id}/messages`);
         const newMessageRef = push(messagesRef);
         await set(newMessageRef, { text, sender: 'admin', timestamp: serverTimestamp() });
         await sendNotification({ ...selectedSolicitacao, id });
@@ -282,7 +283,7 @@ const AdminVereadoresDashboard = () => {
         reader.readAsDataURL(file);
         reader.onload = async () => {
             const fileData = { name: file.name, type: file.type, data: reader.result, sender: 'admin', timestamp: serverTimestamp() };
-            const itemRef = ref(db, `solicitacoes-vereadores/${id}`);
+            const itemRef = ref(db, `${config.cityCollection}/solicitacoes-vereadores/${id}`);
             const snapshot = await get(itemRef);
             const currentData = snapshot.val();
             const currentFiles = currentData.arquivos || [];

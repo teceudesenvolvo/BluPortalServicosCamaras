@@ -10,7 +10,7 @@ const Footer = () => {
         <footer className="footer">
         <div className="footer-content">
             <div className="footer-logo">
-                <img src={Logo} alt="Pecatuba" style={{ height: '150px', marginTop: '15px' }} />
+                <img src={Logo} alt="Paraipaba" style={{ height: '150px', marginTop: '15px' }} />
             </div>
 
             <div className="footer-contact">
