@@ -14,9 +14,9 @@ import Logo from '../assets/logo-paraipaba.png';
 import HeroBackground from '../assets/fachada2-cm.jpg';
 
 // Componente: Card de Serviço Moderno
-const ServiceCard = ({ icon, title, description, navigate }) => {
+const ServiceCard = ({ icon, title, description, onClick }) => {
     return (
-        <div className="service-card" onClick={() => navigate('/login')}>
+        <div className="service-card" onClick={onClick}>
             <div className="service-card-icon-background">
                 {icon}
             </div>
@@ -39,17 +39,20 @@ const HomePage = () => {
         {
             icon: <LiaUserFriendsSolid />,
             title: "Balcão do Cidadão",
-            description: "Solicite documentos e agende atendimentos de forma rápida."
+            description: "Solicite documentos e agende atendimentos de forma rápida.",
+            action: () => navigate('/login'),
         },
         {
             icon: <LiaFemaleSolid />,
             title: "Procuradoria da Mulher",
-            description: "Apoio, denúncias e acolhimento com sigilo e segurança."
+            description: "Apoio, denúncias e acolhimento com sigilo e segurança.",
+            action: () => navigate('/login'),
         },
         {
             icon: <LiaUserAstronautSolid />,
             title: "Ouvidoria",
-            description: "Envie suas sugestões, reclamações, elogios ou críticas."
+            description: "Envie suas sugestões, reclamações, elogios ou críticas.",
+            action: () => window.open('https://esic.camaraparaipaba.ce.gov.br/ouvidoria', '_blank', 'noopener,noreferrer'),
         }
     ];
 
@@ -85,7 +88,7 @@ const HomePage = () => {
                                 icon={service.icon}
                                 title={service.title}
                                 description={service.description}
-                                navigate={navigate}
+                                onClick={service.action}
                             />
                         ))}
                     </div>
