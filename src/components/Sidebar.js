@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import Logo from '../assets/logo-pacatuba.png';
+import Logo from '../assets/logo-paraipaba.png';
 import {
     LiaHomeSolid,
     LiaBookOpenSolid,
@@ -59,7 +59,7 @@ const Sidebar = ({ onItemClick }) => {
             <div className="sidebar-header">
                 <img
                     src={Logo}
-                    alt="Logo Pecatuba"
+                    alt="Logo Paraipaba"
                     className="sidebar-logo"
                     style={{ height: '120px', width: 'auto' }}
                 />

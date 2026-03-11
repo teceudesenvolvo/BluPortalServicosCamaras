@@ -173,8 +173,8 @@ const Perfil = () => {
                 
                 <header className="content-header">
                     <div className="header-title-section">
-                        {/* Aqui pode ir a logo da Pacatuba */}
-                        <h1>Câmara Municipal de Pacatuba</h1>
+                        {/* Aqui pode ir a logo da Paraipaba */}
+                        <h1>Câmara Municipal de Paraipaba</h1>
                         <p>Portal de Serviços</p>
                     </div>
                 </header>

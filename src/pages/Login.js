@@ -6,9 +6,9 @@ import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/aut
 import { useAuth } from '../contexts/FirebaseAuthContext';
 import { auth, db } from '../firebase';
 import { ref, get } from 'firebase/database';
-
-import Brasao from '../assets/logo-pacatuba.png';
-import Logo from '../assets/logo-pacatuba-azul.png';
+ 
+import Brasao from '../assets/logo-paraipaba.png';
+import Logo from '../assets/logo-paraipaba-azul.png';
 
 const LoginPage = () => {
     const navigate = useNavigate();
@@ -160,7 +160,7 @@ const LoginPage = () => {
                     {/* Substitua pela imagem real do brasão */}
                     <img
                         src={Brasao}
-                        alt="Brasão de Pacatuba"
+                        alt="Brasão de Paraipaba"
                         className="brasao"
                     />
                 </div>
@@ -172,7 +172,7 @@ const LoginPage = () => {
                 <div className="login-form-box">
                     <img
                         src={Logo}
-                        alt="Logo Pacatuba"
+                        alt="Logo Paraipaba"
                         className="logo-horizontal"
                         style={{ height: '50px', marginBottom: '40px' }}
                     />

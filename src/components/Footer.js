@@ -1,5 +1,5 @@
 import React from 'react';
-import Logo from '../assets/logo-pacatuba.png';
+import Logo from '../assets/logo-paraipaba.png';
 import AppStore from '../assets/AppStore.png';
 import GooglePlay from '../assets/GooglePlay.png';
 
@@ -16,10 +16,10 @@ const Footer = () => {
             <div className="footer-contact">
                 <h4>Contato</h4>
                 <p>
-                    <b>Endereço:</b> R. Maj. Crisanto de Almeida, 195 - Centro, Pacatuba - CE, 61800-000
+                    <b>Endereço:</b> Av. Domingos Barroso, 350 - Monte Alverne, Paraipaba - CE, 62685-000
                 </p>
-                <p><b>Telefone:</b> (85) 3345-1284</p>
-                <p><b>Email:</b>  camaramunicipaldepacatuba@gmail.com</p>
+                <p><b>Telefone:</b>(88) 3426-1212</p>
+                <p><b>Email:</b>  camara@camaraparaipaba.ce.gov.br</p>
             </div>
 
             <div className="footer-links">
@@ -40,10 +40,10 @@ const Footer = () => {
                
                 <div className="app-badges" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '-10px' }}>
                     <p>Baixe nosso aplicativo:</p>
-                    <a href="https://apps.apple.com/br/app/cm-pacatuba/id6755323399" target="_blank" rel="noopener noreferrer">
+                    <a href="/" target="_blank" rel="noopener noreferrer">
                         <img src={AppStore} alt="App Store" style={{ width: '150px'}} />
                     </a>
-                    <a href="https://play.google.com/store/apps/details?id=com.cmpacatuba.cmpacatuba" target="_blank" rel="noopener noreferrer">
+                    <a href="/" target="_blank" rel="noopener noreferrer">
                         <img src={GooglePlay} alt="Google Play" style={{ width: '150px' }} />
                     </a>
                 </div>

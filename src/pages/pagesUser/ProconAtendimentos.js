@@ -257,7 +257,7 @@ const ProconAtendimento = () => {
                 {/* Cabeçalho da Imagem */}
                 <header className="page-header-container">
                     <div className="header-title-section">
-                        <h1>Câmara Municipal de Pacatuba</h1>
+                        <h1>Câmara Municipal de Paraipaba</h1>
                         <p>Procon - Meus Atendimentos</p>
                     </div>
 

@@ -360,7 +360,7 @@ const AdminProconDashboard = () => {
             targetUserId: denuncia.userId,
             timestamp: serverTimestamp(),
             tituloNotification: "Sua solicitação para o Procon teve movimentação.",
-            descricaoNotification: "Abra agora mesmo o aplicativo da Câmara Municipal de Pacatuba para acompanhar.",
+            descricaoNotification: "Abra agora mesmo o aplicativo da Câmara Municipal de Paraipaba para acompanhar.",
             userEmail: userProfile.email,
             userId: denuncia.userId
         });

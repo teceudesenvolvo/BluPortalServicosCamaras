@@ -45,7 +45,7 @@ const HomePage = () => {
             <header className="main-header">
                 <img src={Foto} alt="Capa" className="header-bg-image" />
                 <div className="header-overlay">
-                    <p className="header-subtitle-top">Câmara Municipal de Pacatuba - CE</p>
+                    <p className="header-subtitle-top">Câmara Municipal de Paraipaba - CE</p>
                     <h1 className="header-title">Bem vindo ao Portal de Serviços</h1>
                         <p className="header-subtitle">Seu acesso fácil e rápido ao Poder Legislativo Municipal.</p>
                     <div className="header-actions">

@@ -7,8 +7,8 @@ import { ref, set } from 'firebase/database';
 import { useAuth } from '../contexts/FirebaseAuthContext';
 import { auth, db } from '../firebase';
 
-import Brasao from '../assets/logo-pacatuba.png';
-import Logo from '../assets/logo-pacatuba-azul.png';
+import Brasao from '../assets/logo-paraipaba.png';
+import Logo from '../assets/logo-paraipaba-azul.png';
 
 const CadastroPage = () => {
     const navigate = useNavigate();
@@ -83,7 +83,7 @@ const CadastroPage = () => {
                 <div className="logo-section">
                     <img
                         src={Brasao}
-                        alt="Brasão de Pacatuba"
+                        alt="Brasão de Paraipaba"
                         className="brasao"
                         style={{ height: '300px', marginTop: '20%' }}
                     />
@@ -96,7 +96,7 @@ const CadastroPage = () => {
                 <div className="login-form-box">
                     <img
                         src={Logo}
-                        alt="Logo Pacatuba"
+                        alt="Logo Paraipaba"
                         className="logo-horizontal"
                         style={{ height: '50px', marginBottom: '40px' }}
                     />
