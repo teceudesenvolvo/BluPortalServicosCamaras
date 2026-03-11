@@ -6,7 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
-import { LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane } from "react-icons/lia";
+import { LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane, LiaPaperclipSolid } from "react-icons/lia";
 
 // Modal for Availability Configuration
 const AvailabilityModal = ({ onClose, onSave }) => {
@@ -147,6 +147,28 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                 <div className="detail-item"><strong>Horário Agendado:</strong> {solicitacao.dadosSolicitacao?.appointmentTime || 'N/A'}</div>
                                 <div className="detail-item"><strong>Motivo:</strong></div>
                                 <p className="detail-description">{solicitacao.dadosSolicitacao?.descricao || 'Não especificado'}</p>
+                            </>
+                        ) : solicitacao.dadosSolicitacao?.assunto === 'Emissão de Documentos' ? (
+                            <>
+                                <div className="detail-item"><strong>Tipo de Documento:</strong> {solicitacao.dadosSolicitacao?.tipoDocumento || 'N/A'}</div>
+                                {solicitacao.dadosSolicitacao.detalhes && Object.keys(solicitacao.dadosSolicitacao.detalhes).length > 0 && (
+                                    <>
+                                        <div className="detail-item" style={{ marginTop: '10px' }}><strong>Detalhes Preenchidos:</strong></div>
+                                        {Object.entries(solicitacao.dadosSolicitacao.detalhes).map(([key, value]) => (
+                                            <div key={key} className="detail-item" style={{ paddingLeft: '15px' }}><small><strong>{key}:</strong> {value}</small></div>
+                                        ))}
+                                    </>
+                                )}
+                                <div className="detail-item" style={{ marginTop: '10px' }}><strong>Documentos Anexados:</strong></div>
+                                {solicitacao.dadosSolicitacao.anexos && Object.keys(solicitacao.dadosSolicitacao.anexos).length > 0 ? (
+                                    <ul className="file-list" style={{ marginTop: '5px', paddingLeft: '20px' }}>
+                                        {Object.values(solicitacao.dadosSolicitacao.anexos).flat().map((file, index) => (
+                                            <li key={index}>
+                                                <a href={file.data} target="_blank" rel="noopener noreferrer" className="file-link"><LiaPaperclipSolid /> {file.name}</a>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (<p className="detail-description">Nenhum documento anexado.</p>)}
                             </>
                         ) : (
                             <p className="detail-description">{solicitacao.dadosSolicitacao?.descricao || 'N/A'}</p>
