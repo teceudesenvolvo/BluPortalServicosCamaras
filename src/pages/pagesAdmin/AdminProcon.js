@@ -351,19 +351,38 @@ const AdminProconDashboard = () => {
             console.error("Erro ao buscar perfil do usuário para notificação:", error);
         }
 
-        if (!userProfile || !userProfile.email) return; // Não envia se não encontrar o email
+        if (!userProfile || !userProfile.email) {
+            console.log("Usuário sem e-mail, notificação não enviada.");
+            return;
+        };
 
-        const notificacoesRef = ref(db, 'notifications');
+        const cityName = config.cityCollection.charAt(0).toUpperCase() + config.cityCollection.slice(1);
+        const notificationTitle = `Sua reclamação no Procon foi atualizada.`;
+        const notificationDescription = `Abra o aplicativo da Câmara Municipal de ${cityName} para acompanhar os detalhes. Protocolo: ${denuncia.id}.`;
+
+        // 1. Salva a notificação no app
+        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
         const newNotificationRef = push(notificacoesRef);
         await set(newNotificationRef, {
             isRead: false,
             protocolo: denuncia.id,
             targetUserId: denuncia.userId,
             timestamp: serverTimestamp(),
-            tituloNotification: "Sua solicitação para o Procon teve movimentação.",
-            descricaoNotification: "Abra agora mesmo o aplicativo da Câmara Municipal de Paraipaba para acompanhar.",
+            tituloNotification: notificationTitle,
+            descricaoNotification: notificationDescription,
             userEmail: userProfile.email,
             userId: denuncia.userId
+        });
+
+        // 2. Adiciona a um nó 'mail' para ser processado por um serviço de e-mail
+        const mailRef = ref(db, `${config.cityCollection}/mail`);
+        const newMailRef = push(mailRef);
+        await set(newMailRef, {
+            to: userProfile.email,
+            message: {
+                subject: notificationTitle,
+                html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
+            },
         });
     };
 

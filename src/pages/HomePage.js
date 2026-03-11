@@ -1,28 +1,33 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    LiaBookOpenSolid,
-    LiaBalanceScaleLeftSolid,
     LiaUserFriendsSolid,
     LiaFemaleSolid,
     LiaUserAstronautSolid,
-    LiaUsersSolid,
+    LiaArrowRightSolid,
 } from "react-icons/lia";
 
 
 import Footer from '../components/Footer'; // Importa o novo componente
 import VereadoresSlider from '../components/VereadoresSlider'; // Importa o slider
-import Foto from '../assets/fachada2-cm.jpg'; // Imagem placeholder
-// Componente: Item do Serviço (Todos vão para o Login)
-const ServiceButton = ({ icon, title, navigate }) => {
+import Logo from '../assets/logo-paraipaba.png';
+import HeroBackground from '../assets/fachada2-cm.jpg';
+
+// Componente: Card de Serviço Moderno
+const ServiceCard = ({ icon, title, description, navigate }) => {
     return (
-        <button
-            className="service-btn"
-            onClick={() => navigate('/login')}
-        >
-            <div className="service-icon">{icon}</div>
-            <p className="service-title">{title}</p>
-        </button>
+        <div className="service-card" onClick={() => navigate('/login')}>
+            <div className="service-card-icon-background">
+                {icon}
+            </div>
+            <div className="service-card-content">
+                <h3>{title}</h3>
+                <p>{description}</p>
+            </div>
+            <div className="service-card-action">
+                <LiaArrowRightSolid />
+            </div>
+        </div>
     );
 };
 
@@ -30,52 +35,67 @@ const ServiceButton = ({ icon, title, navigate }) => {
 const HomePage = () => {
     const navigate = useNavigate();
 
-    // Simulação dos ícones dos serviços (Usando Unicode ou Font Icons)
-    const icons = {
-        procon: <LiaBookOpenSolid />,
-        juridico: <LiaBalanceScaleLeftSolid />,
-        balcao: <LiaUserFriendsSolid />,
-        procuradoria: <LiaFemaleSolid />,
-        vereadores: <LiaUsersSolid />,
-        ouvidoria: <LiaUserAstronautSolid />,
-    };
+    const services = [
+        {
+            icon: <LiaUserFriendsSolid />,
+            title: "Balcão do Cidadão",
+            description: "Solicite documentos e agende atendimentos de forma rápida."
+        },
+        {
+            icon: <LiaFemaleSolid />,
+            title: "Procuradoria da Mulher",
+            description: "Apoio, denúncias e acolhimento com sigilo e segurança."
+        },
+        {
+            icon: <LiaUserAstronautSolid />,
+            title: "Ouvidoria",
+            description: "Envie suas sugestões, reclamações, elogios ou críticas."
+        }
+    ];
 
     return (
-        <div className="home-page">
+        <div className="home-page-modern">
+            <header className="home-header-modern" style={{ backgroundImage: `url(${HeroBackground})` }}>
+                <div className="header-blur-overlay"></div>
+                <div className="nav-container">
+                    <nav className="home-nav">
+                        <div className="nav-logo">
+                            <img src={Logo} alt="Logo Câmara Municipal de Paraipaba" />
+                            <span>Portal de Serviços</span>
+                        </div>
+                        <div className="nav-actions">
+                            <button className="btn-nav-login" onClick={() => navigate('/login')}>Entrar</button>
+                            <button className="btn-nav-signup" onClick={() => navigate('/cadastro')}>Cadastrar</button>
+                        </div>
+                    </nav>
+                </div>
+                <div className="hero-section">
+                    <h1>O poder legislativo, <br />agora na palma da sua mão.</h1>
+                    <p>Acesse serviços, acompanhe solicitações e fale com a Câmara Municipal de Paraipaba de onde estiver.</p>
+                </div>
+            </header>
 
-            {/* 1. Header Principal */}
-            <header className="main-header">
-                <img src={Foto} alt="Capa" className="header-bg-image" />
-                <div className="header-overlay">
-                    <p className="header-subtitle-top">Câmara Municipal de Paraipaba - CE</p>
-                    <h1 className="header-title">Bem vindo ao Portal de Serviços</h1>
-                        <p className="header-subtitle">Seu acesso fácil e rápido ao Poder Legislativo Municipal.</p>
-                    <div className="header-actions">
-                        <button className="btn-home-entrar" onClick={() => navigate('/login')}>Entrar</button>
-                        <button className="btn-home-cadastrar" onClick={() => navigate('/cadastro')}>Cadastrar</button>
+            <main className="home-main-content">
+                <section className="services-section-modern">
+                    <h2>Nossos Serviços</h2>
+                    <div className="services-container-modern">
+                        {services.map(service => (
+                            <ServiceCard
+                                key={service.title}
+                                icon={service.icon}
+                                title={service.title}
+                                description={service.description}
+                                navigate={navigate}
+                            />
+                        ))}
                     </div>
-                </div>
-            </header> 
+                </section>
 
-            {/* 2. Seção de Serviços */}
-            <section className="services-grid-section">
-                <div className="services-grid">
-                    {/* <ServiceButton icon={icons.procon} title="Procon" navigate={navigate} /> */}
-                    {/* <ServiceButton icon={icons.juridico} title="Atendimento Jurídico" navigate={navigate} /> */}
-                    <ServiceButton icon={icons.balcao} title="Balcão do Cidadão" navigate={navigate} />
-                    <ServiceButton icon={icons.procuradoria} title="Procuradoria da Mulher" navigate={navigate} />
-                    <ServiceButton icon={icons.ouvidoria} title="Ouvidoria" navigate={navigate} />
-                    {/* O botão "Vereadores" da grade vai para Login, mas o slider abaixo é para informações abertas */}
-                    {/* <ServiceButton icon={icons.vereadores} title="Vereadores" navigate={navigate} /> */}
-                </div>
-            </section>
+                <section className="vereadores-slider-section">
+                    <VereadoresSlider />
+                </section>
+            </main>
 
-            {/* 3. Slider de Vereadores (Com dados da API) */}
-            <section className="vereadores-slider-section">
-                <VereadoresSlider />
-            </section>
-
-            {/* 4. Rodapé */}
             <Footer />
         </div>
     );

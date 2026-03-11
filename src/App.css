@@ -11,158 +11,204 @@ body{
   pointer-events: none;
 }
 
-/* Estilos Gerais (Para dar o visual da imagem) */
-.home-page {
-  font-family: Arial, sans-serif;
-  text-align: center;
-  color: #333;
+/* ==========================================================================
+   Estilos Modernos para a Homepage (Apple-like)
+   ========================================================================== */
+
+.home-page-modern {
+  background-color: #f5f5f7; /* Cinza claro, típico da Apple */
+  color: #1d1d1f; /* Texto principal escuro */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* 1. Header Principal */
-.main-header {
-  background: #00128A;
+.home-header-modern {
+  position: relative;
   background-size: cover;
   background-position: center;
-  height: 750px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  position: relative;
   color: white;
 }
 
-
-.header-overlay {
-  padding: 40px 20px;
-  width: 100%;
+.header-blur-overlay {
+  position: absolute;
+  inset: 0; /* shorthand for top, right, bottom, left = 0 */
+  background-color: rgba(29, 29, 31, 0.5); /* Dark overlay for better text contrast */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   z-index: 1;
 }
 
-.header-title {
-  font-size: 2.5em;
-  margin-bottom: 10px;
+.home-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 70px;
+  position: relative;
+  z-index: 2;
 }
 
-.header-subtitle {
-  font-size: 1.1em;
+.nav-container {
+  padding: 0 40px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  z-index: 2;
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-logo img {
+  height: 40px;
+  width: auto;
+}
+
+.nav-logo span {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: white;
+}
+
+.nav-actions {
+  display: flex;
+  gap: 15px;
+}
+
+.btn-nav-login,
+.btn-nav-signup {
+  padding: 8px 20px;
+  border-radius: 20px; /* Mais arredondado */
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  border: 1px solid transparent;
+}
+
+.btn-nav-login {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-nav-login:hover {
+  background-color: #dcdce1;
+}
+
+.btn-nav-signup {
+  background-color: #0071e3; /* Azul Apple */
+  color: white;
+}
+
+.btn-nav-signup:hover {
+  background-color: #0077ed;
+}
+
+.hero-section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 100px 0;
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-section h1 {
+  font-size: 3.5rem;
+  font-weight: 600;
+  margin: 0 0 20px;
+  line-height: 1.1;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+}
+
+.hero-section p {
+  font-size: 1.2rem;
+  color: #f5f5f7; /* Lighter text for contrast */
+  max-width: 600px;
+  margin: 0 auto;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.home-main-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 80px 40px;
+}
+
+.services-section-modern {
+  text-align: center;
+}
+
+.services-section-modern h2 {
+  font-size: 2.5rem;
+  font-weight: 600;
   margin-bottom: 50px;
 }
 
-
-.header-subtitle-top {
-  font-size: 1.1em;
-  margin-bottom: -20px;
-}
-
-.header-actions {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-}
-
-.header-bg-image {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 100% 80%;
-  top: 0;
-  left: 0;
-  z-index: 10%;
-  top: 0;
-  left: 0;
-  z-index: 0;
-  filter: brightness(0.6);
-  /* Ajusta o brilho da imagem */
-  opacity: 0.7;
-}
-
-.btn-home-entrar,
-.btn-home-cadastrar {
-  padding: 12px 30px;
-  border-radius: 4px;
-  font-size: 1em;
-  cursor: pointer;
-  transition: all 0.3s;
-  width: 150px;
-}
-
-.btn-home-entrar {
-  background-color: #feb700;
-  /* Azul da imagem */
-  color: #000000;
-  border: none;
-}
-
-.btn-home-entrar:hover {
-  background-color: #cc9902;
-}
-
-.btn-home-cadastrar {
-  background-color: transparent;
-  color: white;
-  border: 1px solid #ffc107;
-}
-
-.btn-home-cadastrar:hover {
-  background-color: #ffc107;
-  color: #333;
-}
-
-
-
-
-
-/* 2. Seção de Serviços (Grid) */
-.services-grid-section {
-  padding: 150px 20px 80px 20px;
-}
-
-.services-grid {
+.services-container-modern {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 30px;
-  max-width: 900px;
-  margin: 0 auto;
 }
 
-.service-btn {
-  background-color: #D9D9D9;
-  /* Cinza claro da imagem */
-  border: none;
-  padding: 30px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-  text-align: center;
+.service-card {
+  background-color: #ffffff;
+  border-radius: 18px;
+  padding: 30px;
+  text-align: left;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  cursor: pointer;
+  border: 1px solid #e5e5e5;
+}
+
+.service-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+}
+
+.service-card-icon-background {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 120px;
+  background-color: #0071e31a; /* Azul bem claro */
+  color: #0071e3;
+  font-size: 1.8rem;
+  margin-bottom: 20px;
 }
 
-.service-btn:hover {
-  background-color: #d0d0d0;
+.service-card-content h3 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0 0 10px;
 }
 
-.service-icon {
-  font-size: 4em;
-  font-weight:500;
-  margin-bottom: 5px;
-  color: #5A5A5A;
-}
-
-.service-title {
+.service-card-content p {
+  font-size: 1rem;
+  color: #6e6e73;
   margin: 0;
-  font-weight: bold;
-  color: #5A5A5A;
+  line-height: 1.5;
 }
+
+.service-card-action {
+  margin-top: 20px;
+  align-self: flex-end;
+  color: #0071e3;
+  font-size: 1.5rem;
+}
+
 
 /* 3. Slider de Vereadores */
 .vereadores-slider-section {
-  padding: 80px 20px 200px 20px;
+  padding: 120px 0;
 }
 
 .section-title-vereadores {
@@ -172,16 +218,17 @@ body{
 }
 
 .vereador-card {
-  background-color: white;
-  border-radius: 10px;
-  margin-bottom: 10px;
+  background-color: #ffffff;
+  border-radius: 18px;
   padding: 20px;
-  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
-  height: 220px;
+  height: 240px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 80%;
+  justify-content: center;
+  border: 1px solid #e5e5e5;
+  width: 95%;
+  margin: 0 auto;
 }
 
 .vereador-foto-container {
@@ -189,7 +236,7 @@ body{
   height: 100px;
   border-radius: 50%;
   overflow: hidden;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
   background-color: #ccc;
   /* Placeholder background */
 }
@@ -202,7 +249,7 @@ body{
 
 .vereador-nome {
   font-weight: bold;
-  margin-bottom: 5px;
+  margin-bottom: 2px;
   font-size: 1.1em;
 }
 
@@ -217,8 +264,6 @@ body{
   border-radius: 50%;
   background-color: #00128A; /* Círculo azul como placeholder */
 }
-
-
 
 /* Estilos Específicos para a Página de Login */
 .login-container {
@@ -381,12 +426,20 @@ body{
 
 /* Responsividade */
 @media (max-width: 768px) {
-  .main-header {
-    height: 600px; /* Altura menor para o header principal */
+  .home-header-modern, .home-main-content {
+    padding-left: 20px;
+    padding-right: 20px;
   }
-  .services-grid-section, .vereadores-slider-section {
-    padding: 60px 20px; /* Reduz o espaçamento vertical */
+  .hero-section {
+    padding: 60px 0;
   }
+  .hero-section h1 {
+    font-size: 2.5rem;
+  }
+  .services-container-modern {
+    grid-template-columns: 1fr;
+  }
+
   .login-container {
     flex-direction: column;
   }

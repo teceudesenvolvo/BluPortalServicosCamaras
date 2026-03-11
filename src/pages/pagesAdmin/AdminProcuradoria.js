@@ -221,22 +221,38 @@ const AdminProcuradoriaDashboard = () => {
     const handleCloseModal = () => setSelectedSolicitacao(null);
 
     const sendNotification = async (solicitacao) => {
-        if (!solicitacao.userId || solicitacao.userId === 'anonimo') {
-            console.log("Usuário anônimo, notificação não enviada.");
+        if (!solicitacao.userId || solicitacao.userId === 'anonimo' || !solicitacao.dadosUsuario?.email) {
+            console.log("Usuário anônimo ou sem e-mail, notificação não enviada.");
             return;
         }
 
-        const notificacoesRef = ref(db, 'notifications');
+        const cityName = config.cityCollection.charAt(0).toUpperCase() + config.cityCollection.slice(1);
+        const notificationTitle = `Sua solicitação para a Procuradoria da Mulher foi atualizada.`;
+        const notificationDescription = `Abra o aplicativo da Câmara Municipal de ${cityName} para acompanhar os detalhes. Protocolo: ${solicitacao.id}.`;
+
+        // 1. Salva a notificação no app
+        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
         const newNotificationRef = push(notificacoesRef);
         await set(newNotificationRef, {
             isRead: false,
             protocolo: solicitacao.id,
             targetUserId: solicitacao.userId,
             timestamp: serverTimestamp(),
-            tituloNotification: "Sua solicitação para a Procuradoria da Mulher teve movimentação.",
-            descricaoNotification: "Abra agora mesmo o aplicativo da Câmara Municipal de Pacatuba para acompanhar.",
+            tituloNotification: notificationTitle,
+            descricaoNotification: notificationDescription,
             userEmail: solicitacao.dadosUsuario.email,
             userId: solicitacao.userId
+        });
+
+        // 2. Adiciona a um nó 'mail' para ser processado por um serviço de e-mail
+        const mailRef = ref(db, `${config.cityCollection}/mail`);
+        const newMailRef = push(mailRef);
+        await set(newMailRef, {
+            to: solicitacao.dadosUsuario.email,
+            message: {
+                subject: notificationTitle,
+                html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
+            },
         });
     };
 

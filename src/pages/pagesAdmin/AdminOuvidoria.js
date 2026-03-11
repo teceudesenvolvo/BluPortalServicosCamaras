@@ -214,22 +214,38 @@ const AdminOuvidoriaDashboard = () => {
     const handleCloseModal = () => setSelectedManifestacao(null);
 
     const sendNotification = async (manifestacao) => {
-        if (!manifestacao.userId || manifestacao.userId === 'anonimo') {
-            console.log("Usuário anônimo, notificação não enviada.");
+        if (!manifestacao.userId || manifestacao.userId === 'anonimo' || !manifestacao.dadosUsuario?.email) {
+            console.log("Usuário anônimo ou sem e-mail, notificação não enviada.");
             return;
         }
 
-        const notificacoesRef = ref(db, 'notifications');
+        const cityName = config.cityCollection.charAt(0).toUpperCase() + config.cityCollection.slice(1);
+        const notificationTitle = `Sua manifestação na Ouvidoria foi atualizada.`;
+        const notificationDescription = `Abra o aplicativo da Câmara Municipal de ${cityName} para acompanhar os detalhes. Protocolo: ${manifestacao.id}.`;
+
+        // 1. Salva a notificação no app
+        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
         const newNotificationRef = push(notificacoesRef);
         await set(newNotificationRef, {
             isRead: false,
             protocolo: manifestacao.id,
             targetUserId: manifestacao.userId,
             timestamp: serverTimestamp(),
-            tituloNotification: "Sua solicitação para a Ouvidoria teve movimentação.",
-            descricaoNotification: "Abra agora mesmo o aplicativo da Câmara Municipal de Pacatuba para acompanhar.",
+            tituloNotification: notificationTitle,
+            descricaoNotification: notificationDescription,
             userEmail: manifestacao.dadosUsuario.email,
             userId: manifestacao.userId
+        });
+
+        // 2. Adiciona a um nó 'mail' para ser processado por um serviço de e-mail
+        const mailRef = ref(db, `${config.cityCollection}/mail`);
+        const newMailRef = push(mailRef);
+        await set(newMailRef, {
+            to: manifestacao.dadosUsuario.email,
+            message: {
+                subject: notificationTitle,
+                html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
+            },
         });
     };
 

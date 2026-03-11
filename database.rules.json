@@ -23,6 +23,12 @@
       },
       "solicitacoes-vereadores": {
         ".indexOn": ["userId"]
+      },
+      "notifications": {
+        ".indexOn": ["targetUserId"]
+      },
+      "mail": {
+        // Apenas o backend/admin deve escrever aqui. A regra ".write": "auth != null" é permissiva.
       }
     }
   }

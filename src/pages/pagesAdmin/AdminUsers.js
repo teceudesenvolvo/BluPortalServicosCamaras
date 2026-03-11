@@ -127,17 +127,33 @@ const AdminUsersDashboard = () => {
             return;
         }
 
-        const notificacoesRef = ref(db, 'notifications');
+        const cityName = config.cityCollection.charAt(0).toUpperCase() + config.cityCollection.slice(1);
+        const notificationTitle = `Seu perfil de usuário foi atualizado.`;
+        const notificationDescription = `Suas permissões ou dados foram atualizados no Portal de Serviços da Câmara Municipal de ${cityName}.`;
+
+        // 1. Salva a notificação no app
+        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
         const newNotificationRef = push(notificacoesRef);
         await set(newNotificationRef, {
             isRead: false,
             protocolo: userData.uid,
             targetUserId: userData.uid,
             timestamp: serverTimestamp(),
-            tituloNotification: "Seu usuário foi atualizado.",
-            descricaoNotification: "Abra agora mesmo o aplicativo da Câmara Municipal de Pacatuba para acompanhar.",
+            tituloNotification: notificationTitle,
+            descricaoNotification: notificationDescription,
             userEmail: userData.email,
             userId: userData.uid
+        });
+
+        // 2. Adiciona a um nó 'mail' para ser processado por um serviço de e-mail
+        const mailRef = ref(db, `${config.cityCollection}/mail`);
+        const newMailRef = push(mailRef);
+        await set(newMailRef, {
+            to: userData.email,
+            message: {
+                subject: notificationTitle,
+                html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
+            },
         });
     };
 
