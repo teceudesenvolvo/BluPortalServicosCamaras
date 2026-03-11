@@ -2125,6 +2125,13 @@ body{
     border-bottom-color: #0d1e57; /* Cor da borda inferior para indicar atividade */
 }
 
+.form-info-text {
+    font-size: 0.9em;
+    color: #6b7280;
+    margin-top: -10px;
+    margin-bottom: 15px;
+}
+
 
 @keyframes slide-down {
     from {

@@ -19,6 +19,12 @@ const NovoBalcaoCidadao = () => {
     const [formData, setFormData] = useState({});
     const [anexos, setAnexos] = useState({});
 
+    // New states for scheduling
+    const [availability, setAvailability] = useState(null);
+    const [bookedSlots, setBookedSlots] = useState({});
+    const [availableTimes, setAvailableTimes] = useState([]);
+    const [loadingAvailability, setLoadingAvailability] = useState(false);
+
     // General states
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -55,6 +61,38 @@ const NovoBalcaoCidadao = () => {
     }, [currentUser]);
 
     useEffect(() => { fetchUserProfile(); }, [fetchUserProfile]);
+
+    // Fetch availability config when "Agendamento" is selected
+    useEffect(() => {
+        if (assunto !== 'Agendamento') return;
+
+        const fetchAvailability = async () => {
+            setLoadingAvailability(true);
+            const availabilityRef = ref(db, `${config.cityCollection}/balcao-config/availability`);
+            const bookedSlotsRef = ref(db, `${config.cityCollection}/balcao-config/bookedSlots`);
+            try {
+                const [availabilitySnap, bookedSlotsSnap] = await Promise.all([
+                    get(availabilityRef),
+                    get(bookedSlotsRef)
+                ]);
+
+                if (availabilitySnap.exists()) {
+                    setAvailability(availabilitySnap.val());
+                } else {
+                    setError('Não há horários de agendamento configurados no momento.');
+                }
+                if (bookedSlotsSnap.exists()) {
+                    setBookedSlots(bookedSlotsSnap.val());
+                }
+            } catch (err) {
+                setError('Erro ao carregar horários disponíveis.');
+            } finally {
+                setLoadingAvailability(false);
+            }
+        };
+
+        fetchAvailability();
+    }, [assunto]);
 
     // Handlers for form changes
     const handleAssuntoChange = (e) => {
@@ -96,6 +134,26 @@ const NovoBalcaoCidadao = () => {
             });
     };
 
+    const handleDateChange = (e) => {
+        const date = e.target.value;
+        // Also update formData
+        setFormData(prev => ({ ...prev, appointmentDate: date, appointmentTime: '' }));
+
+        if (!availability || !date) {
+            setAvailableTimes([]);
+            return;
+        }
+
+        // Get day of week in English (e.g., "monday") to match Firebase keys
+        const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }).toLowerCase();
+        
+        const allSlotsForDay = availability[dayOfWeek] || [];
+        const alreadyBookedSlots = bookedSlots[date] || [];
+        
+        const freeSlots = allSlotsForDay.filter(slot => !alreadyBookedSlots.includes(slot));
+        setAvailableTimes(freeSlots);
+    };
+
     // Form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -134,6 +192,28 @@ const NovoBalcaoCidadao = () => {
                     detalhes: formData,
                     anexos: anexos,
                 };
+            } else if (assunto === 'Agendamento') {
+                if (!formData.appointmentDate || !formData.appointmentTime) {
+                    setError('Por favor, selecione uma data e um horário para o agendamento.');
+                    setLoading(false);
+                    return;
+                }
+                // Prevent booking a slot that was just taken
+                const bookedSlotRef = ref(db, `${config.cityCollection}/balcao-config/bookedSlots/${formData.appointmentDate}`);
+                const snapshot = await get(bookedSlotRef);
+                const existingBookings = snapshot.val() || [];
+                if (existingBookings.includes(formData.appointmentTime)) {
+                    setError('Este horário acaba de ser agendado. Por favor, escolha outro.');
+                    setLoading(false);
+                    // Optionally, re-fetch availability here
+                    return;
+                }
+                dadosDaSolicitacao = {
+                    assunto: assunto,
+                    appointmentDate: formData.appointmentDate,
+                    appointmentTime: formData.appointmentTime,
+                    descricao: formData.descricao || 'Nenhum motivo especificado',
+                };
             } else {
                 if (!formData.descricao) {
                     setError('Por favor, preencha a descrição da sua solicitação.');
@@ -155,6 +235,14 @@ const NovoBalcaoCidadao = () => {
                 status: 'Aguardando Atendimento',
                 dataSolicitacao: serverTimestamp(),
             });
+
+            // If it was a schedule, update the booked slots
+            if (assunto === 'Agendamento') {
+                const date = formData.appointmentDate;
+                const time = formData.appointmentTime;
+                await set(ref(db, `${config.cityCollection}/balcao-config/bookedSlots/${date}`), [...(bookedSlots[date] || []), time]);
+            }
+
             setSuccess('Sua solicitação foi enviada com sucesso! Você será redirecionado em breve.');
             setTimeout(() => navigate('/balcao'), 3000);
         } catch (err) {
@@ -300,6 +388,49 @@ const NovoBalcaoCidadao = () => {
         }
     };
 
+    const renderAgendamentoFields = () => {
+        if (loadingAvailability) return <p>Carregando horários...</p>;
+        if (!availability) return <p className="error-message">Não há horários disponíveis para agendamento no momento.</p>;
+
+        return (
+            <>
+                <h4 className="form-section-title">Agendar Atendimento</h4>
+                <div className="form-row">
+                    <div className="form-group">
+                        <label htmlFor="appointmentDate">Escolha uma data *</label>
+                        <input
+                            type="date"
+                            id="appointmentDate"
+                            name="appointmentDate"
+                            value={formData.appointmentDate || ''}
+                            onChange={handleDateChange}
+                            required
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="appointmentTime">Horários disponíveis *</label>
+                        {formData.appointmentDate ? (
+                            availableTimes.length > 0 ? (
+                                <select id="appointmentTime" name="appointmentTime" value={formData.appointmentTime || ''} onChange={handleFormChange} required>
+                                    <option value="">Selecione um horário</option>
+                                    {availableTimes.map(time => <option key={time} value={time}>{time}</option>)}
+                                </select>
+                            ) : (
+                                <p className="form-info-text">Nenhum horário disponível para esta data.</p>
+                            )
+                        ) : (
+                            <p className="form-info-text">Selecione uma data para ver os horários.</p>
+                        )}
+                    </div>
+                </div>
+                <div className="form-group">
+                    <label htmlFor="descricao">Motivo do agendamento (opcional)</label>
+                    <textarea id="descricao" name="descricao" rows="4" value={formData.descricao || ''} onChange={handleFormChange}></textarea>
+                </div>
+            </>
+        );
+    };
+
     return (
         <div className="dashboard-layout">
             <Sidebar onItemClick={(path) => navigate(path)} />
@@ -353,6 +484,8 @@ const NovoBalcaoCidadao = () => {
                                 </div>
                                 {renderDocumentFields()}
                             </>
+                        ) : assunto === 'Agendamento' ? (
+                            renderAgendamentoFields()
                         ) : assunto ? (
                             <div className="form-group">
                                 <label htmlFor="descricao">Descreva sua solicitação *</label>

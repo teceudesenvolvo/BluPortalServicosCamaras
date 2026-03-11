@@ -8,6 +8,73 @@ import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import { LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane } from "react-icons/lia";
 
+// Modal for Availability Configuration
+const AvailabilityModal = ({ onClose, onSave }) => {
+    const [availability, setAvailability] = useState({
+        monday: { enabled: false, times: '' },
+        tuesday: { enabled: false, times: '' },
+        wednesday: { enabled: false, times: '' },
+        thursday: { enabled: false, times: '' },
+        friday: { enabled: false, times: '' },
+    });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const availabilityRef = ref(db, `${config.cityCollection}/balcao-config/availability`);
+        get(availabilityRef).then(snapshot => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                setAvailability(prevAvailability => {
+                    const newState = { ...prevAvailability };
+                    for (const day in data) {
+                        if (newState[day]) {
+                            newState[day] = { enabled: true, times: data[day].join(', ') };
+                        }
+                    }
+                    return newState;
+                });
+            }
+        }).finally(() => setLoading(false));
+    }, []); // Esta linha agora é segura pois usamos uma atualização funcional.
+
+    const handleDayToggle = (day) => {
+        setAvailability(prev => ({ ...prev, [day]: { ...prev[day], enabled: !prev[day].enabled } }));
+    };
+
+    const handleTimesChange = (day, times) => {
+        setAvailability(prev => ({ ...prev, [day]: { ...prev[day], times: times } }));
+    };
+
+    const handleSaveClick = () => {
+        const finalConfig = {};
+        for (const day in availability) {
+            if (availability[day].enabled && availability[day].times.trim()) {
+                finalConfig[day] = availability[day].times.split(',').map(t => t.trim()).filter(Boolean);
+            }
+        }
+        onSave(finalConfig);
+    };
+
+    const daysOfWeek = { monday: 'Segunda-feira', tuesday: 'Terça-feira', wednesday: 'Quarta-feira', thursday: 'Quinta-feira', friday: 'Sexta-feira' };
+
+    if (loading) return <div className="modal-overlay"><div className="modal-content"><p>Carregando...</p></div></div>;
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <div className="modal-header"><h3>Configurar Disponibilidade</h3><button onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button></div>
+                <div className="modal-body">
+                    <p>Marque os dias e informe os horários separados por vírgula (ex: 08:00, 09:00).</p>
+                    {Object.keys(daysOfWeek).map(day => (
+                        <div key={day} className="form-row" style={{ alignItems: 'center', marginBottom: '15px' }}><div style={{ flex: '0.5' }}><input type="checkbox" id={day} checked={availability[day].enabled} onChange={() => handleDayToggle(day)} /><label htmlFor={day} style={{ marginLeft: '10px' }}>{daysOfWeek[day]}</label></div><div className="form-group" style={{ flex: '1.5', marginBottom: 0 }}><input type="text" placeholder="Ex: 08:00, 09:00, 10:00" value={availability[day].times} onChange={(e) => handleTimesChange(day, e.target.value)} disabled={!availability[day].enabled} className="form-input" /></div></div>
+                    ))}
+                    <div className="form-actions"><button onClick={handleSaveClick} className="btn-primary">Salvar Configuração</button></div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // Modal Component
 const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage, onFileUpload, onNotifyUser }) => {
     const [newStatus, setNewStatus] = useState(solicitacao ? solicitacao.status || '' : '');
@@ -74,7 +141,16 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                     <div className="data-card" style={{ marginTop: '20px' }}>
                         <div className="card-header"><h3>Descrição da Solicitação</h3></div>
                         <div className="detail-item"><strong>Assunto:</strong> {solicitacao.dadosSolicitacao?.assunto || 'N/A'}</div>
-                        <p className="detail-description">{solicitacao.dadosSolicitacao?.descricao || 'N/A'}</p>
+                        {solicitacao.dadosSolicitacao?.assunto === 'Agendamento' ? (
+                            <>
+                                <div className="detail-item"><strong>Data Agendada:</strong> {solicitacao.dadosSolicitacao?.appointmentDate || 'N/A'}</div>
+                                <div className="detail-item"><strong>Horário Agendado:</strong> {solicitacao.dadosSolicitacao?.appointmentTime || 'N/A'}</div>
+                                <div className="detail-item"><strong>Motivo:</strong></div>
+                                <p className="detail-description">{solicitacao.dadosSolicitacao?.descricao || 'Não especificado'}</p>
+                            </>
+                        ) : (
+                            <p className="detail-description">{solicitacao.dadosSolicitacao?.descricao || 'N/A'}</p>
+                        )}
                     </div>
 
                     <hr />
@@ -83,6 +159,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                         <div className="form-group">
                             <label>Alterar Status</label>
                             <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="form-input">
+                                <option value="Agendado">Agendado</option>
                                 <option value="Aguardando Atendimento">Aguardando Atendimento</option>
                                 <option value="Em Análise">Em Análise</option>
                                 <option value="Concluído">Concluído</option>
@@ -130,6 +207,7 @@ const AdminBalcaoDashboard = () => {
     const [currentTab, setCurrentTab] = useState('Todas');
     const [statusCounts, setStatusCounts] = useState({});
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
+    const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -157,7 +235,7 @@ const AdminBalcaoDashboard = () => {
                 return acc;
             }, {});
 
-            const fixedStatuses = ['Aguardando Atendimento', 'Em Análise', 'Concluído', 'Não Classificado'];
+            const fixedStatuses = ['Aguardando Atendimento', 'Agendado', 'Em Análise', 'Concluído', 'Não Classificado'];
             const orderedCounts = {};
             fixedStatuses.forEach(status => {
                 orderedCounts[status] = counts[status] || 0;
@@ -232,6 +310,18 @@ const AdminBalcaoDashboard = () => {
         handleCloseModal();
     };
 
+    const handleSaveAvailability = async (availabilityConfig) => {
+        const availabilityRef = ref(db, `${config.cityCollection}/balcao-config/availability`);
+        try {
+            await set(availabilityRef, availabilityConfig);
+            alert('Disponibilidade salva com sucesso!');
+            setIsAvailabilityModalOpen(false);
+        } catch (error) {
+            console.error("Erro ao salvar disponibilidade:", error);
+            alert('Falha ao salvar a disponibilidade.');
+        }
+    };
+
     const handleSendMessage = async (id, text) => {
         const messagesRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}/messages`);
         const newMessageRef = push(messagesRef);
@@ -271,7 +361,7 @@ const AdminBalcaoDashboard = () => {
         };
     };
 
-    const statusTabs = ['Todas', 'Aguardando Atendimento', 'Em Análise', 'Concluído'];
+    const statusTabs = ['Todas', 'Aguardando Atendimento', 'Agendado', 'Em Análise', 'Concluído'];
 
     if (!isAuthReady) return <div className="loading-screen">Carregando...</div>;
 
@@ -292,6 +382,10 @@ const AdminBalcaoDashboard = () => {
                         <div className="user-avatar"></div>
                     </div>
                 </header>
+
+                <div className="page-actions-bar">
+                    <button onClick={() => setIsAvailabilityModalOpen(true)} className="btn-secondary">Configurar Horários</button>
+                </div>
 
                 <div className="data-sections-grid">
                     <div className="data-card">
@@ -337,6 +431,11 @@ const AdminBalcaoDashboard = () => {
                     onFileUpload={handleAdminFileUpload}
                     onNotifyUser={handleNotifyUser}
                 />
+
+                {isAvailabilityModalOpen && <AvailabilityModal
+                    onClose={() => setIsAvailabilityModalOpen(false)}
+                    onSave={handleSaveAvailability}
+                />}
             </div>
         </div>
     );

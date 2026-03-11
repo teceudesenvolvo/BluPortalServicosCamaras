@@ -4,25 +4,32 @@ import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { db } from '../../firebase';
 import Sidebar from '../../components/Sidebar';
 import config from '../../config';
-import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import { ref, get, query, orderByChild, equalTo, onValue, push, set, serverTimestamp } from 'firebase/database';
 
 // Ícones
-import { LiaPlusSolid, LiaTimesSolid } from "react-icons/lia";
+import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane } from "react-icons/lia";
 
 // Componente Modal para exibir detalhes
-const SolicitacaoModal = ({ solicitacao, onClose }) => {
+const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage }) => {
+    const [message, setMessage] = useState('');
+
     if (!solicitacao) return null;
 
-    const { dadosSolicitacao, status, dataSolicitacao } = solicitacao;
+    const { dadosSolicitacao, status, dataSolicitacao, messages } = solicitacao;
+
+    const handleSend = () => {
+        if (message.trim()) {
+            onSendMessage(solicitacao.id, message);
+            setMessage('');
+        }
+    };
 
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                     <h3>Detalhes da Solicitação</h3>
-                    <button onClick={onClose} className="modal-close-btn">
-                        <LiaTimesSolid />
-                    </button>
+                    <button onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button>
                 </div>
                 <div className="modal-body">
                     <div className="detail-item"><strong>Status:</strong> <span className={`status-badge ${getStatusClass(status)}`}>{status}</span></div>
@@ -30,8 +37,38 @@ const SolicitacaoModal = ({ solicitacao, onClose }) => {
                     <hr />
                     <h4>Detalhes</h4>
                     <div className="detail-item"><strong>Assunto:</strong> {dadosSolicitacao?.assunto || 'N/A'}</div>
-                    <div className="detail-item"><strong>Descrição:</strong></div>
-                    <p className="detail-description">{dadosSolicitacao?.descricao || 'N/A'}</p>
+                    {dadosSolicitacao?.assunto === 'Agendamento' ? (
+                        <>
+                            <div className="detail-item"><strong>Data Agendada:</strong> {dadosSolicitacao?.appointmentDate || 'N/A'}</div>
+                            <div className="detail-item"><strong>Horário Agendado:</strong> {dadosSolicitacao?.appointmentTime || 'N/A'}</div>
+                            <div className="detail-item"><strong>Motivo:</strong></div>
+                            <p className="detail-description">{dadosSolicitacao?.descricao || 'Não especificado'}</p>
+                        </>
+                    ) : (
+                        <>
+                            <div className="detail-item"><strong>Descrição:</strong></div>
+                            <p className="detail-description">{dadosSolicitacao?.descricao || 'N/A'}</p>
+                        </>
+                    )}
+
+                    <hr />
+                    <h4>Mensagens</h4>
+                    <div className="message-history">
+                        {messages && Object.values(messages).length > 0 ? (
+                            Object.values(messages).map((msg, index) => (
+                                <div key={index} className={`message-bubble ${msg.sender === 'admin' ? 'admin' : 'user'}`}>
+                                    <p>{msg.text}</p>
+                                    <small>{new Date(msg.timestamp).toLocaleString('pt-BR')}</small>
+                                </div>
+                            ))
+                        ) : (<p>Nenhuma mensagem trocada.</p>)}
+                    </div>
+                    <div className="form-group" style={{ marginTop: '15px' }}>
+                        <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Digite sua mensagem..." rows="3" className="form-input"></textarea>
+                    </div>
+                    <button onClick={handleSend} className="btn-submit" style={{ width: '100%' }}>
+                        <LiaPaperPlane /> Enviar Mensagem
+                    </button>
                 </div>
             </div>
         </div>
@@ -42,6 +79,7 @@ const getStatusClass = (status) => {
     switch (status) {
         case 'Aguardando Atendimento': return 'status-pending';
         case 'Em Análise': return 'status-in-progress';
+        case 'Agendado': return 'status-in-progress';
         case 'Concluído': return 'status-completed';
         default: return '';
     }
@@ -124,6 +162,23 @@ const BalcaoCidadao = () => {
     const handleNavigation = (path) => navigate(path);
     const handleOpenModal = (solicitacao) => setSelectedSolicitacao(solicitacao);
 
+    const handleSendMessage = async (solicitacaoId, text) => {
+        if (!currentUser) return;
+        const messagesRef = ref(db, `${config.cityCollection}/balcao-cidadao/${solicitacaoId}/messages`);
+        const newMessageRef = push(messagesRef);
+        try {
+            await set(newMessageRef, {
+                text: text,
+                sender: 'user',
+                timestamp: serverTimestamp(),
+                userId: currentUser.uid,
+            });
+        } catch (error) {
+            console.error("Erro ao enviar mensagem:", error);
+            setError("Falha ao enviar mensagem.");
+        }
+    };
+
     return (
         <div className="dashboard-layout">
             <Sidebar onItemClick={handleNavigation} />
@@ -174,7 +229,11 @@ const BalcaoCidadao = () => {
                     )}
                 </div>
 
-                <SolicitacaoModal solicitacao={selectedSolicitacao} onClose={() => setSelectedSolicitacao(null)} />
+                <SolicitacaoModal
+                    solicitacao={selectedSolicitacao}
+                    onClose={() => setSelectedSolicitacao(null)}
+                    onSendMessage={handleSendMessage}
+                />
             </div>
         </div>
     );
