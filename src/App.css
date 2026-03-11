@@ -413,6 +413,63 @@ body{
   text-decoration: underline;
 }
 
+.btn-primary {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 4px;
+    font-size: 1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    background-color: #00128A;
+    color: white;
+}
+
+.btn-secondary {
+    flex: 1;
+    padding: 12px 20px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+.btn-secondary-full {
+    width: 100%;
+    padding: 12px 20px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+.cep-lookup {
+    gap: 10px;
+    align-items: center;
+}
+
+.cep-lookup input {
+    flex-grow: 3;
+}
+
+.btn-cep {
+    flex-grow: 1;
+    padding: 12px 10px;
+    background-color: #ffc107;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
 .login-error {
   color: #dc3545;
   /* Vermelho para erro */
@@ -422,6 +479,32 @@ body{
   border-radius: 4px;
   margin-bottom: 15px;
   font-size: 0.9em;
+}
+
+.step-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 20px 0 30px;
+}
+
+.step {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: #ccc;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+
+.step.active { background-color: #00128A; }
+
+.step-line {
+    height: 2px; width: 50px; background-color: #ccc; transition: background-color 0.3s;
 }
 
 /* Responsividade */
