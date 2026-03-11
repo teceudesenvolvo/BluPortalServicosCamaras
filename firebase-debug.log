@@ -1,0 +1,178 @@
+[debug] [2026-03-11T19:43:35.348Z] ----------------------------------------------------------------------
+[debug] [2026-03-11T19:43:35.355Z] Command:       /Users/leonardoribeiro/.nvm/versions/node/v22.21.1/bin/node /Users/leonardoribeiro/.nvm/versions/node/v22.21.1/bin/firebase deploy --only functions --debug
+[debug] [2026-03-11T19:43:35.355Z] CLI Version:   15.9.1
+[debug] [2026-03-11T19:43:35.355Z] Platform:      darwin
+[debug] [2026-03-11T19:43:35.355Z] Node Version:  v22.21.1
+[debug] [2026-03-11T19:43:35.355Z] Time:          Wed Mar 11 2026 16:43:35 GMT-0300 (Brasilia Standard Time)
+[debug] [2026-03-11T19:43:35.355Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-03-11T19:43:36.418Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-03-11T19:43:36.418Z] > authorizing via signed-in user (blutecnologiasbr@gmail.com)
+[debug] [2026-03-11T19:43:36.418Z] [iam] checking project blu-app-camara for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2026-03-11T19:43:36.419Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:36.419Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:36.419Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions [none]
+[debug] [2026-03-11T19:43:36.420Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions  x-goog-user-project=blu-app-camara
+[debug] [2026-03-11T19:43:36.420Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-03-11T19:43:37.437Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions 200
+[debug] [2026-03-11T19:43:37.437Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-03-11T19:43:37.437Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:37.437Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:37.437Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/blu-app-camara/serviceAccounts/blu-app-camara@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-03-11T19:43:37.437Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/blu-app-camara/serviceAccounts/blu-app-camara@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-03-11T19:43:38.422Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/blu-app-camara/serviceAccounts/blu-app-camara@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2026-03-11T19:43:38.423Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/blu-app-camara/serviceAccounts/blu-app-camara@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'blu-app-camara'...
+[info] 
+[info] i  deploying functions 
+[info] Running command: npm --prefix "$RESOURCE_DIR" run lint
+[info] ✔  functions: Finished running predeploy script. 
+[debug] [2026-03-11T19:43:40.627Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:40.627Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:40.627Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara [none]
+[debug] [2026-03-11T19:43:40.870Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara 200
+[debug] [2026-03-11T19:43:40.871Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara {"projectNumber":"1070248841383","projectId":"blu-app-camara","lifecycleState":"ACTIVE","name":"blu-app-camara","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2026-03-10T15:40:34.801998Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2026-03-11T19:43:40.874Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:40.874Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:40.875Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/blu-app-camara/adminSdkConfig [none]
+[debug] [2026-03-11T19:43:41.468Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/blu-app-camara/adminSdkConfig 200
+[debug] [2026-03-11T19:43:41.468Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/blu-app-camara/adminSdkConfig {"projectId":"blu-app-camara","databaseURL":"https://blu-app-camara-default-rtdb.firebaseio.com","storageBucket":"blu-app-camara.firebasestorage.app"}
+[debug] [2026-03-11T19:43:41.472Z] Validating nodejs source
+[debug] [2026-03-11T19:43:41.972Z] > [functions] package.json contents: {
+  "name": "functions",
+  "description": "Cloud Functions for Firebase",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.7.0",
+    "firebase-functions": "^7.1.1",
+    "nodemailer": "^6.9.13"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-google": "^0.14.0"
+  }
+}
+[debug] [2026-03-11T19:43:41.972Z] Building nodejs source
+[info] i  functions: Loading and analyzing source code for codebase default to determine what to deploy 
+[debug] [2026-03-11T19:43:41.979Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-03-11T19:43:41.984Z] Found firebase-functions binary at '/Users/leonardoribeiro/Documents/BluTecnologias/Developer/BluPortalServicosCamaras/functions/node_modules/.bin/firebase-functions'
+[info] Serving at port 8151
+
+[debug] [2026-03-11T19:43:42.213Z] Got response from /__/functions.yaml {"endpoints":{"sendMailOnNewRequest":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.firebase.database.ref.v1.created","eventFilters":{},"eventFilterPathPatterns":{"ref":"{city}/mail/{pushId}","instance":"*"},"retry":false},"entryPoint":"sendMailOnNewRequest"}},"specVersion":"v1alpha1","requiredAPIs":[],"extensions":{},"params":[{"name":"GMAIL_EMAIL","type":"string"},{"name":"GMAIL_PASSWORD","type":"string"}]}
+[info] i  extensions: ensuring required API firebaseextensions.googleapis.com is enabled... 
+[debug] [2026-03-11T19:43:46.237Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-03-11T19:43:46.237Z] > authorizing via signed-in user (blutecnologiasbr@gmail.com)
+[debug] [2026-03-11T19:43:46.237Z] [iam] checking project blu-app-camara for permissions ["firebase.projects.get","firebaseextensions.instances.list"]
+[debug] [2026-03-11T19:43:46.238Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:46.238Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:46.238Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions [none]
+[debug] [2026-03-11T19:43:46.238Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions  x-goog-user-project=blu-app-camara
+[debug] [2026-03-11T19:43:46.238Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions {"permissions":["firebase.projects.get","firebaseextensions.instances.list"]}
+[debug] [2026-03-11T19:43:47.236Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions 200
+[debug] [2026-03-11T19:43:47.236Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions {"permissions":["firebase.projects.get","firebaseextensions.instances.list"]}
+[debug] [2026-03-11T19:43:47.237Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:47.237Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:47.237Z] >>> [apiv2][query] GET https://firebaseextensions.googleapis.com/v1beta/projects/blu-app-camara/instances pageSize=100&pageToken=
+[debug] [2026-03-11T19:43:48.339Z] <<< [apiv2][status] GET https://firebaseextensions.googleapis.com/v1beta/projects/blu-app-camara/instances 200
+[debug] [2026-03-11T19:43:48.339Z] <<< [apiv2][body] GET https://firebaseextensions.googleapis.com/v1beta/projects/blu-app-camara/instances {}
+[info] i  functions: Loaded environment variables from .env.blu-app-camara. 
+[info] i  functions: preparing functions directory for uploading... 
+[info] i  functions: packaged /Users/leonardoribeiro/Documents/BluTecnologias/Developer/BluPortalServicosCamaras/functions (47.94 KB) for uploading 
+[debug] [2026-03-11T19:43:48.370Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:48.370Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:48.370Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v1/projects/blu-app-camara/locations/-/functions [none]
+[debug] [2026-03-11T19:43:49.548Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v1/projects/blu-app-camara/locations/-/functions 200
+[debug] [2026-03-11T19:43:49.548Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v1/projects/blu-app-camara/locations/-/functions {}
+[debug] [2026-03-11T19:43:49.548Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:49.548Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:49.549Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/blu-app-camara/locations/-/functions filter=environment%3D%22GEN_2%22
+[debug] [2026-03-11T19:43:51.093Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/blu-app-camara/locations/-/functions 200
+[debug] [2026-03-11T19:43:51.094Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/blu-app-camara/locations/-/functions {}
+[info] i  functions: ensuring required API run.googleapis.com is enabled... 
+[info] i  functions: ensuring required API eventarc.googleapis.com is enabled... 
+[info] i  functions: ensuring required API pubsub.googleapis.com is enabled... 
+[info] i  functions: ensuring required API storage.googleapis.com is enabled... 
+[info] i  functions: generating the service identity for pubsub.googleapis.com... 
+[debug] [2026-03-11T19:43:51.096Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:51.096Z] Checked if tokens are valid: true, expires at: 1773261668364
+[info] i  functions: generating the service identity for eventarc.googleapis.com... 
+[debug] [2026-03-11T19:43:51.096Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:51.096Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:51.096Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1beta1/projects/1070248841383/services/pubsub.googleapis.com:generateServiceIdentity [none]
+[debug] [2026-03-11T19:43:51.096Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1beta1/projects/1070248841383/services/pubsub.googleapis.com:generateServiceIdentity  x-goog-user-project=1070248841383
+[debug] [2026-03-11T19:43:51.096Z] >>> [apiv2][body] POST https://serviceusage.googleapis.com/v1beta1/projects/1070248841383/services/pubsub.googleapis.com:generateServiceIdentity {}
+[debug] [2026-03-11T19:43:51.097Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1beta1/projects/1070248841383/services/eventarc.googleapis.com:generateServiceIdentity [none]
+[debug] [2026-03-11T19:43:51.097Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1beta1/projects/1070248841383/services/eventarc.googleapis.com:generateServiceIdentity  x-goog-user-project=1070248841383
+[debug] [2026-03-11T19:43:51.097Z] >>> [apiv2][body] POST https://serviceusage.googleapis.com/v1beta1/projects/1070248841383/services/eventarc.googleapis.com:generateServiceIdentity {}
+[debug] [2026-03-11T19:43:52.276Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1beta1/projects/1070248841383/services/pubsub.googleapis.com:generateServiceIdentity 200
+[debug] [2026-03-11T19:43:52.277Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1beta1/projects/1070248841383/services/pubsub.googleapis.com:generateServiceIdentity {"name":"operations/finished.DONE_OPERATION","done":true,"response":{"@type":"type.googleapis.com/google.api.serviceusage.v1beta1.ServiceIdentity","email":"service-1070248841383@gcp-sa-pubsub.iam.gserviceaccount.com","uniqueId":"109603220624712639847"}}
+[debug] [2026-03-11T19:43:52.277Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1beta1/projects/1070248841383/services/eventarc.googleapis.com:generateServiceIdentity 200
+[debug] [2026-03-11T19:43:52.277Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1beta1/projects/1070248841383/services/eventarc.googleapis.com:generateServiceIdentity {"name":"operations/finished.DONE_OPERATION","done":true,"response":{"@type":"type.googleapis.com/google.api.serviceusage.v1beta1.ServiceIdentity","email":"service-1070248841383@gcp-sa-eventarc.iam.gserviceaccount.com","uniqueId":"118197077118676892891"}}
+[debug] [2026-03-11T19:43:52.278Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:52.278Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:52.278Z] >>> [apiv2][query] GET https://compute.googleapis.com/compute/v1/projects/1070248841383 [none]
+[debug] [2026-03-11T19:43:52.778Z] <<< [apiv2][status] GET https://compute.googleapis.com/compute/v1/projects/1070248841383 403
+[debug] [2026-03-11T19:43:52.778Z] <<< [apiv2][body] GET https://compute.googleapis.com/compute/v1/projects/1070248841383 {"error":{"code":403,"message":"Compute Engine API has not been used in project 1070248841383 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 1070248841383 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"serviceTitle":"Compute Engine API","activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383","service":"compute.googleapis.com","containerInfo":"1070248841383","consumer":"projects/1070248841383"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 1070248841383 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383"}]}]}}
+[debug] [2026-03-11T19:43:52.778Z] unable to look up default compute service account. Falling back to 1070248841383-compute@developer.gserviceaccount.com. Error: {"name":"FirebaseError","children":[],"context":{"body":{"error":{"code":403,"message":"Compute Engine API has not been used in project 1070248841383 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 1070248841383 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"serviceTitle":"Compute Engine API","activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383","service":"compute.googleapis.com","containerInfo":"1070248841383","consumer":"projects/1070248841383"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 1070248841383 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383"}]}]}},"response":{"statusCode":403}},"exit":1,"message":"Request to https://compute.googleapis.com/compute/v1/projects/1070248841383 had HTTP Error: 403, Compute Engine API has not been used in project 1070248841383 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","status":403}
+[debug] [2026-03-11T19:43:52.778Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:52.779Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:52.779Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/1070248841383:getIamPolicy [none]
+[debug] [2026-03-11T19:43:53.885Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/1070248841383:getIamPolicy 200
+[debug] [2026-03-11T19:43:53.885Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/1070248841383:getIamPolicy {"version":1,"etag":"BwZMxNBT4Fc=","bindings":[{"role":"roles/appengine.serviceAgent","members":["serviceAccount:service-1070248841383@gcp-gae-service.iam.gserviceaccount.com"]},{"role":"roles/artifactregistry.writer","members":["serviceAccount:1070248841383-compute@developer.gserviceaccount.com","serviceAccount:1070248841383@cloudbuild.gserviceaccount.com"]},{"role":"roles/cloudbuild.builds.builder","members":["serviceAccount:1070248841383@cloudbuild.gserviceaccount.com"]},{"role":"roles/cloudbuild.serviceAgent","members":["serviceAccount:service-1070248841383@gcp-sa-cloudbuild.iam.gserviceaccount.com"]},{"role":"roles/cloudfunctions.admin","members":["serviceAccount:1070248841383-compute@developer.gserviceaccount.com","serviceAccount:1070248841383@cloudbuild.gserviceaccount.com"]},{"role":"roles/cloudfunctions.serviceAgent","members":["serviceAccount:service-1070248841383@gcf-admin-robot.iam.gserviceaccount.com"]},{"role":"roles/containerregistry.ServiceAgent","members":["serviceAccount:service-1070248841383@containerregistry.iam.gserviceaccount.com"]},{"role":"roles/editor","members":["serviceAccount:1070248841383-compute@developer.gserviceaccount.com","serviceAccount:1070248841383@cloudbuild.gserviceaccount.com","serviceAccount:1070248841383@cloudservices.gserviceaccount.com","serviceAccount:blu-app-camara@appspot.gserviceaccount.com"]},{"role":"roles/eventarc.eventReceiver","members":["serviceAccount:1070248841383-compute@developer.gserviceaccount.com"]},{"role":"roles/firebase.managementServiceAgent","members":["serviceAccount:service-1070248841383@gcp-sa-firebase.iam.gserviceaccount.com"]},{"role":"roles/firebase.sdkAdminServiceAgent","members":["serviceAccount:firebase-adminsdk-fbsvc@blu-app-camara.iam.gserviceaccount.com"]},{"role":"roles/firebaseauth.admin","members":["serviceAccount:firebase-adminsdk-fbsvc@blu-app-camara.iam.gserviceaccount.com"]},{"role":"roles/firebasedatabase.admin","members":["serviceAccount:firebase-adminsdk-fbsvc@blu-app-camara.iam.gserviceaccount.com"]},{"role":"roles/firebasedataconnect.serviceAgent","members":["serviceAccount:service-1070248841383@gcp-sa-firebasedataconnect.iam.gserviceaccount.com"]},{"role":"roles/firebasemods.serviceAgent","members":["serviceAccount:service-1070248841383@gcp-sa-firebasemods.iam.gserviceaccount.com"]},{"role":"roles/firestore.serviceAgent","members":["serviceAccount:service-1070248841383@gcp-sa-firestore.iam.gserviceaccount.com"]},{"role":"roles/iam.serviceAccountAdmin","members":["serviceAccount:1070248841383@cloudbuild.gserviceaccount.com"]},{"role":"roles/iam.serviceAccountTokenCreator","members":["serviceAccount:firebase-adminsdk-fbsvc@blu-app-camara.iam.gserviceaccount.com","serviceAccount:service-1070248841383@gcp-sa-pubsub.iam.gserviceaccount.com"]},{"role":"roles/iam.serviceAccountUser","members":["serviceAccount:1070248841383-compute@developer.gserviceaccount.com"]},{"role":"roles/owner","members":["user:blutecnologiasbr@gmail.com"]},{"role":"roles/run.admin","members":["serviceAccount:1070248841383@cloudbuild.gserviceaccount.com"]},{"role":"roles/run.invoker","members":["serviceAccount:1070248841383-compute@developer.gserviceaccount.com"]},{"role":"roles/run.serviceAgent","members":["serviceAccount:service-1070248841383@serverless-robot-prod.iam.gserviceaccount.com"]}]}
+[debug] [2026-03-11T19:43:53.888Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:53.888Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:53.888Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara [none]
+[debug] [2026-03-11T19:43:54.143Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara 200
+[debug] [2026-03-11T19:43:54.143Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara {"projectNumber":"1070248841383","projectId":"blu-app-camara","lifecycleState":"ACTIVE","name":"blu-app-camara","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2026-03-10T15:40:34.801998Z"}
+[debug] [2026-03-11T19:43:54.143Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:54.143Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:54.143Z] >>> [apiv2][query] GET https://compute.googleapis.com/compute/v1/projects/1070248841383 [none]
+[debug] [2026-03-11T19:43:54.469Z] <<< [apiv2][status] GET https://compute.googleapis.com/compute/v1/projects/1070248841383 403
+[debug] [2026-03-11T19:43:54.469Z] <<< [apiv2][body] GET https://compute.googleapis.com/compute/v1/projects/1070248841383 {"error":{"code":403,"message":"Compute Engine API has not been used in project 1070248841383 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 1070248841383 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383","consumer":"projects/1070248841383","service":"compute.googleapis.com","serviceTitle":"Compute Engine API","containerInfo":"1070248841383"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 1070248841383 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383"}]}]}}
+[debug] [2026-03-11T19:43:54.470Z] unable to look up default compute service account. Falling back to 1070248841383-compute@developer.gserviceaccount.com. Error: {"name":"FirebaseError","children":[],"context":{"body":{"error":{"code":403,"message":"Compute Engine API has not been used in project 1070248841383 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","errors":[{"message":"Compute Engine API has not been used in project 1070248841383 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","domain":"usageLimits","reason":"accessNotConfigured","extendedHelp":"https://console.developers.google.com"}],"status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"activationUrl":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383","consumer":"projects/1070248841383","service":"compute.googleapis.com","serviceTitle":"Compute Engine API","containerInfo":"1070248841383"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Compute Engine API has not been used in project 1070248841383 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383"}]}]}},"response":{"statusCode":403}},"exit":1,"message":"Request to https://compute.googleapis.com/compute/v1/projects/1070248841383 had HTTP Error: 403, Compute Engine API has not been used in project 1070248841383 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com/overview?project=1070248841383 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","status":403}
+[debug] [2026-03-11T19:43:54.471Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:54.471Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:54.471Z] >>> [apiv2][query] GET https://cloudbilling.googleapis.com/v1/projects/blu-app-camara/billingInfo [none]
+[debug] [2026-03-11T19:43:55.907Z] <<< [apiv2][status] GET https://cloudbilling.googleapis.com/v1/projects/blu-app-camara/billingInfo 200
+[debug] [2026-03-11T19:43:55.907Z] <<< [apiv2][body] GET https://cloudbilling.googleapis.com/v1/projects/blu-app-camara/billingInfo {"name":"projects/blu-app-camara/billingInfo","projectId":"blu-app-camara","billingAccountName":"billingAccounts/017C54-87CF22-1A32F4","billingEnabled":true}
+[debug] [2026-03-11T19:43:55.908Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:55.908Z] Checked if tokens are valid: true, expires at: 1773261668364
+[debug] [2026-03-11T19:43:55.908Z] >>> [apiv2][query] POST https://cloudfunctions.googleapis.com/v2/projects/blu-app-camara/locations/us-central1/functions:generateUploadUrl [none]
+[debug] [2026-03-11T19:43:56.914Z] <<< [apiv2][status] POST https://cloudfunctions.googleapis.com/v2/projects/blu-app-camara/locations/us-central1/functions:generateUploadUrl 403
+[debug] [2026-03-11T19:43:56.914Z] <<< [apiv2][body] POST https://cloudfunctions.googleapis.com/v2/projects/blu-app-camara/locations/us-central1/functions:generateUploadUrl {"error":{"code":403,"message":"Write access to project 'blu-app-camara' was denied: please check billing account associated and retry","status":"PERMISSION_DENIED"}}
+[info] 
+
+There was an issue deploying your functions. Verify that your project has a Google App Engine instance setup at https://console.cloud.google.com/appengine and try again. If this issue persists, please contact support.
+[warn] ⚠  functions: Upload Error: Request to https://cloudfunctions.googleapis.com/v2/projects/blu-app-camara/locations/us-central1/functions:generateUploadUrl had HTTP Error: 403, Write access to project 'blu-app-camara' was denied: please check billing account associated and retry 
+[error] 
+[error] Error: Request to https://cloudfunctions.googleapis.com/v2/projects/blu-app-camara/locations/us-central1/functions:generateUploadUrl had HTTP Error: 403, Write access to project 'blu-app-camara' was denied: please check billing account associated and retry
+[debug] [2026-03-11T19:43:57.206Z] Error Context: {
+  "body": {
+    "error": {
+      "code": 403,
+      "message": "Write access to project 'blu-app-camara' was denied: please check billing account associated and retry",
+      "status": "PERMISSION_DENIED"
+    }
+  },
+  "response": {
+    "statusCode": 403
+  }
+}
