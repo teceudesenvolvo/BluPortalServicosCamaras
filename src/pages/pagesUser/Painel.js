@@ -6,12 +6,9 @@ import { ref, get } from 'firebase/database'; // Importa o Realtime Database
 import config from '../../config'; // Importa a configuração
 import { db } from '../../firebase'; // Importa a instância do db
 import {
-    LiaBookOpenSolid,
-    LiaBalanceScaleLeftSolid,
     LiaUserFriendsSolid,
     LiaUserAstronautSolid,
     LiaFemaleSolid,
-    LiaUsersSolid,
 } from "react-icons/lia";
 
 // --- Componente: Card de Serviço no Grid ---
@@ -39,12 +36,12 @@ const DashboardPage = () => {
     // 2. Dados do Grid de Serviços (Principais)
     // O ideal é que o path reflita o ítem do menu lateral
     const serviceGridItems = [
-        { title: 'Procon', icon: <LiaBookOpenSolid />, path: '/procon-atendimentos' },
-        { title: 'Atendimento Jurídico', icon: <LiaBalanceScaleLeftSolid />, path: '/juridico' },
+        // { title: 'Procon', icon: <LiaBookOpenSolid />, path: '/procon-atendimentos' },
+        // { title: 'Atendimento Jurídico', icon: <LiaBalanceScaleLeftSolid />, path: '/juridico' },
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/balcao' },
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/ouvidoria' },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/procuradoria' },
-        { title: 'Vereadores', icon: <LiaUsersSolid />, path: '/vereadores' },
+        // { title: 'Vereadores', icon: <LiaUsersSolid />, path: '/vereadores' },
         // Pode adicionar mais se necessário
     ];
     

@@ -5,6 +5,7 @@ import {
     LiaBalanceScaleLeftSolid,
     LiaUserFriendsSolid,
     LiaFemaleSolid,
+    LiaUserAstronautSolid,
     LiaUsersSolid,
 } from "react-icons/lia";
 
@@ -35,7 +36,8 @@ const HomePage = () => {
         juridico: <LiaBalanceScaleLeftSolid />,
         balcao: <LiaUserFriendsSolid />,
         procuradoria: <LiaFemaleSolid />,
-        vereadores: <LiaUsersSolid />
+        vereadores: <LiaUsersSolid />,
+        ouvidoria: <LiaUserAstronautSolid />,
     };
 
     return (
@@ -58,12 +60,13 @@ const HomePage = () => {
             {/* 2. Seção de Serviços */}
             <section className="services-grid-section">
                 <div className="services-grid">
-                    <ServiceButton icon={icons.procon} title="Procon" navigate={navigate} />
-                    <ServiceButton icon={icons.juridico} title="Atendimento Jurídico" navigate={navigate} />
+                    {/* <ServiceButton icon={icons.procon} title="Procon" navigate={navigate} /> */}
+                    {/* <ServiceButton icon={icons.juridico} title="Atendimento Jurídico" navigate={navigate} /> */}
                     <ServiceButton icon={icons.balcao} title="Balcão do Cidadão" navigate={navigate} />
                     <ServiceButton icon={icons.procuradoria} title="Procuradoria da Mulher" navigate={navigate} />
+                    <ServiceButton icon={icons.ouvidoria} title="Ouvidoria" navigate={navigate} />
                     {/* O botão "Vereadores" da grade vai para Login, mas o slider abaixo é para informações abertas */}
-                    <ServiceButton icon={icons.vereadores} title="Vereadores" navigate={navigate} />
+                    {/* <ServiceButton icon={icons.vereadores} title="Vereadores" navigate={navigate} /> */}
                 </div>
             </section>
 

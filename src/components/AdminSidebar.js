@@ -2,13 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate,  } from 'react-router-dom';
 import Logo from '../assets/logo-paraipaba.png';
 import {
-    LiaTachometerAltSolid,
-    LiaGavelSolid,
     LiaUserFriendsSolid,
     LiaUsersCogSolid,
     LiaUserAstronautSolid,
     LiaFemaleSolid,
-    LiaUsersSolid,
     LiaUser,
     LiaBarsSolid,
     LiaTimesSolid,
@@ -61,12 +58,12 @@ const AdminSidebar = () => {
     }, []); // O array vazio faz com que o efeito rode apenas uma vez
 
     const allMenuItems = [
-        { title: 'Procon', icon: <LiaTachometerAltSolid />, path: '/admin-procon', roles: ['Admin', 'Procon'] },
-        { title: 'Atendimentos Jurídicos', icon: <LiaGavelSolid />, path: '/admin-juridico', roles: ['Admin', 'Juridico'] },
+        // { title: 'Procon', icon: <LiaTachometerAltSolid />, path: '/admin-procon', roles: ['Admin', 'Procon'] },
+        // { title: 'Atendimentos Jurídicos', icon: <LiaGavelSolid />, path: '/admin-juridico', roles: ['Admin', 'Juridico'] },
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/admin-balcao', roles: ['Admin', 'Balcão'] },
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/admin-ouvidoria', roles: ['Admin', 'Ouvidoria'] },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/admin-procuradoria', roles: ['Admin', 'Procuradoria'] },
-        { title: 'Solicitações Vereadores', icon: <LiaUsersSolid />, path: '/admin-vereadores', roles: ['Admin', 'Vereador'] },
+        // { title: 'Solicitações Vereadores', icon: <LiaUsersSolid />, path: '/admin-vereadores', roles: ['Admin', 'Vereador'] },
         { title: 'Gerenciar Usuários', icon: <LiaUsersCogSolid />, path: '/admin-users', roles: ['Admin'] },
         { title: 'Perfil', icon: <LiaUser />, path: '/perfil', roles: ['Admin', 'Vereador', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão'] },
     ];

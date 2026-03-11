@@ -27,12 +27,12 @@ const Footer = () => {
                 <ul>
                     <li>Entrar</li>
                     <li>Criar uma Conta</li>
-                    <li>Procon</li>
-                    <li>Atendimento Jurídico</li>
+                    {/* <li>Procon</li> */}
+                    {/* <li>Atendimento Jurídico</li> */}
                     <li>Balcão do Cidadão</li>
                     <li>Ouvidoria</li>
-                    <li>Procuradoria</li>
-                    <li>Vereadores</li>
+                    <li>Procuradoria da Mulher</li>
+                    {/* <li>Vereadores</li> */}
                 </ul>
             </div>
 

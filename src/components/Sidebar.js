@@ -3,12 +3,9 @@ import { useLocation } from 'react-router-dom';
 import Logo from '../assets/logo-paraipaba.png';
 import {
     LiaHomeSolid,
-    LiaBookOpenSolid,
-    LiaBalanceScaleLeftSolid,
     LiaUserFriendsSolid,
     LiaUserAstronautSolid,
     LiaFemaleSolid,
-    LiaUsersSolid,
     LiaUser,
     LiaBarsSolid,
     LiaTimesSolid,
@@ -35,12 +32,12 @@ const Sidebar = ({ onItemClick }) => {
     // Itens do menu agora são definidos diretamente aqui
     const menuItems = [
         { title: 'Início', icon: <LiaHomeSolid />, path: '/dashboard' },
-        { title: 'Procon', icon: <LiaBookOpenSolid />, path: '/procon-atendimentos' },
-        { title: 'Atendimento Jurídico', icon: <LiaBalanceScaleLeftSolid />, path: '/juridico' },
+        // { title: 'Procon', icon: <LiaBookOpenSolid />, path: '/procon-atendimentos' },
+        // { title: 'Atendimento Jurídico', icon: <LiaBalanceScaleLeftSolid />, path: '/juridico' },
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/balcao' },
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/ouvidoria' },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/procuradoria' },
-        { title: 'Vereadores', icon: <LiaUsersSolid />, path: '/vereadores' },
+        // { title: 'Vereadores', icon: <LiaUsersSolid />, path: '/vereadores' },
         { title: 'Perfil', icon: <LiaUser />, path: '/perfil' },
     ];
 
