@@ -9,6 +9,7 @@ import {
     LiaUser,
     LiaBarsSolid,
     LiaTimesSolid,
+    LiaUsersSolid,
 } from "react-icons/lia";
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebase';
@@ -63,7 +64,7 @@ const AdminSidebar = () => {
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/admin-balcao', roles: ['Admin', 'Balcão'] },
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/admin-ouvidoria', roles: ['Admin', 'Ouvidoria'] },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/admin-procuradoria', roles: ['Admin', 'Procuradoria'] },
-        // { title: 'Solicitações Vereadores', icon: <LiaUsersSolid />, path: '/admin-vereadores', roles: ['Admin', 'Vereador'] },
+        { title: 'PIEL', icon: <LiaUsersSolid />, path: '/admin-piel', roles: ['Admin'] },
         { title: 'Gerenciar Usuários', icon: <LiaUsersCogSolid />, path: '/admin-users', roles: ['Admin'] },
         { title: 'Perfil', icon: <LiaUser />, path: '/perfil', roles: ['Admin', 'Vereador', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão'] },
     ];

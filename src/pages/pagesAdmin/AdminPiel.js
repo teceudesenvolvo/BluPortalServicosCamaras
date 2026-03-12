@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ref, onValue, update, push, remove } from 'firebase/database';
+import { ref, onValue, update, push, remove, serverTimestamp } from 'firebase/database';
 import { db } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
@@ -95,7 +95,11 @@ const AdminPiel = () => {
         } else {
             // Adicionar
             const informativosRef = ref(db, `${config.cityCollection}/piel`);
-            await push(informativosRef, item);
+            const newItem = {
+                ...item,
+                createdAt: serverTimestamp()
+            };
+            await push(informativosRef, newItem);
         }
         handleCloseModal();
     };

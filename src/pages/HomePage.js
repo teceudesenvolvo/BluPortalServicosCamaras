@@ -2,7 +2,6 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     LiaUserFriendsSolid,
-    LiaFemaleSolid,
     LiaUserAstronautSolid,
     LiaVoteYeaSolid,
     LiaArrowRightSolid,
