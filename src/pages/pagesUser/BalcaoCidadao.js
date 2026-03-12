@@ -2,20 +2,103 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { db } from '../../firebase';
+import { ref, get, query, orderByChild, equalTo, onValue, push, set, serverTimestamp, update } from 'firebase/database';
 import Sidebar from '../../components/Sidebar';
 import config from '../../config';
-import { ref, get, query, orderByChild, equalTo, onValue, push, set, serverTimestamp } from 'firebase/database';
 
 // Ícones
 import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane } from "react-icons/lia";
 
+// Componente para Agendamento
+const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
+    const [formData, setFormData] = useState({ appointmentDate: '', appointmentTime: '' });
+    const [availability, setAvailability] = useState(null);
+    const [bookedSlots, setBookedSlots] = useState({});
+    const [blockedDates, setBlockedDates] = useState([]);
+    const [availableTimes, setAvailableTimes] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            setLoading(true);
+            const availabilityRef = ref(db, `${config.cityCollection}/balcao-config/availability`);
+            const bookedSlotsRef = ref(db, `${config.cityCollection}/balcao-config/bookedSlots`);
+            const blockedDatesRef = ref(db, `${config.cityCollection}/balcao-config/blockedDates`);
+            try {
+                const [availSnap, bookedSnap, blockedSnap] = await Promise.all([
+                    get(availabilityRef), get(bookedSlotsRef), get(blockedDatesRef)
+                ]);
+                if (availSnap.exists()) setAvailability(availSnap.val());
+                if (bookedSnap.exists()) setBookedSlots(bookedSnap.val());
+                if (blockedSnap.exists()) setBlockedDates(blockedSnap.val());
+            } catch (err) {
+                setError('Erro ao carregar horários.');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchConfig();
+    }, []);
+
+    const handleDateChange = (e) => {
+        const date = e.target.value;
+        setFormData({ appointmentDate: date, appointmentTime: '' });
+
+        if (!availability || !date || blockedDates.includes(date)) {
+            setAvailableTimes([]);
+            if (blockedDates.includes(date)) setError('Este dia não está disponível para agendamento.');
+            else setError('');
+            return;
+        }
+        setError('');
+
+        const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }).toLowerCase();
+        const allSlotsForDay = availability[dayOfWeek] || [];
+        const alreadyBookedSlots = bookedSlots[date] || [];
+        const freeSlots = allSlotsForDay.filter(slot => !alreadyBookedSlots.includes(slot));
+        setAvailableTimes(freeSlots);
+    };
+
+    const handleSchedule = () => {
+        if (!formData.appointmentDate || !formData.appointmentTime) {
+            setError('Por favor, selecione data e hora.');
+            return;
+        }
+        onScheduled(solicitacaoId, formData.appointmentDate, formData.appointmentTime);
+    };
+
+    if (loading) return <p>Carregando opções de agendamento...</p>;
+
+    return (
+        <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '8px', marginTop: '20px' }}>
+            <h4>Realizar Agendamento</h4>
+            <div className="form-row">
+                <div className="form-group">
+                    <label>Data</label>
+                    <input type="date" value={formData.appointmentDate} onChange={handleDateChange} className="form-input" />
+                </div>
+                <div className="form-group">
+                    <label>Horário</label>
+                    <select value={formData.appointmentTime} onChange={(e) => setFormData(prev => ({ ...prev, appointmentTime: e.target.value }))} className="form-input" disabled={!formData.appointmentDate || availableTimes.length === 0}>
+                        <option value="">Selecione</option>
+                        {availableTimes.map(time => <option key={time} value={time}>{time}</option>)}
+                    </select>
+                </div>
+            </div>
+            {error && <p className="error-message-inline">{error}</p>}
+            <button onClick={handleSchedule} className="btn-primary" style={{ width: '100%' }}>Confirmar Agendamento</button>
+        </div>
+    );
+};
+
 // Componente Modal para exibir detalhes
-const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage }) => {
+const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmit }) => {
     const [message, setMessage] = useState('');
 
     if (!solicitacao) return null;
 
-    const { dadosSolicitacao, status, dataSolicitacao, messages } = solicitacao;
+    const { dadosSolicitacao, status, dataSolicitacao, messages, appointmentDate, appointmentTime } = solicitacao;
 
     const handleSend = () => {
         if (message.trim()) {
@@ -34,9 +117,15 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage }) => {
                 <div className="modal-body">
                     <div className="detail-item"><strong>Status:</strong> <span className={`status-badge ${getStatusClass(status)}`}>{status}</span></div>
                     <div className="detail-item"><strong>Data da Solicitação:</strong> {new Date(dataSolicitacao).toLocaleDateString('pt-BR')}</div>
+                    {status === 'Agendado' && (
+                        <>
+                            <div className="detail-item"><strong>Data Agendada:</strong> {appointmentDate}</div>
+                            <div className="detail-item"><strong>Horário Agendado:</strong> {appointmentTime}</div>
+                        </>
+                    )}
                     <hr />
                     <h4>Detalhes</h4>
-                    <div className="detail-item"><strong>Assunto:</strong> {dadosSolicitacao?.assunto || 'N/A'}</div>
+                    <div className="detail-item"><strong>Assunto:</strong> {dadosSolicitacao?.assunto || 'N/A'}</div> 
                     {dadosSolicitacao?.assunto === 'Agendamento' ? (
                         <>
                             <div className="detail-item"><strong>Data Agendada:</strong> {dadosSolicitacao?.appointmentDate || 'N/A'}</div>
@@ -49,6 +138,10 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage }) => {
                             <div className="detail-item"><strong>Descrição:</strong></div>
                             <p className="detail-description">{dadosSolicitacao?.descricao || 'N/A'}</p>
                         </>
+                    )}
+
+                    {status === 'Agendamento Liberado' && (
+                        <AgendamentoSection solicitacaoId={solicitacao.id} onScheduled={onScheduleSubmit} />
                     )}
 
                     <hr />
@@ -78,6 +171,7 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage }) => {
 const getStatusClass = (status) => {
     switch (status) {
         case 'Aguardando Atendimento': return 'status-pending';
+        case 'Agendamento Liberado': return 'status-in-progress';
         case 'Em Análise': return 'status-in-progress';
         case 'Agendado': return 'status-in-progress';
         case 'Concluído': return 'status-completed';
@@ -179,6 +273,29 @@ const BalcaoCidadao = () => {
         }
     };
 
+    const handleScheduleSubmit = async (solicitacaoId, date, time) => {
+        const solicitacaoRef = ref(db, `${config.cityCollection}/balcao-cidadao/${solicitacaoId}`);
+        const bookedSlotRef = ref(db, `${config.cityCollection}/balcao-config/bookedSlots/${date}`);
+
+        try {
+            // Check again to prevent race conditions
+            const snapshot = await get(bookedSlotRef);
+            const existingBookings = snapshot.val() || [];
+            if (existingBookings.includes(time)) {
+                alert('Este horário foi agendado por outra pessoa. Por favor, escolha outro.');
+                return;
+            }
+
+            await update(solicitacaoRef, { status: 'Agendado', appointmentDate: date, appointmentTime: time });
+            await set(bookedSlotRef, [...existingBookings, time]);
+
+            alert('Agendamento confirmado com sucesso!');
+            setSelectedSolicitacao(null); // Fecha o modal
+        } catch (error) {
+            console.error("Erro ao confirmar agendamento:", error);
+        }
+    };
+
     return (
         <div className="dashboard-layout">
             <Sidebar onItemClick={handleNavigation} />
@@ -233,6 +350,7 @@ const BalcaoCidadao = () => {
                     solicitacao={selectedSolicitacao}
                     onClose={() => setSelectedSolicitacao(null)}
                     onSendMessage={handleSendMessage}
+                    onScheduleSubmit={handleScheduleSubmit}
                 />
             </div>
         </div>

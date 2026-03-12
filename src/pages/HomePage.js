@@ -4,6 +4,7 @@ import {
     LiaUserFriendsSolid,
     LiaFemaleSolid,
     LiaUserAstronautSolid,
+    LiaVoteYeaSolid,
     LiaArrowRightSolid,
 } from "react-icons/lia";
 
@@ -43,10 +44,10 @@ const HomePage = () => {
             action: () => navigate('/login'),
         },
         {
-            icon: <LiaFemaleSolid />,
-            title: "Procuradoria da Mulher",
-            description: "Apoio, denúncias e acolhimento com sigilo e segurança.",
-            action: () => navigate('/login'),
+            icon: <LiaVoteYeaSolid />,
+            title: "Ponto de Inclusão Eleitoral (PIEL)",
+            description: "Consulte informativos sobre seu título de eleitor, local de votação e mais.",
+            action: () => navigate('/piel'),
         },
         {
             icon: <LiaUserAstronautSolid />,

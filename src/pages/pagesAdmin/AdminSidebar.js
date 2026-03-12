@@ -5,13 +5,14 @@ import {
     LiaTachometerAltSolid,
     LiaBarsSolid,
     LiaTimesSolid,
+    LiaFileInvoiceSolid,
 } from "react-icons/lia";
 import { signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
 
 // --- Componente: Ítem do Menu Lateral (interno ao Sidebar) ---
 const AdminSidebarItem = ({ icon, title, path, isActive, onClick }) => (
-    <div
+    <div 
         className={`sidebar-item ${isActive ? 'active' : ''}`}
         onClick={() => onClick(path)}
     >
@@ -29,8 +30,8 @@ const AdminSidebar = () => {
    
 
     const menuItems = [
-        { title: 'Dashboard Procon', icon: <LiaTachometerAltSolid />, path: '/admin-procon' },
-        // Adicione outras rotas de admin aqui no futuro
+        { title: 'Dashboard Procon', icon: <LiaTachometerAltSolid />, path: '/admin-procon' }, 
+        { title: 'Informativos PIEL', icon: <LiaFileInvoiceSolid />, path: '/admin-piel' },
         // { title: 'Atendimentos Jurídicos', icon: <LiaGavelSolid />, path: '/admin-juridico' },
     ];
 

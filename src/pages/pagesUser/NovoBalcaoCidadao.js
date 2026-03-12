@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
-import { db } from '../../firebase';
+import { db } from '../../firebase'; 
 import config from '../../config'; // Importa a configuração
 import { ref, get, push, set, serverTimestamp } from 'firebase/database';
 
@@ -18,12 +18,6 @@ const NovoBalcaoCidadao = () => {
     const [tipoDocumento, setTipoDocumento] = useState('');
     const [formData, setFormData] = useState({});
     const [anexos, setAnexos] = useState({});
-
-    // New states for scheduling
-    const [availability, setAvailability] = useState(null);
-    const [bookedSlots, setBookedSlots] = useState({});
-    const [availableTimes, setAvailableTimes] = useState([]);
-    const [loadingAvailability, setLoadingAvailability] = useState(false);
 
     // General states
     const [loading, setLoading] = useState(false);
@@ -61,38 +55,6 @@ const NovoBalcaoCidadao = () => {
     }, [currentUser]);
 
     useEffect(() => { fetchUserProfile(); }, [fetchUserProfile]);
-
-    // Fetch availability config when "Agendamento" is selected
-    useEffect(() => {
-        if (assunto !== 'Agendamento') return;
-
-        const fetchAvailability = async () => {
-            setLoadingAvailability(true);
-            const availabilityRef = ref(db, `${config.cityCollection}/balcao-config/availability`);
-            const bookedSlotsRef = ref(db, `${config.cityCollection}/balcao-config/bookedSlots`);
-            try {
-                const [availabilitySnap, bookedSlotsSnap] = await Promise.all([
-                    get(availabilityRef),
-                    get(bookedSlotsRef)
-                ]);
-
-                if (availabilitySnap.exists()) {
-                    setAvailability(availabilitySnap.val());
-                } else {
-                    setError('Não há horários de agendamento configurados no momento.');
-                }
-                if (bookedSlotsSnap.exists()) {
-                    setBookedSlots(bookedSlotsSnap.val());
-                }
-            } catch (err) {
-                setError('Erro ao carregar horários disponíveis.');
-            } finally {
-                setLoadingAvailability(false);
-            }
-        };
-
-        fetchAvailability();
-    }, [assunto]);
 
     // Handlers for form changes
     const handleAssuntoChange = (e) => {
@@ -134,26 +96,6 @@ const NovoBalcaoCidadao = () => {
             });
     };
 
-    const handleDateChange = (e) => {
-        const date = e.target.value;
-        // Also update formData
-        setFormData(prev => ({ ...prev, appointmentDate: date, appointmentTime: '' }));
-
-        if (!availability || !date) {
-            setAvailableTimes([]);
-            return;
-        }
-
-        // Get day of week in English (e.g., "monday") to match Firebase keys
-        const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }).toLowerCase();
-        
-        const allSlotsForDay = availability[dayOfWeek] || [];
-        const alreadyBookedSlots = bookedSlots[date] || [];
-        
-        const freeSlots = allSlotsForDay.filter(slot => !alreadyBookedSlots.includes(slot));
-        setAvailableTimes(freeSlots);
-    };
-
     // Form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -192,28 +134,6 @@ const NovoBalcaoCidadao = () => {
                     detalhes: formData,
                     anexos: anexos,
                 };
-            } else if (assunto === 'Agendamento') {
-                if (!formData.appointmentDate || !formData.appointmentTime) {
-                    setError('Por favor, selecione uma data e um horário para o agendamento.');
-                    setLoading(false);
-                    return;
-                }
-                // Prevent booking a slot that was just taken
-                const bookedSlotRef = ref(db, `${config.cityCollection}/balcao-config/bookedSlots/${formData.appointmentDate}`);
-                const snapshot = await get(bookedSlotRef);
-                const existingBookings = snapshot.val() || [];
-                if (existingBookings.includes(formData.appointmentTime)) {
-                    setError('Este horário acaba de ser agendado. Por favor, escolha outro.');
-                    setLoading(false);
-                    // Optionally, re-fetch availability here
-                    return;
-                }
-                dadosDaSolicitacao = {
-                    assunto: assunto,
-                    appointmentDate: formData.appointmentDate,
-                    appointmentTime: formData.appointmentTime,
-                    descricao: formData.descricao || 'Nenhum motivo especificado',
-                };
             } else {
                 if (!formData.descricao) {
                     setError('Por favor, preencha a descrição da sua solicitação.');
@@ -235,13 +155,6 @@ const NovoBalcaoCidadao = () => {
                 status: 'Aguardando Atendimento',
                 dataSolicitacao: serverTimestamp(),
             });
-
-            // If it was a schedule, update the booked slots
-            if (assunto === 'Agendamento') {
-                const date = formData.appointmentDate;
-                const time = formData.appointmentTime;
-                await set(ref(db, `${config.cityCollection}/balcao-config/bookedSlots/${date}`), [...(bookedSlots[date] || []), time]);
-            }
 
             setSuccess('Sua solicitação foi enviada com sucesso! Você será redirecionado em breve.');
             setTimeout(() => navigate('/balcao'), 3000);
@@ -324,111 +237,9 @@ const NovoBalcaoCidadao = () => {
                         </div>
                     </>
                 );
-            case 'antecedentes':
-                return (
-                    <>
-                        <h4 className="form-section-title">Atestado de Antecedentes Criminais</h4>
-                        <p className="form-info-text">Preencha os dados abaixo para a emissão do atestado. O documento é emitido online, mas podemos auxiliar no processo.</p>
-                        <div className="form-group">
-                            <label>Nome Completo *</label>
-                            <input type="text" name="nomeCompleto" value={formData.nomeCompleto || ''} onChange={handleFormChange} required />
-                        </div>
-                        <div className="form-row">
-                            <div className="form-group">
-                                <label>Nº do RG *</label>
-                                <input type="text" name="rgNumero" value={formData.rgNumero || ''} onChange={handleFormChange} required />
-                            </div>
-                            <div className="form-group">
-                                <label>Data de Emissão do RG *</label>
-                                <input type="date" name="rgDataEmissao" value={formData.rgDataEmissao || ''} onChange={handleFormChange} required />
-                            </div>
-                        </div>
-                        <div className="form-group">
-                            <label>Órgão Expedidor do RG *</label>
-                            <input type="text" name="rgOrgaoExpedidor" value={formData.rgOrgaoExpedidor || ''} onChange={handleFormChange} required placeholder="Ex: SSP/CE" />
-                        </div>
-                        <div className="form-row">
-                            <div className="form-group">
-                                <label>Nome do Pai *</label>
-                                <input type="text" name="nomePai" value={formData.nomePai || ''} onChange={handleFormChange} required />
-                            </div>
-                            <div className="form-group">
-                                <label>Nome da Mãe *</label>
-                                <input type="text" name="nomeMae" value={formData.nomeMae || ''} onChange={handleFormChange} required />
-                            </div>
-                        </div>
-                    </>
-                );
-            case 'titulo':
-                return (
-                    <>
-                        <h4 className="form-section-title">Título de Eleitor (Consulta ou Atualização)</h4>
-                        <p className="form-info-text">Para regularização, transferência ou primeiro título. Fique atento aos prazos do TSE, que costumam encerrar em maio de anos eleitorais.</p>
-                        <div className="form-group">
-                            <label>Documento de Identidade (Frente e Verso) *</label>
-                            <p className="form-info-text" style={{fontSize: '0.8em', marginTop: '-8px', marginBottom: '8px'}}>CNH não é aceita para primeiro título.</p>
-                            <input type="file" name="titulo_identidade" onChange={handleFileChange} multiple required accept="image/*,.pdf" />
-                        </div>
-                        <div className="form-group">
-                            <label>Comprovante de Residência *</label>
-                            <input type="file" name="titulo_residencia" onChange={handleFileChange} required accept="image/*,.pdf" />
-                        </div>
-                        <div className="form-group">
-                            <label>Selfie segurando o documento de identidade *</label>
-                            <input type="file" name="titulo_selfie" onChange={handleFileChange} required accept="image/*" />
-                        </div>
-                        <div className="form-group">
-                            <label>Certificado de Quitação Militar (para homens de 19 anos)</label>
-                            <input type="file" name="titulo_militar" onChange={handleFileChange} accept="image/*,.pdf" />
-                        </div>
-                    </>
-                );
             default:
                 return null;
         }
-    };
-
-    const renderAgendamentoFields = () => {
-        if (loadingAvailability) return <p>Carregando horários...</p>;
-        if (!availability) return <p className="error-message">Não há horários disponíveis para agendamento no momento.</p>;
-
-        return (
-            <>
-                <h4 className="form-section-title">Agendar Atendimento</h4>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label htmlFor="appointmentDate">Escolha uma data *</label>
-                        <input
-                            type="date"
-                            id="appointmentDate"
-                            name="appointmentDate"
-                            value={formData.appointmentDate || ''}
-                            onChange={handleDateChange}
-                            required
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="appointmentTime">Horários disponíveis *</label>
-                        {formData.appointmentDate ? (
-                            availableTimes.length > 0 ? (
-                                <select id="appointmentTime" name="appointmentTime" value={formData.appointmentTime || ''} onChange={handleFormChange} required>
-                                    <option value="">Selecione um horário</option>
-                                    {availableTimes.map(time => <option key={time} value={time}>{time}</option>)}
-                                </select>
-                            ) : (
-                                <p className="form-info-text">Nenhum horário disponível para esta data.</p>
-                            )
-                        ) : (
-                            <p className="form-info-text">Selecione uma data para ver os horários.</p>
-                        )}
-                    </div>
-                </div>
-                <div className="form-group">
-                    <label htmlFor="descricao">Motivo do agendamento (opcional)</label>
-                    <textarea id="descricao" name="descricao" rows="4" value={formData.descricao || ''} onChange={handleFormChange}></textarea>
-                </div>
-            </>
-        );
     };
 
     return (
@@ -464,7 +275,6 @@ const NovoBalcaoCidadao = () => {
                                 <option value="">Selecione o assunto</option>
                                 <option value="Informações Gerais">Informações Gerais</option>
                                 <option value="Emissão de Documentos">Emissão de Documentos</option>
-                                <option value="Agendamento">Agendamento</option>
                                 <option value="Outros">Outros</option>
                             </select>
                         </div>
@@ -478,14 +288,10 @@ const NovoBalcaoCidadao = () => {
                                         <option value="cin">Carteira de Identidade Nacional (CIN)</option>
                                         <option value="cpf">CPF (2ª via / Atualização)</option>
                                         <option value="ctd">Carteira de Trabalho Digital (Auxílio)</option>
-                                        <option value="antecedentes">Atestado de Antecedentes Criminais</option>
-                                        <option value="titulo">Título de Eleitor</option>
                                     </select>
                                 </div>
                                 {renderDocumentFields()}
                             </>
-                        ) : assunto === 'Agendamento' ? (
-                            renderAgendamentoFields()
                         ) : assunto ? (
                             <div className="form-group">
                                 <label htmlFor="descricao">Descreva sua solicitação *</label>

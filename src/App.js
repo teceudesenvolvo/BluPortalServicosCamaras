@@ -25,8 +25,10 @@ import Procuradoria from './pages/pagesUser/Procuradoria';
 import NovaProcuradoria from './pages/pagesUser/NovaProcuradoria';
 import ConfigurarPanico from './pages/pagesUser/ConfigurarPanico';
 import SolicitacoesVereadores from './pages/pagesUser/SolicitacoesVereadores';
+import Piel from './pages/pagesUser/Piel';
 import NovaSolicitacaoVereador from './pages/pagesUser/NovaSolicitacaoVereador';
 
+import AdminPiel from './pages/pagesAdmin/AdminPiel';
 import AdminProcon from './pages/pagesAdmin/AdminProcon';
 import AdminJuridico from './pages/pagesAdmin/AdminJuridico';
 import AdminBalcao from './pages/pagesAdmin/AdminBalcao';
@@ -63,6 +65,7 @@ function App() {
           <Route path="/procuradoria/panico-config" element={<ConfigurarPanico />} />
           <Route path="/vereadores" element={<SolicitacoesVereadores />} />
           <Route path="/vereadores/nova" element={<NovaSolicitacaoVereador />} />
+          <Route path="/piel" element={<Piel />} />
 
           {/* Com Login - Admin */}
           <Route path="/admin-procon" element={<AdminProcon />} />
@@ -72,6 +75,7 @@ function App() {
           <Route path="/admin-procuradoria" element={<AdminProcuradoria />} />
           <Route path="/admin-vereadores" element={<AdminVereadores />} />
           <Route path="/admin-users" element={<AdminUsers />} />
+          <Route path="/admin-piel" element={<AdminPiel />} />
 
         </Routes>
       </Router>

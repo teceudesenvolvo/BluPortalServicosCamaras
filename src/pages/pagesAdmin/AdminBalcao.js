@@ -17,13 +17,21 @@ const AvailabilityModal = ({ onClose, onSave }) => {
         thursday: { enabled: false, times: '' },
         friday: { enabled: false, times: '' },
     });
+    const [blockedDates, setBlockedDates] = useState('');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const availabilityRef = ref(db, `${config.cityCollection}/balcao-config/availability`);
-        get(availabilityRef).then(snapshot => {
-            if (snapshot.exists()) {
-                const data = snapshot.val();
+        const blockedDatesRef = ref(db, `${config.cityCollection}/balcao-config/blockedDates`);
+
+        const fetchConfig = async () => {
+            const [availSnap, blockedSnap] = await Promise.all([
+                get(availabilityRef),
+                get(blockedDatesRef)
+            ]);
+
+            if (availSnap.exists()) {
+                const data = availSnap.val();
                 setAvailability(prevAvailability => {
                     const newState = { ...prevAvailability };
                     for (const day in data) {
@@ -34,8 +42,13 @@ const AvailabilityModal = ({ onClose, onSave }) => {
                     return newState;
                 });
             }
-        }).finally(() => setLoading(false));
-    }, []); // Esta linha agora é segura pois usamos uma atualização funcional.
+            if (blockedSnap.exists()) {
+                setBlockedDates(blockedSnap.val().join(', '));
+            }
+            setLoading(false);
+        };
+        fetchConfig();
+    }, []);
 
     const handleDayToggle = (day) => {
         setAvailability(prev => ({ ...prev, [day]: { ...prev[day], enabled: !prev[day].enabled } }));
@@ -52,7 +65,8 @@ const AvailabilityModal = ({ onClose, onSave }) => {
                 finalConfig[day] = availability[day].times.split(',').map(t => t.trim()).filter(Boolean);
             }
         }
-        onSave(finalConfig);
+        const blockedDatesConfig = blockedDates.split(',').map(d => d.trim()).filter(Boolean);
+        onSave(finalConfig, blockedDatesConfig);
     };
 
     const daysOfWeek = { monday: 'Segunda-feira', tuesday: 'Terça-feira', wednesday: 'Quarta-feira', thursday: 'Quinta-feira', friday: 'Sexta-feira' };
@@ -68,6 +82,10 @@ const AvailabilityModal = ({ onClose, onSave }) => {
                     {Object.keys(daysOfWeek).map(day => (
                         <div key={day} className="form-row" style={{ alignItems: 'center', marginBottom: '15px' }}><div style={{ flex: '0.5' }}><input type="checkbox" id={day} checked={availability[day].enabled} onChange={() => handleDayToggle(day)} /><label htmlFor={day} style={{ marginLeft: '10px' }}>{daysOfWeek[day]}</label></div><div className="form-group" style={{ flex: '1.5', marginBottom: 0 }}><input type="text" placeholder="Ex: 08:00, 09:00, 10:00" value={availability[day].times} onChange={(e) => handleTimesChange(day, e.target.value)} disabled={!availability[day].enabled} className="form-input" /></div></div>
                     ))}
+                    <div className="form-group">
+                        <label>Dias sem atendimento (feriados, pontos facultativos)</label>
+                        <input type="text" placeholder="Ex: 2024-12-25, 2025-01-01" value={blockedDates} onChange={(e) => setBlockedDates(e.target.value)} className="form-input" />
+                    </div>
                     <div className="form-actions"><button onClick={handleSaveClick} className="btn-primary">Salvar Configuração</button></div>
                 </div>
             </div>
@@ -181,6 +199,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                         <div className="form-group">
                             <label>Alterar Status</label>
                             <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="form-input">
+                                <option value="Agendamento Liberado">Agendamento Liberado</option>
                                 <option value="Agendado">Agendado</option>
                                 <option value="Aguardando Atendimento">Aguardando Atendimento</option>
                                 <option value="Em Análise">Em Análise</option>
@@ -257,7 +276,7 @@ const AdminBalcaoDashboard = () => {
                 return acc;
             }, {});
 
-            const fixedStatuses = ['Aguardando Atendimento', 'Agendado', 'Em Análise', 'Concluído', 'Não Classificado'];
+            const fixedStatuses = ['Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Concluído', 'Não Classificado'];
             const orderedCounts = {};
             fixedStatuses.forEach(status => {
                 orderedCounts[status] = counts[status] || 0;
@@ -332,10 +351,12 @@ const AdminBalcaoDashboard = () => {
         handleCloseModal();
     };
 
-    const handleSaveAvailability = async (availabilityConfig) => {
+    const handleSaveAvailability = async (availabilityConfig, blockedDatesConfig) => {
         const availabilityRef = ref(db, `${config.cityCollection}/balcao-config/availability`);
+        const blockedDatesRef = ref(db, `${config.cityCollection}/balcao-config/blockedDates`);
         try {
             await set(availabilityRef, availabilityConfig);
+            await set(blockedDatesRef, blockedDatesConfig);
             alert('Disponibilidade salva com sucesso!');
             setIsAvailabilityModalOpen(false);
         } catch (error) {
@@ -383,7 +404,7 @@ const AdminBalcaoDashboard = () => {
         };
     };
 
-    const statusTabs = ['Todas', 'Aguardando Atendimento', 'Agendado', 'Em Análise', 'Concluído'];
+    const statusTabs = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Concluído'];
 
     if (!isAuthReady) return <div className="loading-screen">Carregando...</div>;
 
