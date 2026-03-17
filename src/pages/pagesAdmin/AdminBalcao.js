@@ -6,7 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
-import { LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane, LiaPaperclipSolid } from "react-icons/lia";
+import { LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane, LiaPaperclipSolid, LiaSearchSolid } from "react-icons/lia";
 
 // Modal for Availability Configuration
 const AvailabilityModal = ({ onClose, onSave }) => {
@@ -249,6 +249,7 @@ const AdminBalcaoDashboard = () => {
     const [statusCounts, setStatusCounts] = useState({});
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -316,9 +317,15 @@ const AdminBalcaoDashboard = () => {
         return () => { if (chartInstance.current) chartInstance.current.destroy(); };
     }, [statusCounts]);
 
-    const filteredSolicitacoes = currentTab === 'Todas'
-        ? solicitacoes
-        : solicitacoes.filter(d => d.status === currentTab);
+    const filteredSolicitacoes = solicitacoes.filter(item => {
+        const matchesTab = currentTab === 'Todas' || item.status === currentTab;
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = 
+            (item.dadosSolicitacao?.assunto?.toLowerCase() || '').includes(searchLower) ||
+            (item.dadosUsuario?.name?.toLowerCase() || '').includes(searchLower) ||
+            (item.id?.toLowerCase() || '').includes(searchLower);
+        return matchesTab && matchesSearch;
+    });
 
     const handleOpenModal = (solicitacao) => setSelectedSolicitacao(solicitacao);
     const handleCloseModal = () => setSelectedSolicitacao(null);
@@ -449,6 +456,17 @@ const AdminBalcaoDashboard = () => {
 
                     <div className="data-card">
                         <div className="card-header"><h3>Últimas Solicitações ({currentTab})</h3></div>
+                        <div style={{ marginBottom: '15px', position: 'relative' }}>
+                            <LiaSearchSolid style={{ position: 'absolute', left: '10px', top: '10px', color: '#888' }} size={20} />
+                            <input 
+                                type="text" 
+                                placeholder="Buscar por assunto, nome ou protocolo..." 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)} 
+                                className="form-input"
+                                style={{ paddingLeft: '40px' }}
+                            />
+                        </div>
                         {loading && <p>Carregando...</p>}
                         {!loading && filteredSolicitacoes.length === 0 && <p>Nenhuma solicitação com o status "{currentTab}".</p>}
                         <ul className="data-list">
