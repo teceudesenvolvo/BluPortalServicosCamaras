@@ -64,7 +64,7 @@ const HomePage = () => {
                     <nav className="home-nav">
                         <div className="nav-logo">
                             <img src={Logo} alt="Logo Câmara Municipal de Paraipaba" />
-                            <span>Portal de Serviços</span>
+                            
                         </div>
                         <div className="nav-actions">
                             <button className="btn-nav-login" onClick={() => navigate('/login')}>Entrar</button>

@@ -151,7 +151,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                             <>
                                 <div className="detail-item"><strong>Nome:</strong> {consumerProfile?.name || 'N/A'}</div>
                                 <div className="detail-item"><strong>Email:</strong> {consumerProfile?.email || 'N/A'}</div>
-                                <div className="detail-item"><strong>Telefone:</strong> {consumerProfile?.phone || 'N/A'}</div>
+                                <div className="detail-item"><strong>Telefone:</strong> {consumerProfile?.telefone || 'N/A'}</div>
                             </>
                         )}
                     </div>

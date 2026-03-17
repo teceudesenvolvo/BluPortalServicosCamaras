@@ -72,7 +72,7 @@ const SolicitacaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage,
                                 <div className="detail-item"><strong>Identificação:</strong> {solicitacao.dadosSolicitacao?.identificacao || 'N/A'}</div>
                                 <div className="detail-item"><strong>Nome:</strong> {consumerProfile?.name || 'Anônimo'}</div>
                                 <div className="detail-item"><strong>Email:</strong> {consumerProfile?.userEmail || 'N/A'}</div>
-                                <div className="detail-item"><strong>Telefone:</strong> {consumerProfile?.phone || 'N/A'}</div>
+                                <div className="detail-item"><strong>Telefone:</strong> {consumerProfile?.telefone || 'N/A'}</div>
                                 <div className="detail-item"><strong>CPF:</strong> {consumerProfile?.cpf || 'N/A'}</div>
                             </>
                         )}

@@ -188,14 +188,14 @@ const NovoBalcaoCidadao = () => {
                             <label>Certidão de Nascimento/Casamento (Original, legível) *</label>
                             <input type="file" name="cin_certidao" onChange={handleFileChange} required accept="image/*,.pdf" />
                         </div>
-                        <div className="form-group">
+                        {/* <div className="form-group">
                             <label>CPF (Documento impresso ou digital) *</label>
                             <input type="file" name="cin_cpf" onChange={handleFileChange} required accept="image/*,.pdf" />
                         </div>
                         <div className="form-group">
                             <label>Comprovante de Residência (Original, com CEP atualizado) *</label>
                             <input type="file" name="cin_residencia" onChange={handleFileChange} required accept="image/*,.pdf" />
-                        </div>
+                        </div> */}
                         <p className="form-info-text">Para menores de 16 anos, é obrigatória a presença de um responsável legal (pai, mãe, avós, tios de 1º grau) com RG original.</p>
                         <div className="form-group">
                             <label>Documento do Responsável (se aplicável)</label>

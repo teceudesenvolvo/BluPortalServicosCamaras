@@ -11,6 +11,9 @@ import LoginPage from './pages/Login';
 import CadastroPage from './pages/Cadastro';
 import Perfil from './pages/Perfil';
 
+// Componentes Globais
+import DevelopmentPopup from './components/DevelopmentPopup';
+
 // Páginas Usuário Comum
 import Painel from './pages/pagesUser/Painel';
 import Procon from './pages/pagesUser/realizarReclamacaoProcon';
@@ -43,6 +46,7 @@ function App() {
     // 1. Envolve toda a aplicação com o AuthProvider
     <AuthProvider>
       <Router>
+        <DevelopmentPopup />
         <Routes>
           {/* Sem Login */}
           <Route path="/" element={<HomePage />} />

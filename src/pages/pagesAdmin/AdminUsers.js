@@ -41,7 +41,7 @@ const UserEditModal = ({ user, onClose, onSave }) => {
                             <div className="card-header"><h3>Dados Pessoais</h3></div>
                             <div className="data-item-edit"><label>Nome:</label><input type="text" name="name" value={editedUser.name || ''} onChange={handleChange} /></div>
                             <div className="data-item-edit"><label>Email:</label><input type="email" name="email" value={editedUser.email || ''} onChange={handleChange} disabled /></div>
-                            <div className="data-item-edit"><label>Telefone:</label><input type="tel" name="phone" value={editedUser.phone || ''} onChange={handleChange} /></div>
+                            <div className="data-item-edit"><label>Telefone:</label><input type="tel" name="phone" value={editedUser.telefone || ''} onChange={handleChange} /></div>
                             <div className="data-item-edit"><label>CPF:</label><input type="text" name="cpf" value={editedUser.cpf || ''} onChange={handleChange} /></div>
                             <div className="data-item-edit"><label>Sexo:</label><input type="text" name="sexo" value={editedUser.sexo || ''} onChange={handleChange} /></div>
                             <div className="data-item-edit"><label>Estado Civil:</label><input type="text" name="estadoCivil" value={editedUser.estadoCivil || ''} onChange={handleChange} /></div>
