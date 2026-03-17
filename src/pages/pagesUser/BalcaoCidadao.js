@@ -31,7 +31,40 @@ const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
                 ]);
                 if (availSnap.exists()) setAvailability(availSnap.val());
                 if (bookedSnap.exists()) setBookedSlots(bookedSnap.val());
-                if (blockedSnap.exists()) setBlockedDates(blockedSnap.val());
+                
+                let manualBlocked = [];
+                if (blockedSnap.exists()) manualBlocked = blockedSnap.val() || [];
+
+                // Integração com BrasilAPI para bloquear feriados nacionais
+                const currentYear = new Date().getFullYear();
+                const years = [currentYear, currentYear + 1];
+                let holidays = [];
+
+                await Promise.all(years.map(async (year) => {
+                    try {
+                        const res = await fetch(`https://brasilapi.com.br/api/feriados/v1/${year}`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            const formatted = data.map(h => {
+                                const [y, m, d] = h.date.split('-');
+                                return `${d}/${m}/${y}`;
+                            });
+                            holidays = [...holidays, ...formatted];
+                            
+                            // Adicionando feriados municipais de Paraipaba (Lei 741/2018)
+                            holidays.push(`05/02/${year}`); // Emancipação Política
+                            holidays.push(`01/11/${year}`); // Dia da Padroeira
+                            holidays.push(`19/03/${year}`); // São José - Padroeiro dos Trabalhadores (considerado ponto facultativo)
+                        }
+                    } catch (error) {
+                        console.error(`Erro ao buscar feriados para ${year}:`, error);
+                    }
+                }));
+
+                // Combina bloqueios manuais com feriados (removendo duplicatas)
+                const allBlockedDates = [...new Set([...manualBlocked, ...holidays])];
+                setBlockedDates(allBlockedDates);
+
             } catch (err) {
                 setError('Erro ao carregar horários.');
             } finally {
@@ -45,9 +78,17 @@ const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
         const date = e.target.value;
         setFormData({ appointmentDate: date, appointmentTime: '' });
 
-        if (!availability || !date || blockedDates.includes(date)) {
+        // Converter a data do input (AAAA-MM-DD) para o formato brasileiro (DD/MM/AAAA) para verificação
+        let dateBR = date;
+        if (date) {
+            const [year, month, day] = date.split('-');
+            dateBR = `${day}/${month}/${year}`;
+        }
+
+        // Verifica se a data formatada (BR) está na lista de datas bloqueadas
+        if (!availability || !date || blockedDates.includes(dateBR)) {
             setAvailableTimes([]);
-            if (blockedDates.includes(date)) setError('Este dia não está disponível para agendamento.');
+            if (blockedDates.includes(dateBR)) setError('Este dia não está disponível para agendamento.');
             else setError('');
             return;
         }

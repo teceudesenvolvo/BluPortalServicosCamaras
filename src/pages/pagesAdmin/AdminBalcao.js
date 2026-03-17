@@ -84,7 +84,7 @@ const AvailabilityModal = ({ onClose, onSave }) => {
                     ))}
                     <div className="form-group">
                         <label>Dias sem atendimento (feriados, pontos facultativos)</label>
-                        <input type="text" placeholder="Ex: 2024-12-25, 2025-01-01" value={blockedDates} onChange={(e) => setBlockedDates(e.target.value)} className="form-input" />
+                        <input type="text" placeholder="Ex: 25/12/2024, 01/01/2025" value={blockedDates} onChange={(e) => setBlockedDates(e.target.value)} className="form-input" />
                     </div>
                     <div className="form-actions"><button onClick={handleSaveClick} className="btn-primary">Salvar Configuração</button></div>
                 </div>
