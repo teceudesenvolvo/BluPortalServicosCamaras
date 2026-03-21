@@ -71,6 +71,16 @@ body{
   font-weight: 600;
   font-size: 1.1rem;
   color: white;
+  
+}
+
+@media (max-width: 768px) {
+  .nav-container {
+    padding: 0 20px;
+  }
+  .nav-logo span {
+    display: none;
+  }
 }
 
 .nav-actions {
