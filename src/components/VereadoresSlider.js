@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Splide, SplideSlide } from '@splidejs/react-splide';
 import { db } from '../firebase'; // Importa a configuração do DB
-import { ref, query, orderByChild, equalTo, get } from 'firebase/database'; // Importa funções do Realtime Database
+import { ref, get } from 'firebase/database'; // Importa funções do Realtime Database
 import config from '../config'; // Importa a configuração
 import { LiaUser } from 'react-icons/lia'; // Ícone de usuário padrão
 
@@ -40,12 +40,10 @@ const VereadoresSlider = () => {
         const fetchVereadores = async () => {
             setLoading(true);
             setError(null);
-      const usersRef = ref(db, `${config.cityCollection}/users`);
-            // Cria uma query para buscar usuários onde o campo 'tipo' é igual a 'Vereador'
-            const vereadoresQuery = query(usersRef, orderByChild('tipo'), equalTo('Vereador'));
+      const usersRef = ref(db, `${config.cityCollection}/vereadores`);
 
             try {
-                const snapshot = await get(vereadoresQuery);
+                const snapshot = await get(usersRef);
                 if (snapshot.exists()) {
                     const vereadoresData = [];
                     // O snapshot retorna um objeto, então iteramos para criar um array
@@ -80,13 +78,13 @@ const VereadoresSlider = () => {
 
     const splideOptions = {
         type: 'slide',
-        perPage: 5,
-        gap: '0.5%',
+        perPage: 3,
+        gap: '0.1%',
         padding: '2rem',
         arrows: true,
         pagination: false,
         breakpoints: {
-            1024: { perPage: 3 },
+            1024: { perPage: 4 },
             768: { perPage: 2, gap: '1rem' },
             480: { perPage: 1 },
         },
@@ -101,7 +99,7 @@ const VereadoresSlider = () => {
                     <SplideSlide key={index}>
                         <VereadorCard
                             nome={v.name} // Campo 'name' do Firebase
-                            nomeParlamentar={v.tipo} // Campo 'tipo' (será 'Vereador')
+                            nomeParlamentar={v.cargo} // Campo 'tipo' (será 'Vereador')
                             foto={getAvatarSrc(v.avatarBase64)} // Campo 'avatarBase64' para a foto
                         />
                     </SplideSlide>

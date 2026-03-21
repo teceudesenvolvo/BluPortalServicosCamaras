@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import config from '../../config';
-import { ref, query, orderByChild, equalTo, onValue, push, update, remove } from 'firebase/database';
+import { ref, onValue, push, update, remove } from 'firebase/database';
 import AdminSidebar from '../../components/AdminSidebar';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
@@ -31,9 +31,8 @@ const AdminVereadores = () => {
     useEffect(() => {
         setLoading(true);
         const vereadoresRef = ref(db, `${config.cityCollection}/vereadores`);
-        const q = query(vereadoresRef, orderByChild('tipo'), equalTo('Vereador'));
 
-        const unsubscribe = onValue(q, (snapshot) => {
+        const unsubscribe = onValue(vereadoresRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 const list = Object.keys(data).map(key => ({

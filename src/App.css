@@ -74,6 +74,11 @@ body{
   
 }
 
+.splide__list > li {
+  margin-right: 40px !important;
+
+}
+
 @media (max-width: 768px) {
   .nav-container {
     padding: 0 20px;
