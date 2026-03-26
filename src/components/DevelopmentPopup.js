@@ -10,7 +10,7 @@ const DevelopmentPopup = () => {
 
     useEffect(() => {
         // Verifica a data limite: 01/04/2026
-        const limitDate = new Date('2026-04-01T00:00:00');
+        const limitDate = new Date('2026-03-26T00:00:00');
         const now = new Date();
 
         // Se a data atual for anterior a data limite
