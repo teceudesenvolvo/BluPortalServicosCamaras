@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, onValue, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get } from 'firebase/database';
 import Chart from 'chart.js/auto'; // Importa Chart.js
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase'; // Importa as instâncias corretas do Firebase
@@ -208,16 +208,13 @@ const AdminProconDashboard = () => {
         return () => unsubscribe();
     }, [navigate]);
 
-    // 2. Listener do Firestore
-    useEffect(() => {
-        if (!isAuthReady || !userId) return;
-
-        const denunciasRef = ref(db, `${config.cityCollection}/denuncias-procon`);
-        
-        // Consultar todas as denúncias
-        const q = query(denunciasRef);
-
-        const unsubscribe = onValue(q, (snapshot) => {
+    // Leitura única com limite (economiza downloads)
+    const fetchDenuncias = useCallback(async () => {
+        setLoading(true);
+        try {
+            const denunciasRef = ref(db, `${config.cityCollection}/denuncias-procon`);
+            const q = query(denunciasRef, orderByKey(), limitToLast(200));
+            const snapshot = await get(q);
             const data = snapshot.val();
             const fetchedDenuncias = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
             
@@ -230,7 +227,6 @@ const AdminProconDashboard = () => {
                 return acc;
             }, {});
 
-            // Define um conjunto padrão de status para o gráfico, garantindo ordem
             const fixedStatuses = ['Em Análise', 'Pendente', 'Finalizada', 'Em Negociação', 'Não Classificado'];
             
             const orderedCounts = {};
@@ -239,14 +235,17 @@ const AdminProconDashboard = () => {
             });
 
             setStatusCounts(orderedCounts);
-            
-        }, (error) => {
-            console.error("Erro ao buscar denúncias:", error);
-            // Implementar tratamento de erro na UI, se necessário
-        });
+        } catch (error) {
+            console.error('Erro ao buscar denúncias:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-        return () => unsubscribe();
-    }, [isAuthReady, userId]);
+    useEffect(() => {
+        if (!isAuthReady || !userId) return;
+        fetchDenuncias();
+    }, [isAuthReady, userId, fetchDenuncias]);
 
     // 3. Efeito para renderizar/atualizar o Chart.js
     useEffect(() => {
@@ -392,6 +391,7 @@ const AdminProconDashboard = () => {
         await sendNotification({ ...selectedDenuncia, id: denunciaId, status: newStatus });
         alert('Status atualizado com sucesso!');
         handleCloseModal();
+        fetchDenuncias(); // Atualiza a lista
     };
 
     const handleSendMessage = async (denunciaId, messageText) => {
@@ -462,6 +462,9 @@ const AdminProconDashboard = () => {
                     <div className="header-title-section">
                         <h1>Administração Procon</h1>
                         <p>Visão geral e atividades das denúncias</p>
+                        <button onClick={fetchDenuncias} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
+                            ↻ Atualizar dados
+                        </button>
                     </div>
 
                     <div className="user-profile">

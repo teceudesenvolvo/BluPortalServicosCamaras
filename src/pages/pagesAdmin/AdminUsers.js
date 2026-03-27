@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, onValue, update, push, set, serverTimestamp } from 'firebase/database';
+import { ref, get, update, push, set, serverTimestamp } from 'firebase/database';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 import config from '../../config';
@@ -104,19 +104,26 @@ const AdminUsersDashboard = () => {
         return () => unsubscribe();
     }, [navigate]);
 
-    useEffect(() => {
-        if (!isAuthReady) return;
-
-        const usersRef = ref(db, `${config.cityCollection}/users`);
-        const unsubscribe = onValue(usersRef, (snapshot) => {
+    // Leitura única (economiza downloads)
+    const fetchUsers = useCallback(async () => {
+        setLoading(true);
+        try {
+            const usersRef = ref(db, `${config.cityCollection}/users`);
+            const snapshot = await get(usersRef);
             const data = snapshot.val();
             const fetchedUsers = data ? Object.keys(data).map(key => ({ uid: key, ...data[key] })) : [];
             setUsers(fetchedUsers);
+        } catch (error) {
+            console.error('Erro ao buscar usuários:', error);
+        } finally {
             setLoading(false);
-        });
+        }
+    }, []);
 
-        return () => unsubscribe();
-    }, [isAuthReady]);
+    useEffect(() => {
+        if (!isAuthReady) return;
+        fetchUsers();
+    }, [isAuthReady, fetchUsers]);
 
     const handleOpenModal = (user) => setSelectedUser(user);
     const handleCloseModal = () => setSelectedUser(null);
@@ -164,6 +171,7 @@ const AdminUsersDashboard = () => {
             await sendNotification({ uid: userId, email: updatedData.email });
             alert('Usuário atualizado com sucesso!');
             handleCloseModal();
+            fetchUsers(); // Atualiza a lista
         } catch (error) {
             alert('Falha ao atualizar o usuário.');
             console.error("Erro ao salvar usuário:", error);
@@ -187,6 +195,9 @@ const AdminUsersDashboard = () => {
                     <div className="header-title-section">
                         <h1>Gerenciamento de Usuários</h1>
                         <p>Visualize e edite os perfis dos usuários do portal</p>
+                        <button onClick={fetchUsers} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
+                            ↻ Atualizar dados
+                        </button>
                     </div>
                     <div className="user-profile">
                         <div className="user-text">

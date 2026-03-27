@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../../firebase';
 import config from '../../config';
-import { ref, onValue, push, update, remove } from 'firebase/database';
+import { ref, get, push, update, remove } from 'firebase/database';
 import AdminSidebar from '../../components/AdminSidebar';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
@@ -28,11 +28,13 @@ const AdminVereadores = () => {
 
     const [formData, setFormData] = useState(initialFormState);
 
-    useEffect(() => {
+    // Leitura única (economiza downloads - especialmente importante
+    // porque cada vereador tem avatarBase64 que é muito pesado)
+    const fetchVereadores = useCallback(async () => {
         setLoading(true);
-        const vereadoresRef = ref(db, `${config.cityCollection}/vereadores`);
-
-        const unsubscribe = onValue(vereadoresRef, (snapshot) => {
+        try {
+            const vereadoresRef = ref(db, `${config.cityCollection}/vereadores`);
+            const snapshot = await get(vereadoresRef);
             const data = snapshot.val();
             if (data) {
                 const list = Object.keys(data).map(key => ({
@@ -43,11 +45,16 @@ const AdminVereadores = () => {
             } else {
                 setVereadores([]);
             }
+        } catch (error) {
+            console.error('Erro ao buscar vereadores:', error);
+        } finally {
             setLoading(false);
-        });
-
-        return () => unsubscribe();
+        }
     }, []);
+
+    useEffect(() => {
+        fetchVereadores();
+    }, [fetchVereadores]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -96,6 +103,7 @@ const AdminVereadores = () => {
             try {
                 await remove(ref(db, `${config.cityCollection}/vereadores/${id}`));
                 alert("Vereador excluído com sucesso.");
+                fetchVereadores(); // Atualiza a lista
             } catch (error) {
                 console.error("Erro ao excluir:", error);
                 alert("Erro ao excluir.");
@@ -124,6 +132,7 @@ const AdminVereadores = () => {
                 alert("Vereador cadastrado com sucesso!");
             }
             handleCancel();
+            fetchVereadores(); // Atualiza a lista
         } catch (error) {
             console.error("Erro ao salvar:", error);
             alert("Erro ao salvar as informações.");

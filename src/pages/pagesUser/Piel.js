@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, onValue } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { db } from '../../firebase';
 import config from '../../config';
 import Footer from '../../components/Footer';
@@ -13,16 +13,20 @@ const Piel = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const informativosRef = ref(db, `${config.cityCollection}/piel`);
-        const unsubscribe = onValue(informativosRef, (snapshot) => {
-            const data = snapshot.val();
-            // Ordena por data de criação, se disponível, para mostrar os mais recentes primeiro
-            const fetchedInformativos = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)) : [];
-            setInformativos(fetchedInformativos);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
+        const fetchInformativos = async () => {
+            try {
+                const informativosRef = ref(db, `${config.cityCollection}/piel`);
+                const snapshot = await get(informativosRef);
+                const data = snapshot.val();
+                const fetchedInformativos = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)) : [];
+                setInformativos(fetchedInformativos);
+            } catch (error) {
+                console.error('Erro ao buscar informativos:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchInformativos();
     }, []);
 
     return (

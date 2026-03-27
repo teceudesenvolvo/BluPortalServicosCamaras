@@ -312,7 +312,7 @@ const AdminBalcaoDashboard = () => {
 
         // limitToLast(100) para economizar downloads; Firebase push keys são cronológicos
         const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
-        const q = query(solicitacoesRef, orderByKey(), limitToLast(100));
+        const q = query(solicitacoesRef, orderByKey(), limitToLast(50));
 
         const unsubscribe = onValue(q, (snapshot) => {
             const data = snapshot.val();

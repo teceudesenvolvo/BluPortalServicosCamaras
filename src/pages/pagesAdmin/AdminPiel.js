@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ref, onValue, update, push, remove, serverTimestamp } from 'firebase/database';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ref, get, update, push, remove, serverTimestamp } from 'firebase/database';
 import { db } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
@@ -64,17 +64,25 @@ const AdminPiel = () => {
     const [selectedInformativo, setSelectedInformativo] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    useEffect(() => {
-        const informativosRef = ref(db, `${config.cityCollection}/piel`);
-        const unsubscribe = onValue(informativosRef, (snapshot) => {
+    // Leitura única (economiza downloads)
+    const fetchInformativos = useCallback(async () => {
+        setLoading(true);
+        try {
+            const informativosRef = ref(db, `${config.cityCollection}/piel`);
+            const snapshot = await get(informativosRef);
             const data = snapshot.val();
             const fetchedInformativos = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
             setInformativos(fetchedInformativos);
+        } catch (error) {
+            console.error('Erro ao buscar informativos:', error);
+        } finally {
             setLoading(false);
-        });
-
-        return () => unsubscribe();
+        }
     }, []);
+
+    useEffect(() => {
+        fetchInformativos();
+    }, [fetchInformativos]);
 
     const handleOpenModal = (informativo = null) => {
         setSelectedInformativo(informativo);
@@ -102,12 +110,14 @@ const AdminPiel = () => {
             await push(informativosRef, newItem);
         }
         handleCloseModal();
+        fetchInformativos(); // Atualiza a lista
     };
 
     const handleDelete = async (id) => {
         if (window.confirm('Tem certeza que deseja excluir este informativo?')) {
             const itemRef = ref(db, `${config.cityCollection}/piel/${id}`);
             await remove(itemRef);
+            fetchInformativos(); // Atualiza a lista
         }
     };
 

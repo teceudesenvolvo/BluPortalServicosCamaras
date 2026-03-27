@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, onValue, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get } from 'firebase/database';
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
@@ -157,13 +157,13 @@ const AdminProcuradoriaDashboard = () => {
         return () => unsubscribe();
     }, [navigate]);
 
-    useEffect(() => {
-        if (!isAuthReady) return;
-
-        const solicitacoesRef = ref(db, `${config.cityCollection}/procuradoria-mulher`);
-        const q = query(solicitacoesRef);
-
-        const unsubscribe = onValue(q, (snapshot) => {
+    // Leitura única com limite (economiza downloads)
+    const fetchSolicitacoes = useCallback(async () => {
+        setLoading(true);
+        try {
+            const solicitacoesRef = ref(db, `${config.cityCollection}/procuradoria-mulher`);
+            const q = query(solicitacoesRef, orderByKey(), limitToLast(200));
+            const snapshot = await get(q);
             const data = snapshot.val();
             const fetchedData = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
             setSolicitacoes(fetchedData);
@@ -180,10 +180,17 @@ const AdminProcuradoriaDashboard = () => {
                 orderedCounts[status] = counts[status] || 0;
             });
             setStatusCounts(orderedCounts);
-        });
+        } catch (error) {
+            console.error('Erro ao buscar solicitações:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-        return () => unsubscribe();
-    }, [isAuthReady]);
+    useEffect(() => {
+        if (!isAuthReady) return;
+        fetchSolicitacoes();
+    }, [isAuthReady, fetchSolicitacoes]);
 
     useEffect(() => {
         if (!chartRef.current || Object.keys(statusCounts).length === 0) return;
@@ -269,6 +276,7 @@ const AdminProcuradoriaDashboard = () => {
         await sendNotification({ ...selectedSolicitacao, id, status: newStatus });
         alert('Status atualizado!');
         handleCloseModal();
+        fetchSolicitacoes(); // Atualiza a lista
     };
 
     const handleSendMessage = async (id, text) => {
@@ -306,6 +314,9 @@ const AdminProcuradoriaDashboard = () => {
                     <div className="header-title-section">
                         <h1>Admin Procuradoria da Mulher</h1>
                         <p>Visão geral dos atendimentos</p>
+                        <button onClick={fetchSolicitacoes} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
+                            ↻ Atualizar dados
+                        </button>
                     </div>
                     <div className="user-profile">
                         <div className="user-text">

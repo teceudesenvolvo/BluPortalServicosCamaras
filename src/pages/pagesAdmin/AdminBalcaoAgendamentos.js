@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, onValue, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { ref, query, orderByChild, equalTo, update, push, set, serverTimestamp, get } from 'firebase/database';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 import config from '../../config';
@@ -224,40 +224,38 @@ const AdminBalcaoAgendamentos = () => {
         return () => unsubscribe();
     }, [navigate]);
 
-    useEffect(() => {
-        if (!isAuthReady) return;
+    // Leitura única com filtro server-side por status (economiza downloads)
+    const fetchAgendamentos = useCallback(async () => {
         setLoading(true);
-
-        const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
-        const q = query(solicitacoesRef);
-        const fetchAgendamentos = onValue(q, (snapshot) => {
+        try {
+            const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
+            const q = query(solicitacoesRef, orderByChild('status'), equalTo('Agendado'));
+            const snapshot = await get(q);
             const data = snapshot.val();
             const fetchedData = data
                 ? Object.keys(data)
                     .map(key => ({ id: key, ...data[key] }))
-                    .filter(item => item.status === 'Agendado')
                     .sort((a, b) => {
-                        // Ordenar por data (crescente) e depois horário (crescente) para mostrar os mais próximos primeiro
                         const dateA = a.appointmentDate || '9999-99-99';
                         const timeA = a.appointmentTime || '23:59';
                         const dateB = b.appointmentDate || '9999-99-99';
                         const timeB = b.appointmentTime || '23:59';
-
-                        // Fallback manual para ordenar se for igual
-                        if (dateA === dateB) {
-                            return timeA.localeCompare(timeB);
-                        }
+                        if (dateA === dateB) return timeA.localeCompare(timeB);
                         return dateA.localeCompare(dateB);
                     })
                 : [];
             setAgendamentos(fetchedData);
+        } catch (error) {
+            console.error('Erro ao buscar agendamentos:', error);
+        } finally {
             setLoading(false);
-        });
+        }
+    }, []);
 
-        return () => {
-            fetchAgendamentos();
-        };
-    }, [isAuthReady]);
+    useEffect(() => {
+        if (!isAuthReady) return;
+        fetchAgendamentos();
+    }, [isAuthReady, fetchAgendamentos]);
 
     /* ── Filtragem ── */
     const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Concluído', 'Não Classificado'];
@@ -318,6 +316,7 @@ const AdminBalcaoAgendamentos = () => {
         await sendNotification({ ...selectedSolicitacao, id, status: newStatus });
         alert('Status atualizado!');
         setSelectedSolicitacao(null);
+        fetchAgendamentos(); // Atualiza a lista após mudança de status
     };
 
     const handleSendMessage = async (id, text) => {
@@ -388,6 +387,9 @@ const AdminBalcaoAgendamentos = () => {
                         </button>
                         <h1>Agendamentos Realizados</h1>
                         <p>Balcão do Cidadão — {filteredAgendamentos.length} pessoa{filteredAgendamentos.length === 1 ? '' : 's'} com agendamento marcado.</p>
+                        <button onClick={fetchAgendamentos} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
+                            ↻ Atualizar dados
+                        </button>
                     </div>
                 </header>
 

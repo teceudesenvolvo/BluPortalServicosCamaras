@@ -7,19 +7,19 @@
         ".indexOn": ["tipo"]
       },
       "denuncias-procon": {
-        ".indexOn": ["userId"]
+        ".indexOn": ["userId", "status"]
       },
       "atendimento-juridico": {
-        ".indexOn": ["userId"]
+        ".indexOn": ["userId", "status"]
       },
       "balcao-cidadao": {
-        ".indexOn": ["userId"]
+        ".indexOn": ["userId", "status"]
       },
       "ouvidoria": {
-        ".indexOn": ["userId"]
+        ".indexOn": ["userId", "status"]
       },
       "procuradoria-mulher": {
-        ".indexOn": ["userId"]
+        ".indexOn": ["userId", "status"]
       },
       "solicitacoes-vereadores": {
         ".indexOn": ["userId"]

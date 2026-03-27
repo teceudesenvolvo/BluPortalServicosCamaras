@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, onValue, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get } from 'firebase/database';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 import config from '../../config';
@@ -226,11 +226,13 @@ const AdminBalcaoSolicitacoes = () => {
         return () => unsubscribe();
     }, [navigate]);
 
-    useEffect(() => {
-        if (!isAuthReady) return;
-        const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
-        const q = query(solicitacoesRef);
-        const unsubscribe = onValue(q, (snapshot) => {
+    // Leitura única com limite (economiza downloads)
+    const fetchSolicitacoes = useCallback(async () => {
+        setLoading(true);
+        try {
+            const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
+            const q = query(solicitacoesRef, orderByKey(), limitToLast(200));
+            const snapshot = await get(q);
             const data = snapshot.val();
             const fetchedData = data
                 ? Object.keys(data)
@@ -238,9 +240,17 @@ const AdminBalcaoSolicitacoes = () => {
                     .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
                 : [];
             setSolicitacoes(fetchedData);
-        });
-        return () => unsubscribe();
-    }, [isAuthReady]);
+        } catch (error) {
+            console.error('Erro ao buscar solicitações:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!isAuthReady) return;
+        fetchSolicitacoes();
+    }, [isAuthReady, fetchSolicitacoes]);
 
     /* ── Filtragem ── */
     const assuntos = ['Todos', ...new Set(solicitacoes.map(s => s.dadosSolicitacao?.assunto).filter(Boolean))];
@@ -305,6 +315,7 @@ const AdminBalcaoSolicitacoes = () => {
         await sendNotification({ ...selectedSolicitacao, id, status: newStatus });
         alert('Status atualizado!');
         setSelectedSolicitacao(null);
+        fetchSolicitacoes(); // Atualiza a lista
     };
 
     const handleSendMessage = async (id, text) => {
@@ -374,6 +385,9 @@ const AdminBalcaoSolicitacoes = () => {
                         </button>
                         <h1>Todas as Solicitações</h1>
                         <p>Balcão do Cidadão — {filteredSolicitacoes.length} solicitaç{filteredSolicitacoes.length === 1 ? 'ão' : 'ões'} encontrada{filteredSolicitacoes.length === 1 ? '' : 's'}</p>
+                        <button onClick={fetchSolicitacoes} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
+                            ↻ Atualizar dados
+                        </button>
                     </div>
                     <div className="user-profile">
                         <div className="user-text">
