@@ -7,8 +7,46 @@ import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import {
     LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane,
-    LiaPaperclipSolid, LiaSearchSolid, LiaArrowLeftSolid, LiaFilterSolid
+    LiaPaperclipSolid, LiaSearchSolid, LiaArrowLeftSolid, LiaFilterSolid, LiaDownloadSolid
 } from "react-icons/lia";
+
+// Lightbox para visualizar arquivos inline
+const FileViewerModal = ({ file, onClose }) => {
+    if (!file) return null;
+    const isImage = file.type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    return (
+        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '90vw', width: '760px' }}>
+                <div className="modal-header">
+                    <h3 style={{ fontSize: '0.95rem', wordBreak: 'break-all' }}>{file.name}</h3>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                        <a href={file.data} download={file.name} className="btn-secondary" style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <LiaDownloadSolid size={16} /> Download
+                        </a>
+                        <button onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button>
+                    </div>
+                </div>
+                <div className="modal-body" style={{ overflow: 'auto', maxHeight: '75vh', textAlign: 'center' }}>
+                    {isImage && (
+                        <img src={file.data} alt={file.name} style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '8px' }} />
+                    )}
+                    {isPdf && (
+                        <iframe src={file.data} title={file.name} style={{ width: '100%', height: '70vh', border: 'none', borderRadius: '8px' }} />
+                    )}
+                    {!isImage && !isPdf && (
+                        <div style={{ padding: '40px' }}>
+                            <p style={{ marginBottom: '16px', color: '#6b7280' }}>Visualização não disponível para este tipo de arquivo.</p>
+                            <a href={file.data} download={file.name} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                <LiaDownloadSolid size={18} /> Baixar arquivo
+                            </a>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 /* ─── Modal de Detalhes (mesmo componente do AdminBalcao) ─── */
 const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage, onFileUpload, onNotifyUser }) => {
@@ -16,6 +54,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
     const [message, setMessage] = useState('');
     const [consumerProfile, setConsumerProfile] = useState(null);
     const [loadingProfile, setLoadingProfile] = useState(true);
+    const [viewingFile, setViewingFile] = useState(null);
 
     useEffect(() => {
         if (solicitacao) {
@@ -54,8 +93,9 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <>
+            <div className="modal-overlay" onClick={onClose}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                     <h3>Detalhes da Solicitação</h3>
                     <button onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button>
@@ -98,7 +138,9 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                     <ul className="file-list" style={{ marginTop: '5px', paddingLeft: '20px' }}>
                                         {Object.values(solicitacao.dadosSolicitacao.anexos).flat().map((file, index) => (
                                             <li key={index}>
-                                                <a href={file.data} target="_blank" rel="noopener noreferrer" className="file-link"><LiaPaperclipSolid /> {file.name}</a>
+                                                <button onClick={() => setViewingFile(file)} className="file-link" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>
+                                                    <LiaPaperclipSolid /> {file.name}
+                                                </button>
                                             </li>
                                         ))}
                                     </ul>
@@ -149,6 +191,8 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                 </div>
             </div>
         </div>
+        <FileViewerModal file={viewingFile} onClose={() => setViewingFile(null)} />
+    </>
     );
 };
 
