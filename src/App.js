@@ -30,6 +30,7 @@ import ConfigurarPanico from './pages/pagesUser/ConfigurarPanico';
 import SolicitacoesVereadores from './pages/pagesUser/SolicitacoesVereadores';
 import Piel from './pages/pagesUser/Piel';
 import NovaSolicitacaoVereador from './pages/pagesUser/NovaSolicitacaoVereador';
+import AdminBalcaoAgendamentos from './pages/pagesAdmin/AdminBalcaoAgendamentos';
 
 import AdminPiel from './pages/pagesAdmin/AdminPiel';
 import AdminProcon from './pages/pagesAdmin/AdminProcon';
@@ -54,7 +55,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cadastro" element={<CadastroPage />} />
           <Route path="/perfil" element={<Perfil />} />
-          
+
           {/* Com Login - Usuário Comum */}
           <Route path="/dashboard" element={<Painel />} />
           <Route path="/procon" element={<Procon />} />
@@ -82,6 +83,7 @@ function App() {
           <Route path="/admin-vereadores" element={<AdminVereadores />} />
           <Route path="/admin-users" element={<AdminUsers />} />
           <Route path="/admin-piel" element={<AdminPiel />} />
+          <Route path="/admin-balcao/agendamentos" element={<AdminBalcaoAgendamentos />} />
 
         </Routes>
       </Router>

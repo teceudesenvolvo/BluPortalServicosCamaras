@@ -48,7 +48,7 @@ const FileViewerModal = ({ file, onClose }) => {
     );
 };
 
-/* ─── Modal de Detalhes (mesmo componente do AdminBalcao) ─── */
+/* ─── Modal de Detalhes ─── */
 const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage, onFileUpload, onNotifyUser }) => {
     const [newStatus, setNewStatus] = useState(solicitacao ? solicitacao.status || '' : '');
     const [message, setMessage] = useState('');
@@ -96,119 +96,119 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
         <>
             <div className="modal-overlay" onClick={onClose}>
                 <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header">
-                    <h3>Detalhes da Solicitação</h3>
-                    <button onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button>
-                </div>
-                <div className="modal-body">
-                    <div className="data-card">
-                        <div className="card-header"><h3>Dados do Solicitante</h3></div>
-                        {loadingProfile ? <p>Carregando...</p> : (
-                            <>
-                                <div className="detail-item"><strong>Nome:</strong> {consumerProfile?.name || 'N/A'}</div>
-                                <div className="detail-item"><strong>Email:</strong> {consumerProfile?.email || 'N/A'}</div>
-                                <div className="detail-item"><strong>Telefone:</strong> {consumerProfile?.telefone || 'N/A'}</div>
-                            </>
-                        )}
+                    <div className="modal-header">
+                        <h3>Detalhes da Solicitação</h3>
+                        <button onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button>
                     </div>
-
-                    <div className="data-card" style={{ marginTop: '20px' }}>
-                        <div className="card-header"><h3>Descrição da Solicitação</h3></div>
-                        <div className="detail-item"><strong>Assunto:</strong> {solicitacao.dadosSolicitacao?.assunto || 'N/A'}</div>
-                        {solicitacao.dadosSolicitacao?.assunto === 'Agendamento' ? (
-                            <>
-                                <div className="detail-item"><strong>Data Agendada:</strong> {solicitacao.appointmentDate || solicitacao.dadosSolicitacao?.appointmentDate || 'N/A'}</div>
-                                <div className="detail-item"><strong>Horário Agendado:</strong> {solicitacao.appointmentTime || solicitacao.dadosSolicitacao?.appointmentTime || 'N/A'}</div>
-                                <div className="detail-item"><strong>Motivo:</strong></div>
-                                <p className="detail-description">{solicitacao.dadosSolicitacao?.descricao || 'Não especificado'}</p>
-                            </>
-                        ) : solicitacao.dadosSolicitacao?.assunto === 'Emissão de Documentos' ? (
-                            <>
-                                <div className="detail-item"><strong>Tipo de Documento:</strong> {solicitacao.dadosSolicitacao?.tipoDocumento || 'N/A'}</div>
-                                {solicitacao.dadosSolicitacao.detalhes && Object.keys(solicitacao.dadosSolicitacao.detalhes).length > 0 && (
-                                    <>
-                                        <div className="detail-item" style={{ marginTop: '10px' }}><strong>Detalhes Preenchidos:</strong></div>
-                                        {Object.entries(solicitacao.dadosSolicitacao.detalhes).map(([key, value]) => (
-                                            <div key={key} className="detail-item" style={{ paddingLeft: '15px' }}><small><strong>{key}:</strong> {value}</small></div>
-                                        ))}
-                                    </>
-                                )}
-                                <div className="detail-item" style={{ marginTop: '10px' }}><strong>Documentos Anexados:</strong></div>
-                                {solicitacao.dadosSolicitacao.anexos && Object.keys(solicitacao.dadosSolicitacao.anexos).length > 0 ? (
-                                    <ul className="file-list" style={{ marginTop: '5px', paddingLeft: '20px' }}>
-                                        {Object.values(solicitacao.dadosSolicitacao.anexos).flat().map((file, index) => (
-                                            <li key={index}>
-                                                <button onClick={() => setViewingFile(file)} className="file-link" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>
-                                                    <LiaPaperclipSolid /> {file.name}
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (<p className="detail-description">Nenhum documento anexado.</p>)}
-                            </>
-                        ) : (
-                            <p className="detail-description">{solicitacao.dadosSolicitacao?.descricao || 'N/A'}</p>
-                        )}
-                    </div>
-
-                    <hr />
-                    <h4>Gerenciamento</h4>
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label>Alterar Status</label>
-                            <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="form-input">
-                                <option value="Agendamento Liberado">Agendamento Liberado</option>
-                                <option value="Agendado">Agendado</option>
-                                <option value="Aguardando Atendimento">Aguardando Atendimento</option>
-                                <option value="Em Análise">Em Análise</option>
-                                <option value="Concluído">Concluído</option>
-                            </select>
+                    <div className="modal-body">
+                        <div className="data-card">
+                            <div className="card-header"><h3>Dados do Solicitante</h3></div>
+                            {loadingProfile ? <p>Carregando...</p> : (
+                                <>
+                                    <div className="detail-item"><strong>Nome:</strong> {consumerProfile?.name || 'N/A'}</div>
+                                    <div className="detail-item"><strong>Email:</strong> {consumerProfile?.email || 'N/A'}</div>
+                                    <div className="detail-item"><strong>Telefone:</strong> {consumerProfile?.telefone || 'N/A'}</div>
+                                </>
+                            )}
                         </div>
-                        <button onClick={handleStatusSave} className="btn-primary" style={{ alignSelf: 'flex-end', height: '45px' }}>Salvar Status</button>
-                    </div>
 
-                    <hr />
-                    <h4>Mensagens</h4>
-                    <div className="message-history">
-                        {solicitacao.messages && Object.values(solicitacao.messages).map((msg, index) => (
-                            <div key={index} className={`message-bubble ${msg.sender === 'admin' ? 'admin' : 'user'}`}>
-                                <p>{msg.text}</p>
-                                <small>{new Date(msg.timestamp).toLocaleString('pt-BR')}</small>
+                        <div className="data-card" style={{ marginTop: '20px' }}>
+                            <div className="card-header"><h3>Descrição da Solicitação</h3></div>
+                            <div className="detail-item"><strong>Assunto:</strong> {solicitacao.dadosSolicitacao?.assunto || 'N/A'}</div>
+                            {solicitacao.dadosSolicitacao?.assunto === 'Agendamento' ? (
+                                <>
+                                    <div className="detail-item"><strong>Data Agendada:</strong> {solicitacao.appointmentDate || solicitacao.dadosSolicitacao?.appointmentDate || 'N/A'}</div>
+                                    <div className="detail-item"><strong>Horário Agendado:</strong> {solicitacao.appointmentTime || solicitacao.dadosSolicitacao?.appointmentTime || 'N/A'}</div>
+                                    <div className="detail-item"><strong>Motivo:</strong></div>
+                                    <p className="detail-description">{solicitacao.dadosSolicitacao?.descricao || 'Não especificado'}</p>
+                                </>
+                            ) : solicitacao.dadosSolicitacao?.assunto === 'Emissão de Documentos' ? (
+                                <>
+                                    <div className="detail-item"><strong>Tipo de Documento:</strong> {solicitacao.dadosSolicitacao?.tipoDocumento || 'N/A'}</div>
+                                    {solicitacao.dadosSolicitacao.detalhes && Object.keys(solicitacao.dadosSolicitacao.detalhes).length > 0 && (
+                                        <>
+                                            <div className="detail-item" style={{ marginTop: '10px' }}><strong>Detalhes Preenchidos:</strong></div>
+                                            {Object.entries(solicitacao.dadosSolicitacao.detalhes).map(([key, value]) => (
+                                                <div key={key} className="detail-item" style={{ paddingLeft: '15px' }}><small><strong>{key}:</strong> {value}</small></div>
+                                            ))}
+                                        </>
+                                    )}
+                                    <div className="detail-item" style={{ marginTop: '10px' }}><strong>Documentos Anexados:</strong></div>
+                                    {solicitacao.dadosSolicitacao.anexos && Object.keys(solicitacao.dadosSolicitacao.anexos).length > 0 ? (
+                                        <ul className="file-list" style={{ marginTop: '5px', paddingLeft: '20px' }}>
+                                            {Object.values(solicitacao.dadosSolicitacao.anexos).flat().map((file, index) => (
+                                                <li key={index}>
+                                                    <button onClick={() => setViewingFile(file)} className="file-link" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>
+                                                        <LiaPaperclipSolid /> {file.name}
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (<p className="detail-description">Nenhum documento anexado.</p>)}
+                                </>
+                            ) : (
+                                <p className="detail-description">{solicitacao.dadosSolicitacao?.descricao || 'N/A'}</p>
+                            )}
+                        </div>
+
+                        <hr />
+                        <h4>Gerenciamento</h4>
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Alterar Status</label>
+                                <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="form-input">
+                                    <option value="Agendamento Liberado">Agendamento Liberado</option>
+                                    <option value="Agendado">Agendado</option>
+                                    <option value="Aguardando Atendimento">Aguardando Atendimento</option>
+                                    <option value="Em Análise">Em Análise</option>
+                                    <option value="Concluído">Concluído</option>
+                                </select>
                             </div>
-                        ))}
-                    </div>
-                    <div className="form-group" style={{ marginTop: '15px' }}>
-                        <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Digite sua mensagem..." rows="3" className="form-input"></textarea>
-                    </div>
-                    <button onClick={handleSendMessage} className="btn-primary" style={{ width: '100%' }}>
-                        <LiaPaperPlane /> Enviar Mensagem
-                    </button>
+                            <button onClick={handleStatusSave} className="btn-primary" style={{ alignSelf: 'flex-end', height: '45px' }}>Salvar Status</button>
+                        </div>
 
-                    <div className="form-actions" style={{ marginTop: '20px' }}>
-                        <label className="btn-secondary"><LiaUploadSolid /> Enviar Arquivo<input type="file" hidden onChange={handleFileUpload} /></label>
-                        <button onClick={handleNotifyUser} className="btn-submit"><LiaBellSolid /> Notificar Usuário</button>
+                        <hr />
+                        <h4>Mensagens</h4>
+                        <div className="message-history">
+                            {solicitacao.messages && Object.values(solicitacao.messages).map((msg, index) => (
+                                <div key={index} className={`message-bubble ${msg.sender === 'admin' ? 'admin' : 'user'}`}>
+                                    <p>{msg.text}</p>
+                                    <small>{new Date(msg.timestamp).toLocaleString('pt-BR')}</small>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="form-group" style={{ marginTop: '15px' }}>
+                            <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Digite sua mensagem..." rows="3" className="form-input"></textarea>
+                        </div>
+                        <button onClick={handleSendMessage} className="btn-primary" style={{ width: '100%' }}>
+                            <LiaPaperPlane /> Enviar Mensagem
+                        </button>
+
+                        <div className="form-actions" style={{ marginTop: '20px' }}>
+                            <label className="btn-secondary"><LiaUploadSolid /> Enviar Arquivo<input type="file" hidden onChange={handleFileUpload} /></label>
+                            <button onClick={handleNotifyUser} className="btn-submit"><LiaBellSolid /> Notificar Usuário</button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <FileViewerModal file={viewingFile} onClose={() => setViewingFile(null)} />
-    </>
+            <FileViewerModal file={viewingFile} onClose={() => setViewingFile(null)} />
+        </>
     );
 };
 
-/* ─── Página principal ─── */
-const AdminBalcaoSolicitacoes = () => {
+/* ─── Página principal de Agendamentos ─── */
+const AdminBalcaoAgendamentos = () => {
     const navigate = useNavigate();
 
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [solicitacoes, setSolicitacoes] = useState([]);
+    const [agendamentos, setAgendamentos] = useState([]);
+    const [bookedSlots, setBookedSlots] = useState({});
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('Todas');
-    const [filterAssunto, setFilterAssunto] = useState('Todos');
     const [filterDateFrom, setFilterDateFrom] = useState('');
     const [filterDateTo, setFilterDateTo] = useState('');
     const [showFilters, setShowFilters] = useState(false);
@@ -221,59 +221,73 @@ const AdminBalcaoSolicitacoes = () => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) setIsAuthReady(true);
             else navigate('/');
-            setLoading(false);
         });
         return () => unsubscribe();
     }, [navigate]);
 
     useEffect(() => {
         if (!isAuthReady) return;
+        setLoading(true);
+
         const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
         const q = query(solicitacoesRef);
-        const unsubscribe = onValue(q, (snapshot) => {
+        const fetchAgendamentos = onValue(q, (snapshot) => {
             const data = snapshot.val();
             const fetchedData = data
                 ? Object.keys(data)
                     .map(key => ({ id: key, ...data[key] }))
-                    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+                    .filter(item => item.status === 'Agendado')
+                    .sort((a, b) => {
+                        // Ordenar por data (crescente) e depois horário (crescente) para mostrar os mais próximos primeiro
+                        const dateA = a.appointmentDate || '9999-99-99';
+                        const timeA = a.appointmentTime || '23:59';
+                        const dateB = b.appointmentDate || '9999-99-99';
+                        const timeB = b.appointmentTime || '23:59';
+
+                        // Fallback manual para ordenar se for igual
+                        if (dateA === dateB) {
+                            return timeA.localeCompare(timeB);
+                        }
+                        return dateA.localeCompare(dateB);
+                    })
                 : [];
-            setSolicitacoes(fetchedData);
+            setAgendamentos(fetchedData);
+            setLoading(false);
         });
-        return () => unsubscribe();
+
+        return () => {
+            fetchAgendamentos();
+        };
     }, [isAuthReady]);
 
     /* ── Filtragem ── */
-    const assuntos = ['Todos', ...new Set(solicitacoes.map(s => s.dadosSolicitacao?.assunto).filter(Boolean))];
     const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Concluído', 'Não Classificado'];
 
-    const filteredSolicitacoes = solicitacoes.filter(item => {
+    const filteredAgendamentos = agendamentos.filter(item => {
         const searchLower = searchTerm.toLowerCase();
         const matchesSearch =
-            (item.dadosSolicitacao?.assunto?.toLowerCase() || '').includes(searchLower) ||
             (item.dadosUsuario?.name?.toLowerCase() || '').includes(searchLower) ||
             (item.id?.toLowerCase() || '').includes(searchLower);
 
         const matchesStatus = filterStatus === 'Todas' || item.status === filterStatus;
-        const matchesAssunto = filterAssunto === 'Todos' || item.dadosSolicitacao?.assunto === filterAssunto;
 
         let matchesDate = true;
+        const appDateStr = item.appointmentDate; // Formato YYYY-MM-DD tipicamente
+
         if (filterDateFrom || filterDateTo) {
-            const ts = item.timestamp ? new Date(item.timestamp) : null;
-            if (ts) {
-                if (filterDateFrom && ts < new Date(filterDateFrom)) matchesDate = false;
-                if (filterDateTo) {
-                    const toDate = new Date(filterDateTo);
-                    toDate.setHours(23, 59, 59, 999);
-                    if (ts > toDate) matchesDate = false;
-                }
+            if (appDateStr) {
+                if (filterDateFrom && appDateStr < filterDateFrom) matchesDate = false;
+                if (filterDateTo && appDateStr > filterDateTo) matchesDate = false;
+            } else {
+                matchesDate = false; // Se não tem data mas o filtro exige data
             }
         }
 
-        return matchesSearch && matchesStatus && matchesAssunto && matchesDate;
+        return matchesSearch && matchesStatus && matchesDate;
     });
 
-    const totalPages = Math.ceil(filteredSolicitacoes.length / itemsPerPage);
-    const paginatedItems = filteredSolicitacoes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const totalPages = Math.ceil(filteredAgendamentos.length / itemsPerPage);
+    const paginatedItems = filteredAgendamentos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     const handlePageChange = (page) => {
         setCurrentPage(page);
@@ -282,7 +296,7 @@ const AdminBalcaoSolicitacoes = () => {
 
     const handleFilterChange = () => setCurrentPage(1);
 
-    /* ── Ações ── */
+    /* ── Ações do Modal ── */
     const sendNotification = async (solicitacao) => {
         if (!solicitacao.userId || solicitacao.userId === 'anonimo') return;
         const notificacoesRef = ref(db, 'notifications');
@@ -292,8 +306,8 @@ const AdminBalcaoSolicitacoes = () => {
             protocolo: solicitacao.id,
             targetUserId: solicitacao.userId,
             timestamp: serverTimestamp(),
-            tituloNotification: "Sua solicitação para o Balcão do cidadão teve movimentação.",
-            descricaoNotification: "Abra agora mesmo o aplicativo da Câmara Municipal.",
+            tituloNotification: "Seu agendamento foi atualizado.",
+            descricaoNotification: "Verifique os detalhes no aplicativo da Câmara Municipal.",
             userEmail: solicitacao.dadosUsuario?.email,
             userId: solicitacao.userId
         });
@@ -323,7 +337,7 @@ const AdminBalcaoSolicitacoes = () => {
         await set(newNotificationRef, {
             userId: userData.id,
             userEmail: userData.email,
-            message: `Sua solicitação no Balcão do Cidadão sobre "${solicitacao.dadosSolicitacao?.assunto}" foi atualizada.`,
+            message: `Seu agendamento no Balcão do Cidadão para ${solicitacao.dadosSolicitacao?.appointmentDate} foi atualizado.`,
             timestamp: serverTimestamp(),
             read: false,
         });
@@ -348,15 +362,16 @@ const AdminBalcaoSolicitacoes = () => {
     const clearFilters = () => {
         setSearchTerm('');
         setFilterStatus('Todas');
-        setFilterAssunto('Todos');
         setFilterDateFrom('');
         setFilterDateTo('');
         setCurrentPage(1);
     };
 
-    const hasActiveFilters = searchTerm || filterStatus !== 'Todas' || filterAssunto !== 'Todos' || filterDateFrom || filterDateTo;
+    const hasActiveFilters = searchTerm || filterStatus !== 'Todas' || filterDateFrom || filterDateTo;
 
     if (!isAuthReady) return <div className="loading-screen">Carregando...</div>;
+
+    // (Resumo de agendamentos)
 
     return (
         <div className="dashboard-layout">
@@ -372,15 +387,8 @@ const AdminBalcaoSolicitacoes = () => {
                         >
                             <LiaArrowLeftSolid size={18} /> Voltar ao Dashboard
                         </button>
-                        <h1>Todas as Solicitações</h1>
-                        <p>Balcão do Cidadão — {filteredSolicitacoes.length} solicitaç{filteredSolicitacoes.length === 1 ? 'ão' : 'ões'} encontrada{filteredSolicitacoes.length === 1 ? '' : 's'}</p>
-                    </div>
-                    <div className="user-profile">
-                        <div className="user-text">
-                            <p className="user-name-display">{auth.currentUser?.email || 'Admin'}</p>
-                            <p className="user-type-display">Administrador</p>
-                        </div>
-                        <div className="user-avatar"></div>
+                        <h1>Agendamentos Realizados</h1>
+                        <p>Balcão do Cidadão — {filteredAgendamentos.length} pessoa{filteredAgendamentos.length === 1 ? '' : 's'} com agendamento marcado.</p>
                     </div>
                 </header>
 
@@ -392,7 +400,7 @@ const AdminBalcaoSolicitacoes = () => {
                             <LiaSearchSolid style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888' }} size={20} />
                             <input
                                 type="text"
-                                placeholder="Buscar por assunto, nome ou protocolo..."
+                                placeholder="Buscar por nome ou protocolo..."
                                 value={searchTerm}
                                 onChange={(e) => { setSearchTerm(e.target.value); handleFilterChange(); }}
                                 className="form-input"
@@ -433,19 +441,7 @@ const AdminBalcaoSolicitacoes = () => {
                             </div>
 
                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label>Assunto</label>
-                                <select
-                                    value={filterAssunto}
-                                    onChange={(e) => { setFilterAssunto(e.target.value); handleFilterChange(); }}
-                                    className="form-input"
-                                    style={{ margin: 0 }}
-                                >
-                                    {assuntos.map(a => <option key={a} value={a}>{a}</option>)}
-                                </select>
-                            </div>
-
-                            <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label>Data de (início)</label>
+                                <label>Agendado de (Data do evento)</label>
                                 <input
                                     type="date"
                                     value={filterDateFrom}
@@ -456,7 +452,7 @@ const AdminBalcaoSolicitacoes = () => {
                             </div>
 
                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label>Data até (fim)</label>
+                                <label>Agendado até (Data do evento)</label>
                                 <input
                                     type="date"
                                     value={filterDateTo}
@@ -472,59 +468,68 @@ const AdminBalcaoSolicitacoes = () => {
                 {/* Lista completa */}
                 <div className="data-card">
                     <div className="card-header">
-                        <h3>Solicitações ({filteredSolicitacoes.length})</h3>
+                        <h3>Lista de Agendamentos</h3>
                         <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
                             Página {currentPage} de {totalPages || 1}
                         </span>
                     </div>
 
-                    {loading && <p>Carregando...</p>}
+                    {loading && <p>Carregando agendamentos...</p>}
 
-                    {!loading && filteredSolicitacoes.length === 0 && (
+                    {!loading && filteredAgendamentos.length === 0 && (
                         <div style={{ textAlign: 'center', padding: '40px 0', color: '#6b7280' }}>
-                            <p style={{ fontSize: '1.1rem' }}>Nenhuma solicitação encontrada.</p>
+                            <p style={{ fontSize: '1.1rem' }}>Nenhum agendamento encontrado.</p>
                             {hasActiveFilters && (
                                 <button onClick={clearFilters} className="btn-secondary" style={{ marginTop: '12px' }}>
-                                    Limpar filtros e ver todas
+                                    Limpar filtros
                                 </button>
                             )}
                         </div>
                     )}
 
                     <ul className="data-list">
-                        {paginatedItems.map((item, index) => (
-                            <li
-                                key={item.id}
-                                className="data-list-item"
-                                onClick={() => setSelectedSolicitacao(item)}
-                                style={{ cursor: 'pointer' }}
-                            >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                    <span style={{
-                                        minWidth: '32px', height: '32px', borderRadius: '50%',
-                                        background: 'var(--primary-color, #2563eb)', color: '#fff',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: '0.8rem', fontWeight: '600', flexShrink: 0
-                                    }}>
-                                        {(currentPage - 1) * itemsPerPage + index + 1}
-                                    </span>
-                                    <div className="item-main-info">
-                                        <strong>{item.dadosSolicitacao?.assunto || 'Sem assunto'}</strong>
-                                        <span>Solicitante: {item.dadosUsuario?.name || 'N/A'}</span>
-                                        {item.timestamp && (
-                                            <span style={{ fontSize: '0.78rem', color: '#9ca3af' }}>
-                                                {new Date(item.timestamp).toLocaleString('pt-BR')}
+                        {paginatedItems.map((item, index) => {
+                            const dateStr = item.appointmentDate;
+                            const timeStr = item.appointmentTime;
+                            const isPast = dateStr && new Date(dateStr + "T00:00:00") < new Date(new Date().setHours(0, 0, 0, 0));
+
+                            return (
+                                <li
+                                    key={item.id}
+                                    className="data-list-item"
+                                    onClick={() => setSelectedSolicitacao(item)}
+                                    style={{ cursor: 'pointer', opacity: isPast ? 0.6 : 1 }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
+                                        <div style={{
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                            background: 'var(--primary-color, #2563eb)', color: '#fff',
+                                            padding: '8px 12px', borderRadius: '8px', minWidth: '80px', textAlign: 'center'
+                                        }}>
+                                            <strong style={{ fontSize: '1.1rem', lineHeight: '1' }}>{dateStr?.split('-').reverse().join('/') || 'Sem data'}</strong>
+                                            <span style={{ fontSize: '0.8rem', fontWeight: '500', opacity: 0.9, marginTop: '4px' }}>{timeStr || '--:--'}</span>
+                                        </div>
+
+                                        <div className="item-main-info">
+                                            <strong style={{ fontSize: '1.05rem' }}>{item.dadosUsuario?.name || 'Solicitante Desconhecido'}</strong>
+                                            <span style={{ color: '#4b5563', fontSize: '0.9rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                Motivo: {item.dadosSolicitacao?.descricao || 'Não informado'}
                                             </span>
-                                        )}
+                                            {item.timestamp && (
+                                                <span style={{ fontSize: '0.78rem', color: '#9ca3af', marginTop: '4px' }}>
+                                                    Realizado em {new Date(item.timestamp).toLocaleString('pt-BR')}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="item-status">
-                                    <span className={`status-badge status-${item.status?.toLowerCase().replace(/\s/g, '-') || 'pending'}`}>
-                                        {item.status || 'Pendente'}
-                                    </span>
-                                </div>
-                            </li>
-                        ))}
+                                    <div className="item-status">
+                                        <span className={`status-badge status-${item.status?.toLowerCase().replace(/\s/g, '-') || 'pending'}`}>
+                                            {item.status || 'Pendente'}
+                                        </span>
+                                    </div>
+                                </li>
+                            );
+                        })}
                     </ul>
 
                     {/* Paginação */}
@@ -576,4 +581,4 @@ const AdminBalcaoSolicitacoes = () => {
     );
 };
 
-export default AdminBalcaoSolicitacoes;
+export default AdminBalcaoAgendamentos;

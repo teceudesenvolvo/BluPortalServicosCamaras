@@ -201,6 +201,8 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                         <div className="detail-item"><strong>Assunto:</strong> {solicitacao.dadosSolicitacao?.assunto || 'N/A'}</div>
                         {solicitacao.dadosSolicitacao?.assunto === 'Agendamento' ? (
                             <>
+                                <div className="detail-item"><strong>Data Agendada:</strong> {solicitacao.appointmentDate || solicitacao.dadosSolicitacao?.appointmentDate || 'N/A'}</div>
+                                <div className="detail-item"><strong>Horário Agendado:</strong> {solicitacao.appointmentTime || solicitacao.dadosSolicitacao?.appointmentTime || 'N/A'}</div>
                                 <div className="detail-item"><strong>Data Agendada:</strong> {solicitacao.dadosSolicitacao?.appointmentDate || 'N/A'}</div>
                                 <div className="detail-item"><strong>Horário Agendado:</strong> {solicitacao.dadosSolicitacao?.appointmentTime || 'N/A'}</div>
                                 <div className="detail-item"><strong>Motivo:</strong></div>
@@ -313,7 +315,11 @@ const AdminBalcaoDashboard = () => {
 
         const unsubscribe = onValue(q, (snapshot) => {
             const data = snapshot.val();
-            const fetchedData = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+            const fetchedData = data 
+                ? Object.keys(data)
+                    .map(key => ({ id: key, ...data[key] }))
+                    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+                : [];
             setSolicitacoes(fetchedData);
 
             const counts = fetchedData.reduce((acc, item) => {
@@ -480,6 +486,7 @@ const AdminBalcaoDashboard = () => {
 
                 <div className="page-actions-bar">
                     <button onClick={() => setIsAvailabilityModalOpen(true)} className="btn-secondary">Configurar Horários</button>
+                    <button onClick={() => navigate('/admin-balcao/agendamentos')} className="btn-secondary">Visualizar Agendamentos</button>
                 </div>
 
                 <div className="data-sections-grid">
