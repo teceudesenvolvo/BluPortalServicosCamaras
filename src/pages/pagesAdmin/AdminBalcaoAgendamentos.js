@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, orderByChild, equalTo, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get } from 'firebase/database';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 import config from '../../config';
@@ -265,12 +265,19 @@ const AdminBalcaoAgendamentos = () => {
         setLoading(true);
         try {
             const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
-            const q = query(solicitacoesRef, orderByChild('status'), equalTo('Agendado'));
+            // Buscamos os últimos registros e filtramos localmente para evitar o erro de "Index not defined"
+            const q = query(solicitacoesRef, orderByKey(), limitToLast(300));
             const snapshot = await get(q);
             const data = snapshot.val();
             const fetchedData = data
                 ? Object.keys(data)
                     .map(key => ({ id: key, ...data[key] }))
+                    .filter(item => item.status === 'Agendado')
+                    .map(item => ({
+                        ...item,
+                        appointmentDate: item.appointmentDate || item.dadosSolicitacao?.appointmentDate,
+                        appointmentTime: item.appointmentTime || item.dadosSolicitacao?.appointmentTime
+                    }))
                     .sort((a, b) => {
                         const dateA = a.appointmentDate || '9999-99-99';
                         const timeA = a.appointmentTime || '23:59';
