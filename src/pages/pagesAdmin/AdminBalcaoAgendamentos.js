@@ -203,7 +203,6 @@ const AdminBalcaoAgendamentos = () => {
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [loading, setLoading] = useState(true);
     const [agendamentos, setAgendamentos] = useState([]);
-    const [bookedSlots, setBookedSlots] = useState({});
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
 
     // Filtros
