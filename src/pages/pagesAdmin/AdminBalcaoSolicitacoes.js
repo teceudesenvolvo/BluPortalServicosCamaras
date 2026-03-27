@@ -492,7 +492,7 @@ const AdminBalcaoSolicitacoes = () => {
                     )}
 
                     <ul className="data-list">
-                        {paginatedItems.map((item, index) => (
+                        {paginatedItems.reverse().map((item, index) => (
                             <li
                                 key={item.id}
                                 className="data-list-item"

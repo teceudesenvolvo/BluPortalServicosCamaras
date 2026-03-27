@@ -523,7 +523,7 @@ const AdminBalcaoDashboard = () => {
                         {loading && <p>Carregando...</p>}
                         {!loading && filteredSolicitacoes.length === 0 && <p>Nenhuma solicitação com o status "{currentTab}".</p>}
                         <ul className="data-list">
-                            {filteredSolicitacoes.slice(0, 5).map(item => (
+                            {filteredSolicitacoes.reverse().slice(0, 5).map(item => (
                                 <li key={item.id} className="data-list-item" onClick={() => handleOpenModal(item)}>
                                     <div className="item-main-info">
                                         <strong>{item.dadosSolicitacao?.assunto || 'Sem assunto'}</strong>
