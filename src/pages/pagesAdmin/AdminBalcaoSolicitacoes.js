@@ -1,99 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ref, query, onValue, update, push, set, serverTimestamp, get } from 'firebase/database';
-import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
-import { LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane, LiaPaperclipSolid, LiaSearchSolid } from "react-icons/lia";
+import {
+    LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane,
+    LiaPaperclipSolid, LiaSearchSolid, LiaArrowLeftSolid, LiaFilterSolid
+} from "react-icons/lia";
 
-// Modal for Availability Configuration
-const AvailabilityModal = ({ onClose, onSave }) => {
-    const [availability, setAvailability] = useState({
-        monday: { enabled: false, times: '' },
-        tuesday: { enabled: false, times: '' },
-        wednesday: { enabled: false, times: '' },
-        thursday: { enabled: false, times: '' },
-        friday: { enabled: false, times: '' },
-    });
-    const [blockedDates, setBlockedDates] = useState('');
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const availabilityRef = ref(db, `${config.cityCollection}/balcao-config/availability`);
-        const blockedDatesRef = ref(db, `${config.cityCollection}/balcao-config/blockedDates`);
-
-        const fetchConfig = async () => {
-            const [availSnap, blockedSnap] = await Promise.all([
-                get(availabilityRef),
-                get(blockedDatesRef)
-            ]);
-
-            if (availSnap.exists()) {
-                const data = availSnap.val();
-                setAvailability(prevAvailability => {
-                    const newState = { ...prevAvailability };
-                    for (const day in data) {
-                        if (newState[day]) {
-                            newState[day] = { enabled: true, times: data[day].join(', ') };
-                        }
-                    }
-                    return newState;
-                });
-            }
-            if (blockedSnap.exists()) {
-                setBlockedDates(blockedSnap.val().join(', '));
-            }
-            setLoading(false);
-        };
-        fetchConfig();
-    }, []);
-
-    const handleDayToggle = (day) => {
-        setAvailability(prev => ({ ...prev, [day]: { ...prev[day], enabled: !prev[day].enabled } }));
-    };
-
-    const handleTimesChange = (day, times) => {
-        setAvailability(prev => ({ ...prev, [day]: { ...prev[day], times: times } }));
-    };
-
-    const handleSaveClick = () => {
-        const finalConfig = {};
-        for (const day in availability) {
-            if (availability[day].enabled && availability[day].times.trim()) {
-                finalConfig[day] = availability[day].times.split(',').map(t => t.trim()).filter(Boolean);
-            }
-        }
-        const blockedDatesConfig = blockedDates.split(',').map(d => d.trim()).filter(Boolean);
-        onSave(finalConfig, blockedDatesConfig);
-    };
-
-    const daysOfWeek = { monday: 'Segunda-feira', tuesday: 'Terça-feira', wednesday: 'Quarta-feira', thursday: 'Quinta-feira', friday: 'Sexta-feira' };
-
-    if (loading) return <div className="modal-overlay"><div className="modal-content"><p>Carregando...</p></div></div>;
-
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <div className="modal-header"><h3>Configurar Disponibilidade</h3><button onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button></div>
-                <div className="modal-body">
-                    <p>Marque os dias e informe os horários separados por vírgula (ex: 08:00, 09:00).</p>
-                    {Object.keys(daysOfWeek).map(day => (
-                        <div key={day} className="form-row" style={{ alignItems: 'center', marginBottom: '15px' }}><div style={{ flex: '0.5' }}><input type="checkbox" id={day} checked={availability[day].enabled} onChange={() => handleDayToggle(day)} /><label htmlFor={day} style={{ marginLeft: '10px' }}>{daysOfWeek[day]}</label></div><div className="form-group" style={{ flex: '1.5', marginBottom: 0 }}><input type="text" placeholder="Ex: 08:00, 09:00, 10:00" value={availability[day].times} onChange={(e) => handleTimesChange(day, e.target.value)} disabled={!availability[day].enabled} className="form-input" /></div></div>
-                    ))}
-                    <div className="form-group">
-                        <label>Dias sem atendimento (feriados, pontos facultativos)</label>
-                        <input type="text" placeholder="Ex: 25/12/2024, 01/01/2025" value={blockedDates} onChange={(e) => setBlockedDates(e.target.value)} className="form-input" />
-                    </div>
-                    <div className="form-actions"><button onClick={handleSaveClick} className="btn-primary">Salvar Configuração</button></div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// Modal Component
+/* ─── Modal de Detalhes (mesmo componente do AdminBalcao) ─── */
 const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage, onFileUpload, onNotifyUser }) => {
     const [newStatus, setNewStatus] = useState(solicitacao ? solicitacao.status || '' : '');
     const [message, setMessage] = useState('');
@@ -116,7 +33,6 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                     const snapshot = await get(userRef);
                     setConsumerProfile(snapshot.exists() ? snapshot.val() : solicitacao.dadosUsuario);
                 } catch (error) {
-                    console.error("Erro ao buscar perfil do consumidor:", error);
                     setConsumerProfile(solicitacao.dadosUsuario);
                 } finally {
                     setLoadingProfile(false);
@@ -236,20 +152,26 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
     );
 };
 
-// Main Dashboard Component
-const AdminBalcaoDashboard = () => {
+/* ─── Página principal ─── */
+const AdminBalcaoSolicitacoes = () => {
     const navigate = useNavigate();
-    const chartRef = useRef(null);
-    const chartInstance = useRef(null);
 
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [loading, setLoading] = useState(true);
     const [solicitacoes, setSolicitacoes] = useState([]);
-    const [currentTab, setCurrentTab] = useState('Todas');
-    const [statusCounts, setStatusCounts] = useState({});
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
-    const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
+
+    // Filtros
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState('Todas');
+    const [filterAssunto, setFilterAssunto] = useState('Todos');
+    const [filterDateFrom, setFilterDateFrom] = useState('');
+    const [filterDateTo, setFilterDateTo] = useState('');
+    const [showFilters, setShowFilters] = useState(false);
+
+    // Paginação
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 15;
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -262,80 +184,63 @@ const AdminBalcaoDashboard = () => {
 
     useEffect(() => {
         if (!isAuthReady) return;
-
         const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
         const q = query(solicitacoesRef);
-
         const unsubscribe = onValue(q, (snapshot) => {
             const data = snapshot.val();
-            const fetchedData = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+            const fetchedData = data
+                ? Object.keys(data)
+                    .map(key => ({ id: key, ...data[key] }))
+                    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+                : [];
             setSolicitacoes(fetchedData);
-
-            const counts = fetchedData.reduce((acc, item) => {
-                const status = item.status || 'Não Classificado';
-                acc[status] = (acc[status] || 0) + 1;
-                return acc;
-            }, {});
-
-            const fixedStatuses = ['Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Concluído', 'Não Classificado'];
-            const orderedCounts = {};
-            fixedStatuses.forEach(status => {
-                orderedCounts[status] = counts[status] || 0;
-            });
-            setStatusCounts(orderedCounts);
         });
-
         return () => unsubscribe();
     }, [isAuthReady]);
 
-    useEffect(() => {
-        if (!chartRef.current || Object.keys(statusCounts).length === 0) return;
-
-        if (chartInstance.current) chartInstance.current.destroy();
-
-        const ctx = chartRef.current.getContext('2d');
-        chartInstance.current = new Chart(ctx, {
-            type: 'pie',
-            data: {
-                labels: Object.keys(statusCounts),
-                datasets: [{
-                    label: 'Total de Solicitações',
-                    data: Object.values(statusCounts),
-                    backgroundColor: ['#FFC107', '#2196F3', '#4CAF50', '#9E9E9E'],
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'top' },
-                    title: { display: true, text: 'Solicitações por Status', font: { size: 16, weight: '600' } }
-                }
-            }
-        });
-
-        return () => { if (chartInstance.current) chartInstance.current.destroy(); };
-    }, [statusCounts]);
+    /* ── Filtragem ── */
+    const assuntos = ['Todos', ...new Set(solicitacoes.map(s => s.dadosSolicitacao?.assunto).filter(Boolean))];
+    const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Concluído', 'Não Classificado'];
 
     const filteredSolicitacoes = solicitacoes.filter(item => {
-        const matchesTab = currentTab === 'Todas' || item.status === currentTab;
         const searchLower = searchTerm.toLowerCase();
         const matchesSearch =
             (item.dadosSolicitacao?.assunto?.toLowerCase() || '').includes(searchLower) ||
             (item.dadosUsuario?.name?.toLowerCase() || '').includes(searchLower) ||
             (item.id?.toLowerCase() || '').includes(searchLower);
-        return matchesTab && matchesSearch;
-    });
 
-    const handleOpenModal = (solicitacao) => setSelectedSolicitacao(solicitacao);
-    const handleCloseModal = () => setSelectedSolicitacao(null);
+        const matchesStatus = filterStatus === 'Todas' || item.status === filterStatus;
+        const matchesAssunto = filterAssunto === 'Todos' || item.dadosSolicitacao?.assunto === filterAssunto;
 
-    const sendNotification = async (solicitacao) => {
-        if (!solicitacao.userId || solicitacao.userId === 'anonimo') {
-            console.log("Usuário anônimo, notificação não enviada.");
-            return;
+        let matchesDate = true;
+        if (filterDateFrom || filterDateTo) {
+            const ts = item.timestamp ? new Date(item.timestamp) : null;
+            if (ts) {
+                if (filterDateFrom && ts < new Date(filterDateFrom)) matchesDate = false;
+                if (filterDateTo) {
+                    const toDate = new Date(filterDateTo);
+                    toDate.setHours(23, 59, 59, 999);
+                    if (ts > toDate) matchesDate = false;
+                }
+            }
         }
 
+        return matchesSearch && matchesStatus && matchesAssunto && matchesDate;
+    });
+
+    const totalPages = Math.ceil(filteredSolicitacoes.length / itemsPerPage);
+    const paginatedItems = filteredSolicitacoes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleFilterChange = () => setCurrentPage(1);
+
+    /* ── Ações ── */
+    const sendNotification = async (solicitacao) => {
+        if (!solicitacao.userId || solicitacao.userId === 'anonimo') return;
         const notificacoesRef = ref(db, 'notifications');
         const newNotificationRef = push(notificacoesRef);
         await set(newNotificationRef, {
@@ -344,8 +249,8 @@ const AdminBalcaoDashboard = () => {
             targetUserId: solicitacao.userId,
             timestamp: serverTimestamp(),
             tituloNotification: "Sua solicitação para o Balcão do cidadão teve movimentação.",
-            descricaoNotification: "Abra agora mesmo o aplicativo da Câmara Municipal de Pacatuba para acompanhar.",
-            userEmail: solicitacao.dadosUsuario.email,
+            descricaoNotification: "Abra agora mesmo o aplicativo da Câmara Municipal.",
+            userEmail: solicitacao.dadosUsuario?.email,
             userId: solicitacao.userId
         });
     };
@@ -355,21 +260,7 @@ const AdminBalcaoDashboard = () => {
         await update(itemRef, { status: newStatus });
         await sendNotification({ ...selectedSolicitacao, id, status: newStatus });
         alert('Status atualizado!');
-        handleCloseModal();
-    };
-
-    const handleSaveAvailability = async (availabilityConfig, blockedDatesConfig) => {
-        const availabilityRef = ref(db, `${config.cityCollection}/balcao-config/availability`);
-        const blockedDatesRef = ref(db, `${config.cityCollection}/balcao-config/blockedDates`);
-        try {
-            await set(availabilityRef, availabilityConfig);
-            await set(blockedDatesRef, blockedDatesConfig);
-            alert('Disponibilidade salva com sucesso!');
-            setIsAvailabilityModalOpen(false);
-        } catch (error) {
-            console.error("Erro ao salvar disponibilidade:", error);
-            alert('Falha ao salvar a disponibilidade.');
-        }
+        setSelectedSolicitacao(null);
     };
 
     const handleSendMessage = async (id, text) => {
@@ -383,13 +274,12 @@ const AdminBalcaoDashboard = () => {
     const handleNotifyUser = async (solicitacao) => {
         const userData = solicitacao.dadosUsuario;
         if (!userData || !userData.id) return alert("Usuário não identificado.");
-
         const notificacoesRef = ref(db, 'notificacoes');
         const newNotificationRef = push(notificacoesRef);
         await set(newNotificationRef, {
             userId: userData.id,
             userEmail: userData.email,
-            message: `Sua solicitação no Balcão do Cidadão sobre "${solicitacao.dadosSolicitacao.assunto}" foi atualizada.`,
+            message: `Sua solicitação no Balcão do Cidadão sobre "${solicitacao.dadosSolicitacao?.assunto}" foi atualizada.`,
             timestamp: serverTimestamp(),
             read: false,
         });
@@ -411,7 +301,16 @@ const AdminBalcaoDashboard = () => {
         };
     };
 
-    const statusTabs = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Concluído'];
+    const clearFilters = () => {
+        setSearchTerm('');
+        setFilterStatus('Todas');
+        setFilterAssunto('Todos');
+        setFilterDateFrom('');
+        setFilterDateTo('');
+        setCurrentPage(1);
+    };
+
+    const hasActiveFilters = searchTerm || filterStatus !== 'Todas' || filterAssunto !== 'Todos' || filterDateFrom || filterDateTo;
 
     if (!isAuthReady) return <div className="loading-screen">Carregando...</div>;
 
@@ -419,10 +318,18 @@ const AdminBalcaoDashboard = () => {
         <div className="dashboard-layout">
             <AdminSidebar />
             <div className="dashboard-content" style={{ padding: '40px' }}>
+                {/* Header */}
                 <header className="page-header-container">
                     <div className="header-title-section">
-                        <h1>Admin Balcão do Cidadão</h1>
-                        <p>Visão geral das solicitações</p>
+                        <button
+                            onClick={() => navigate('/admin-balcao')}
+                            className="btn-secondary"
+                            style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                        >
+                            <LiaArrowLeftSolid size={18} /> Voltar ao Dashboard
+                        </button>
+                        <h1>Todas as Solicitações</h1>
+                        <p>Balcão do Cidadão — {filteredSolicitacoes.length} solicitaç{filteredSolicitacoes.length === 1 ? 'ão' : 'ões'} encontrada{filteredSolicitacoes.length === 1 ? '' : 's'}</p>
                     </div>
                     <div className="user-profile">
                         <div className="user-text">
@@ -433,83 +340,196 @@ const AdminBalcaoDashboard = () => {
                     </div>
                 </header>
 
-                <div className="page-actions-bar">
-                    <button onClick={() => setIsAvailabilityModalOpen(true)} className="btn-secondary">Configurar Horários</button>
-                </div>
-
-                <div className="data-sections-grid">
-                    <div className="data-card">
-                        <div className="card-header"><h3>Atividades Recentes</h3></div>
-                        <div className="tabs-header" style={{ marginBottom: '20px' }}>
-                            {statusTabs.map(tab => (
-                                <button key={tab} className={`tab-button ${currentTab === tab ? 'active' : ''}`} onClick={() => setCurrentTab(tab)}>
-                                    {tab}
-                                </button>
-                            ))}
-                        </div>
-                        <div className="chart-container">
-                            <div style={{ height: '350px', width: '100%' }}>
-                                {loading ? <p>Carregando...</p> : <canvas ref={chartRef}></canvas>}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="data-card">
-                        <div className="card-header"><h3>Últimas Solicitações ({currentTab})</h3></div>
-                        <div style={{ marginBottom: '15px', position: 'relative' }}>
-                            <LiaSearchSolid style={{ position: 'absolute', left: '10px', top: '10px', color: '#888' }} size={20} />
+                {/* Barra de pesquisa e filtros */}
+                <div className="data-card" style={{ marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* Campo de busca */}
+                        <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
+                            <LiaSearchSolid style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888' }} size={20} />
                             <input
                                 type="text"
                                 placeholder="Buscar por assunto, nome ou protocolo..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={(e) => { setSearchTerm(e.target.value); handleFilterChange(); }}
                                 className="form-input"
-                                style={{ paddingLeft: '40px' }}
+                                style={{ paddingLeft: '42px', margin: 0 }}
                             />
                         </div>
-                        {loading && <p>Carregando...</p>}
-                        {!loading && filteredSolicitacoes.length === 0 && <p>Nenhuma solicitação com o status "{currentTab}".</p>}
-                        <ul className="data-list">
-                            {filteredSolicitacoes.slice(0, 5).map(item => (
-                                <li key={item.id} className="data-list-item" onClick={() => handleOpenModal(item)}>
+
+                        {/* Botão toggle filtros */}
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className={showFilters ? 'btn-primary' : 'btn-secondary'}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                        >
+                            <LiaFilterSolid size={18} />
+                            Filtros {hasActiveFilters && <span style={{ background: '#ef4444', color: '#fff', borderRadius: '50%', width: '18px', height: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', marginLeft: '2px' }}>!</span>}
+                        </button>
+
+                        {hasActiveFilters && (
+                            <button onClick={clearFilters} className="btn-secondary" style={{ whiteSpace: 'nowrap' }}>
+                                Limpar filtros
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Painel de filtros avançados */}
+                    {showFilters && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border-color, #e5e7eb)' }}>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Status</label>
+                                <select
+                                    value={filterStatus}
+                                    onChange={(e) => { setFilterStatus(e.target.value); handleFilterChange(); }}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                >
+                                    {statusList.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Assunto</label>
+                                <select
+                                    value={filterAssunto}
+                                    onChange={(e) => { setFilterAssunto(e.target.value); handleFilterChange(); }}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                >
+                                    {assuntos.map(a => <option key={a} value={a}>{a}</option>)}
+                                </select>
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Data de (início)</label>
+                                <input
+                                    type="date"
+                                    value={filterDateFrom}
+                                    onChange={(e) => { setFilterDateFrom(e.target.value); handleFilterChange(); }}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                />
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Data até (fim)</label>
+                                <input
+                                    type="date"
+                                    value={filterDateTo}
+                                    onChange={(e) => { setFilterDateTo(e.target.value); handleFilterChange(); }}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Lista completa */}
+                <div className="data-card">
+                    <div className="card-header">
+                        <h3>Solicitações ({filteredSolicitacoes.length})</h3>
+                        <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                            Página {currentPage} de {totalPages || 1}
+                        </span>
+                    </div>
+
+                    {loading && <p>Carregando...</p>}
+
+                    {!loading && filteredSolicitacoes.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: '#6b7280' }}>
+                            <p style={{ fontSize: '1.1rem' }}>Nenhuma solicitação encontrada.</p>
+                            {hasActiveFilters && (
+                                <button onClick={clearFilters} className="btn-secondary" style={{ marginTop: '12px' }}>
+                                    Limpar filtros e ver todas
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    <ul className="data-list">
+                        {paginatedItems.map((item, index) => (
+                            <li
+                                key={item.id}
+                                className="data-list-item"
+                                onClick={() => setSelectedSolicitacao(item)}
+                                style={{ cursor: 'pointer' }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                    <span style={{
+                                        minWidth: '32px', height: '32px', borderRadius: '50%',
+                                        background: 'var(--primary-color, #2563eb)', color: '#fff',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '0.8rem', fontWeight: '600', flexShrink: 0
+                                    }}>
+                                        {(currentPage - 1) * itemsPerPage + index + 1}
+                                    </span>
                                     <div className="item-main-info">
                                         <strong>{item.dadosSolicitacao?.assunto || 'Sem assunto'}</strong>
                                         <span>Solicitante: {item.dadosUsuario?.name || 'N/A'}</span>
+                                        {item.timestamp && (
+                                            <span style={{ fontSize: '0.78rem', color: '#9ca3af' }}>
+                                                {new Date(item.timestamp).toLocaleString('pt-BR')}
+                                            </span>
+                                        )}
                                     </div>
-                                    <div className="item-status"><span className={`status-badge status-${item.status?.toLowerCase().replace(/\s/g, '-') || 'pending'}`}>{item.status || 'Pendente'}</span></div>
-                                </li>
-                            ))}
-                        </ul>
-                        {filteredSolicitacoes.length > 0 && (
-                            <div style={{ marginTop: '16px', textAlign: 'center' }}>
+                                </div>
+                                <div className="item-status">
+                                    <span className={`status-badge status-${item.status?.toLowerCase().replace(/\s/g, '-') || 'pending'}`}>
+                                        {item.status || 'Pendente'}
+                                    </span>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+
+                    {/* Paginação */}
+                    {totalPages > 1 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
+                            <button
+                                onClick={() => handlePageChange(currentPage - 1)}
+                                disabled={currentPage === 1}
+                                className="btn-secondary"
+                                style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
+                            >
+                                ‹ Anterior
+                            </button>
+
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                                 <button
-                                    onClick={() => navigate('/admin-balcao/solicitacoes')}
-                                    className="btn-primary"
-                                    style={{ width: '100%' }}
+                                    key={page}
+                                    onClick={() => handlePageChange(page)}
+                                    className={currentPage === page ? 'btn-primary' : 'btn-secondary'}
+                                    style={{ padding: '6px 12px', minWidth: '38px' }}
                                 >
-                                    Ver todos
+                                    {page}
                                 </button>
-                            </div>
-                        )}
-                    </div>
+                            ))}
+
+                            <button
+                                onClick={() => handlePageChange(currentPage + 1)}
+                                disabled={currentPage === totalPages}
+                                className="btn-secondary"
+                                style={{ padding: '6px 14px', opacity: currentPage === totalPages ? 0.4 : 1 }}
+                            >
+                                Próxima ›
+                            </button>
+                        </div>
+                    )}
                 </div>
 
+                {/* Modal */}
                 <SolicitacaoBalcaoModal
                     solicitacao={selectedSolicitacao}
-                    onClose={handleCloseModal}
+                    onClose={() => setSelectedSolicitacao(null)}
                     onStatusChange={handleStatusChange}
                     onSendMessage={handleSendMessage}
                     onFileUpload={handleAdminFileUpload}
                     onNotifyUser={handleNotifyUser}
                 />
-
-                {isAvailabilityModalOpen && <AvailabilityModal
-                    onClose={() => setIsAvailabilityModalOpen(false)}
-                    onSave={handleSaveAvailability}
-                />}
             </div>
         </div>
     );
 };
 
-export default AdminBalcaoDashboard;
+export default AdminBalcaoSolicitacoes;

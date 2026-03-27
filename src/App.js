@@ -35,6 +35,7 @@ import AdminPiel from './pages/pagesAdmin/AdminPiel';
 import AdminProcon from './pages/pagesAdmin/AdminProcon';
 import AdminJuridico from './pages/pagesAdmin/AdminJuridico';
 import AdminBalcao from './pages/pagesAdmin/AdminBalcao';
+import AdminBalcaoSolicitacoes from './pages/pagesAdmin/AdminBalcaoSolicitacoes';
 import AdminOuvidoria from './pages/pagesAdmin/AdminOuvidoria';
 import AdminProcuradoria from './pages/pagesAdmin/AdminProcuradoria';
 import AdminVereadores from './pages/pagesAdmin/AdminVereadores';
@@ -75,6 +76,7 @@ function App() {
           <Route path="/admin-procon" element={<AdminProcon />} />
           <Route path="/admin-juridico" element={<AdminJuridico />} />
           <Route path="/admin-balcao" element={<AdminBalcao />} />
+          <Route path="/admin-balcao/solicitacoes" element={<AdminBalcaoSolicitacoes />} />
           <Route path="/admin-ouvidoria" element={<AdminOuvidoria />} />
           <Route path="/admin-procuradoria" element={<AdminProcuradoria />} />
           <Route path="/admin-vereadores" element={<AdminVereadores />} />
