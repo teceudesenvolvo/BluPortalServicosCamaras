@@ -7,19 +7,21 @@ import { db, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import { LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane, LiaPaperclipSolid, LiaSearchSolid, LiaDownloadSolid } from "react-icons/lia";
+import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
 // Lightbox para visualizar arquivos inline
 const FileViewerModal = ({ file, onClose }) => {
     if (!file) return null;
     const isImage = file.type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
     const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    const fileUrl = file.url || file.data;
     return (
         <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
             <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '90vw', width: '760px' }}>
                 <div className="modal-header">
                     <h3 style={{ fontSize: '0.95rem', wordBreak: 'break-all' }}>{file.name}</h3>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                        <a href={file.data} download={file.name} className="btn-secondary" style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <a href={fileUrl} download={file.name} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <LiaDownloadSolid size={16} /> Download
                         </a>
                         <button onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button>
@@ -27,15 +29,15 @@ const FileViewerModal = ({ file, onClose }) => {
                 </div>
                 <div className="modal-body" style={{ overflow: 'auto', maxHeight: '75vh', textAlign: 'center' }}>
                     {isImage && (
-                        <img src={file.data} alt={file.name} style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '8px' }} />
+                        <img src={fileUrl} alt={file.name} style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '8px' }} />
                     )}
                     {isPdf && (
-                        <iframe src={file.data} title={file.name} style={{ width: '100%', height: '70vh', border: 'none', borderRadius: '8px' }} />
+                        <iframe src={fileUrl} title={file.name} style={{ width: '100%', height: '70vh', border: 'none', borderRadius: '8px' }} />
                     )}
                     {!isImage && !isPdf && (
                         <div style={{ padding: '40px' }}>
                             <p style={{ marginBottom: '16px', color: '#6b7280' }}>Visualização não disponível para este tipo de arquivo.</p>
-                            <a href={file.data} download={file.name} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            <a href={fileUrl} download={file.name} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                 <LiaDownloadSolid size={18} /> Baixar arquivo
                             </a>
                         </div>
@@ -450,17 +452,29 @@ const AdminBalcaoDashboard = () => {
 
     const handleAdminFileUpload = async (id, file) => {
         if (!file) return;
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = async () => {
-            const fileData = { name: file.name, type: file.type, data: reader.result, sender: 'admin', timestamp: serverTimestamp() };
+        try {
+            const folderPath = `balcao-cidadao/admin-uploads/${id}`;
+            const uploadResult = await uploadFileToStorage(file, folderPath);
+            
+            const fileData = { 
+                name: file.name, 
+                type: file.type, 
+                url: uploadResult.url,
+                data: uploadResult.url, // Fallback
+                sender: 'admin', 
+                timestamp: serverTimestamp() 
+            };
+
             const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
             const snapshot = await get(itemRef);
             const currentData = snapshot.val();
             const currentFiles = currentData.arquivos || [];
             await update(itemRef, { arquivos: [...currentFiles, fileData] });
             alert("Arquivo enviado!");
-        };
+        } catch (error) {
+            console.error("Erro no upload admin:", error);
+            alert("Erro ao enviar arquivo.");
+        }
     };
 
     const statusTabs = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Concluído'];

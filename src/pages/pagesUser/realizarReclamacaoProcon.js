@@ -117,28 +117,9 @@ const AddProducts = () => {
             return true;
         });
 
-        const filePromises = validatedFiles.map((file) => {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    resolve({
-                        name: file.name,
-                        type: file.type,
-                        data: event.target.result, // Base64
-                    });
-                };
-                reader.onerror = (error) => reject(error);
-                reader.readAsDataURL(file);
-            });
-        });
-
-        Promise.all(filePromises)
-            .then((data) => {
-                setFileData(data);
-                setFileCount(validatedFiles.length);
-                setFileErrors(errors);
-            })
-            .catch((error) => console.error('Erro ao converter arquivos:', error));
+        setFileData(validatedFiles);
+        setFileCount(validatedFiles.length);
+        setFileErrors(errors);
     };
 
     const buscarEmpresaPorCnpj = async () => {
@@ -264,7 +245,8 @@ const AddProducts = () => {
             return {
                 name: file.name,
                 type: file.type,
-                url: uploadResult.url
+                url: uploadResult.url,
+                data: uploadResult.url // Mantemos 'data' como fallback para visualizadores antigos
             };
         });
         

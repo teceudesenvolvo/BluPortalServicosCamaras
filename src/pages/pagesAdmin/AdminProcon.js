@@ -6,6 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase'; // Importa as instâncias corretas do Firebase
 import config from '../../config'; // Importa a configuração
 import AdminSidebar from '../../components/AdminSidebar'; // Importa o novo Sidebar de Admin
+import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { LiaTimesSolid, LiaPaperclipSolid, LiaUploadSolid, LiaPaperPlane } from "react-icons/lia";
 
 // =============================================================
@@ -145,7 +146,7 @@ const ComplaintDetailsModal = ({ denuncia, onClose, onStatusChange, onSendMessag
                         <button onClick={handleStatusSave} className="btn-primary" style={{ alignSelf: 'flex-end', height: '45px' }}>Salvar Status</button>
                     </div>
                     <div className="detail-item"><strong>Arquivos do Usuário:</strong>
-                        {denuncia.arquivos?.length > 0 ? denuncia.arquivos.map(file => <a href={file.data} target="_blank" rel="noopener noreferrer" key={file.name} className="file-link"><LiaPaperclipSolid /> {file.name}</a>) : "Nenhum arquivo enviado."}
+                        {denuncia.arquivos?.length > 0 ? denuncia.arquivos.map(file => <a href={file.url || file.data} target="_blank" rel="noopener noreferrer" key={file.name} className="file-link"><LiaPaperclipSolid /> {file.name}</a>) : "Nenhum arquivo enviado."}
                     </div>
 
                     <hr />
@@ -414,32 +415,29 @@ const AdminProconDashboard = () => {
             alert("O arquivo excede o limite de 5MB.");
             return;
         }
+        
+        try {
+            const folderPath = `denuncias-procon/admin-uploads/${denunciaId}`;
+            const uploadResult = await uploadFileToStorage(file, folderPath);
 
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = async () => {
             const fileData = {
                 name: file.name,
                 type: file.type,
-                data: reader.result,
+                url: uploadResult.url,
+                data: uploadResult.url,
                 sender: 'admin',
                 timestamp: serverTimestamp(),
             };
 
-    const denunciaRef = ref(db, `${config.cityCollection}/denuncias-procon/${denunciaId}`);
-            try {
-                const snapshot = await get(denunciaRef);
-                const denunciaAtual = snapshot.val();
-                const arquivosAtuais = denunciaAtual.arquivos || [];
-                const novosArquivos = [...arquivosAtuais, fileData];
-
-                await update(denunciaRef, { arquivos: novosArquivos });
-                alert("Arquivo enviado com sucesso!");
-            } catch (error) {
-                alert("Falha ao enviar o arquivo.");
-                console.error("Erro ao fazer upload do arquivo:", error);
-            }
-        };
+            const denunciaRef = ref(db, `${config.cityCollection}/denuncias-procon/${denunciaId}`);
+            const snapshot = await get(denunciaRef);
+            const denunciaAtual = snapshot.val();
+            const arquivosAtuais = denunciaAtual.arquivos || [];
+            await update(denunciaRef, { arquivos: [...arquivosAtuais, fileData] });
+            alert("Arquivo enviado com sucesso!");
+        } catch (error) {
+            alert("Falha ao enviar o arquivo.");
+        }
         reader.onerror = () => {
             alert("Erro ao ler o arquivo.");
         };

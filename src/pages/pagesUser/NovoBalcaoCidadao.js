@@ -122,7 +122,8 @@ const NovoBalcaoCidadao = () => {
                 for (const [key, filesArray] of Object.entries(anexos)) {
                     const uploadedFiles = [];
                     for (const file of filesArray) {
-                        const uploadResult = await uploadFileToStorage(file, `balcao-cidadao/${currentUser.uid}/anexos`);
+                        const folderPath = `${config.cityCollection}/balcao-cidadao/${currentUser.uid}/anexos`;
+                        const uploadResult = await uploadFileToStorage(file, folderPath);
                         uploadedFiles.push({
                             name: file.name,
                             type: file.type,
