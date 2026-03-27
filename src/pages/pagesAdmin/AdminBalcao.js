@@ -320,7 +320,7 @@ const AdminBalcaoDashboard = () => {
     const filteredSolicitacoes = solicitacoes.filter(item => {
         const matchesTab = currentTab === 'Todas' || item.status === currentTab;
         const searchLower = searchTerm.toLowerCase();
-        const matchesSearch = 
+        const matchesSearch =
             (item.dadosSolicitacao?.assunto?.toLowerCase() || '').includes(searchLower) ||
             (item.dadosUsuario?.name?.toLowerCase() || '').includes(searchLower) ||
             (item.id?.toLowerCase() || '').includes(searchLower);
@@ -383,7 +383,7 @@ const AdminBalcaoDashboard = () => {
     const handleNotifyUser = async (solicitacao) => {
         const userData = solicitacao.dadosUsuario;
         if (!userData || !userData.id) return alert("Usuário não identificado.");
-        
+
         const notificacoesRef = ref(db, 'notificacoes');
         const newNotificationRef = push(notificacoesRef);
         await set(newNotificationRef, {
@@ -458,11 +458,11 @@ const AdminBalcaoDashboard = () => {
                         <div className="card-header"><h3>Últimas Solicitações ({currentTab})</h3></div>
                         <div style={{ marginBottom: '15px', position: 'relative' }}>
                             <LiaSearchSolid style={{ position: 'absolute', left: '10px', top: '10px', color: '#888' }} size={20} />
-                            <input 
-                                type="text" 
-                                placeholder="Buscar por assunto, nome ou protocolo..." 
+                            <input
+                                type="text"
+                                placeholder="Buscar por assunto, nome ou protocolo..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)} 
+                                onChange={(e) => setSearchTerm(e.target.value)}
                                 className="form-input"
                                 style={{ paddingLeft: '40px' }}
                             />
@@ -470,7 +470,7 @@ const AdminBalcaoDashboard = () => {
                         {loading && <p>Carregando...</p>}
                         {!loading && filteredSolicitacoes.length === 0 && <p>Nenhuma solicitação com o status "{currentTab}".</p>}
                         <ul className="data-list">
-                            {filteredSolicitacoes.slice(0, 5).map(item => (
+                            {filteredSolicitacoes.map(item => (
                                 <li key={item.id} className="data-list-item" onClick={() => handleOpenModal(item)}>
                                     <div className="item-main-info">
                                         <strong>{item.dadosSolicitacao?.assunto || 'Sem assunto'}</strong>
@@ -480,7 +480,6 @@ const AdminBalcaoDashboard = () => {
                                 </li>
                             ))}
                         </ul>
-                        {filteredSolicitacoes.length > 5 && <p style={{ marginTop: '15px', fontSize: '0.9rem', color: '#6b7280', textAlign: 'center' }}>e mais {filteredSolicitacoes.length - 5} solicitações...</p>}
                     </div>
                 </div>
 
