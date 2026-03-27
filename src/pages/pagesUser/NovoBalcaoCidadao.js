@@ -5,6 +5,7 @@ import Sidebar from '../../components/Sidebar';
 import { db } from '../../firebase'; 
 import config from '../../config'; // Importa a configuração
 import { ref, get, push, set, serverTimestamp } from 'firebase/database';
+import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
 // Ícones
 import { LiaPaperPlane, LiaArrowLeftSolid } from "react-icons/lia";
@@ -77,23 +78,10 @@ const NovoBalcaoCidadao = () => {
 
     const handleFileChange = (e) => {
         const { name, files } = e.target;
-        const filePromises = Array.from(files).map(file => {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (event) => resolve({ name: file.name, type: file.type, data: event.target.result });
-                reader.onerror = (error) => reject(error);
-                reader.readAsDataURL(file);
-            });
-        });
-
-        Promise.all(filePromises)
-            .then(fileData => {
-                setAnexos(prev => ({ ...prev, [name]: fileData }));
-            })
-            .catch(err => {
-                console.error("Erro ao processar arquivos:", err);
-                setError("Erro ao processar arquivos.");
-            });
+        // Salva diretamente os objetos File para upload no submit
+        if (files && files.length > 0) {
+            setAnexos(prev => ({ ...prev, [name]: Array.from(files) }));
+        }
     };
 
     // Form submission
@@ -128,11 +116,27 @@ const NovoBalcaoCidadao = () => {
                     setLoading(false);
                     return;
                 }
+                
+                // Processa o upload de todos os anexos para o Storage
+                const anexosProcessados = {};
+                for (const [key, filesArray] of Object.entries(anexos)) {
+                    const uploadedFiles = [];
+                    for (const file of filesArray) {
+                        const uploadResult = await uploadFileToStorage(file, `balcao-cidadao/${currentUser.uid}/anexos`);
+                        uploadedFiles.push({
+                            name: file.name,
+                            type: file.type,
+                            url: uploadResult.url // Somente a URL vai banco
+                        });
+                    }
+                    anexosProcessados[key] = uploadedFiles;
+                }
+
                 dadosDaSolicitacao = {
                     assunto: assunto,
                     tipoDocumento: tipoDocumento,
                     detalhes: formData,
-                    anexos: anexos,
+                    anexos: anexosProcessados,
                 };
             } else {
                 if (!formData.descricao) {
@@ -258,7 +262,7 @@ const NovoBalcaoCidadao = () => {
                         </div>
                         <div className="user-avatar">
                             {loggedInUserData?.avatar ? (
-                                <img src={`data:image/png;base64,${loggedInUserData.avatar}`} alt="Avatar do usuário" />
+                                <img src={loggedInUserData.avatar.startsWith('http') || loggedInUserData.avatar.startsWith('data') ? loggedInUserData.avatar : `data:image/jpeg;base64,${loggedInUserData.avatar}`} alt="Avatar do usuário" />
                             ) : (
                                 <div className="user-avatar-placeholder" />
                             )}

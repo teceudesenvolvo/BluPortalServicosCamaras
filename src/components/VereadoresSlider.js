@@ -25,6 +25,7 @@ const VereadorCard = ({ nome, nomeParlamentar, foto }) => (
 // Função para garantir que o avatar seja uma Data URL válida
 const getAvatarSrc = (avatarBase64) => {
     if (!avatarBase64) return null;
+    if (avatarBase64.startsWith('http')) return avatarBase64;
     if (avatarBase64.startsWith('data:image')) return avatarBase64;
     // Assume um formato padrão se o prefixo estiver faltando
     return `data:image/jpeg;base64,${avatarBase64}`;

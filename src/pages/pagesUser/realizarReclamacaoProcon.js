@@ -9,6 +9,8 @@ import { db } from '../../firebase';
 import config from '../../config'; // Importa a configuração
 import Sidebar from '../../components/Sidebar'; // Importa o componente Sidebar real
 
+import { uploadFileToStorage } from '../../utils/firebaseStorageUtils'; // Função para upload de arquivos
+
 pdfMake.vfs = pdfFonts.vfs;
 
 
@@ -255,13 +257,26 @@ const AddProducts = () => {
             tipo: loggedInUserData?.tipo || 'Cidadão',
         };
 
+        // Fazer o upload dos arquivos pro Storage
+        const uploadPromises = fileData.map(async (file) => {
+            const folderPath = `denuncias-procon/${userId}/anexos`;
+            const uploadResult = await uploadFileToStorage(file, folderPath);
+            return {
+                name: file.name,
+                type: file.type,
+                url: uploadResult.url
+            };
+        });
+        
+        const anexosProcessados = await Promise.all(uploadPromises);
+
         // Objeto com todos os dados a serem salvos no Realtime Database
         const reclamacaoDataFinal = {
             ...reclamacaoFormData,
             protocolo: protocolo,
             companyName: empresaInfo?.razao_social || '',
             cnpjEmpresaReclamada: empresaInfo?.cnpj || reclamacaoFormData.cnpj,
-            arquivos: fileData,
+            arquivos: anexosProcessados, // Array de {name, type, url}
             userId: userId, // Adiciona o userId no nível raiz do objeto
             createdAt: timestamp,
             userDataAtTimeOfComplaint: dadosUsuarioParaSalvar, // Salva o objeto completo do usuário

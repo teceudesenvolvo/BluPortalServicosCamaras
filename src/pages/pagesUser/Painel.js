@@ -24,6 +24,13 @@ const ServiceCard = ({ icon, title, path, navigate }) => {
     );
 };
 
+const getAvatarSrc = (avatarBase64) => {
+    if (!avatarBase64) return null;
+    if (avatarBase64.startsWith('http')) return avatarBase64;
+    if (avatarBase64.startsWith('data:image')) return avatarBase64;
+    return `data:image/jpeg;base64,${avatarBase64}`;
+};
+
 // --- Componente Principal: DashboardPage ---
 const DashboardPage = () => {
     const navigate = useNavigate(); 
@@ -120,8 +127,8 @@ const DashboardPage = () => {
                             <p className="user-type-display">{loggedInUserData?.tipo || 'Cidadão'}</p>
                         </div>
                         <div className="user-avatar">
-                            {loggedInUserData?.avatar ? (
-                                <img src={`data:image/png;base64,${loggedInUserData.avatar}`} alt="Avatar do usuário" className='user-avatar' />
+                            {getAvatarSrc(loggedInUserData?.avatar) ? (
+                                <img src={getAvatarSrc(loggedInUserData.avatar)} alt="Avatar do usuário" className='user-avatar' />
                             ) : (
                                 <div className="user-avatar-placeholder" /> // Mantém um placeholder se não houver imagem
                             )}

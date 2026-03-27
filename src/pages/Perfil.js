@@ -9,6 +9,7 @@ import { auth, db } from '../firebase';
 import Sidebar from '../components/Sidebar'; // Sidebar do Cidadão
 import config from '../config'; // Importa a configuração
 import AdminSidebar from '../components/AdminSidebar'; // Sidebar do Admin
+import { uploadFileToStorage } from '../utils/firebaseStorageUtils'; // Novo import
 
 // Ícones
 import {
@@ -27,6 +28,7 @@ const Perfil = () => {
     const [editableProfileData, setEditableProfileData] = useState(null); // Dados para edição
     const [loadingProfile, setLoadingProfile] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
+    const [selectedAvatarFile, setSelectedAvatarFile] = useState(null); // Arquivo pendente pra upload
     const [error, setError] = useState(null);
 
     // 2. BUSCA E OBSERVAÇÃO DE DADOS DO PERFIL
@@ -83,6 +85,7 @@ const Perfil = () => {
     const handleCancelEdit = () => {
         setIsEditing(false);
         setEditableProfileData(null);
+        setSelectedAvatarFile(null);
     };
 
     const handleProfileChange = (e) => {
@@ -93,6 +96,9 @@ const Perfil = () => {
     const handleImageChange = (e) => {
         const file = e.target.files[0];
         if (file) {
+            setSelectedAvatarFile(file); // Guarda o arquivo original para o Storage
+            
+            // Só para o preview instantâneo na tela (não vai pro banco)
             const reader = new FileReader();
             reader.onloadend = () => {
                 setEditableProfileData(prev => ({ ...prev, avatarBase64: reader.result }));
@@ -104,11 +110,22 @@ const Perfil = () => {
     const handleSave = async () => {
         if (!userAuth) return;
         setLoadingProfile(true);
-    const userRef = ref(db, `${config.cityCollection}/users/${userAuth.uid}`);
+        const userRef = ref(db, `${config.cityCollection}/users/${userAuth.uid}`);
+        
         try {
-            await update(userRef, editableProfileData);
-            setProfileData(editableProfileData); // Atualiza o estado principal
+            let dataToSave = { ...editableProfileData };
+            
+            // Se tiver um novo arquivo de imagem, envia pro Storage
+            if (selectedAvatarFile) {
+                const uploadResult = await uploadFileToStorage(selectedAvatarFile, `users/avatars/${userAuth.uid}`);
+                // Sobrecreve a chave antiga com a nova URL
+                dataToSave.avatarBase64 = uploadResult.url; 
+            }
+
+            await update(userRef, dataToSave);
+            setProfileData(dataToSave); // Atualiza o estado principal
             setIsEditing(false);
+            setSelectedAvatarFile(null);
             alert("Perfil atualizado com sucesso!");
         } catch (err) {
             console.error("Erro ao salvar perfil:", err);
@@ -151,9 +168,9 @@ const Perfil = () => {
         navigate(path);
     };
 
-    // Função para garantir que o avatar seja uma Data URL válida
     const getAvatarSrc = (avatarBase64) => {
         if (!avatarBase64) return null;
+        if (avatarBase64.startsWith('http')) return avatarBase64; // Já é uma URL migrada/nova!
         if (avatarBase64.startsWith('data:image')) return avatarBase64;
         return `data:image/jpeg;base64,${avatarBase64}`; // Assume um formato padrão se o prefixo estiver faltando
     };

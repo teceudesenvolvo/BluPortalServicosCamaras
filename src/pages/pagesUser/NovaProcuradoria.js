@@ -5,6 +5,7 @@ import Sidebar from '../../components/Sidebar';
 import { db } from '../../firebase';
 import config from '../../config';
 import { ref, get, push, set, serverTimestamp } from 'firebase/database';
+import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
 // Ícones
 import { LiaPaperPlane, LiaArrowLeftSolid } from "react-icons/lia";
@@ -61,18 +62,7 @@ const NovaProcuradoria = () => {
 
     const handleFileChange = (e) => {
         const files = Array.from(e.target.files);
-        const filePromises = files.map(file => {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (event) => resolve({ name: file.name, type: file.type, data: event.target.result });
-                reader.onerror = (error) => reject(error);
-                reader.readAsDataURL(file);
-            });
-        });
-
-        Promise.all(filePromises)
-            .then(fileData => setAnexos(fileData))
-            .catch(err => setError("Erro ao processar arquivos."));
+        setAnexos(files); // Salva os arquivos pendentes
     };
 
     const handleSubmit = async (e) => {
@@ -102,9 +92,21 @@ const NovaProcuradoria = () => {
             }
 
             const novaSolicitacaoRef = push(ref(db, `${config.cityCollection}/procuradoria-mulher`));
+            
+            // Realiza upload dos arquivos pro Firebase Storage
+            const anexosProcessados = [];
+            for (const file of anexos) {
+                const folderPath = `procuradoria-mulher/${currentUser ? currentUser.uid : 'anonimo'}/anexos`;
+                const uploadResult = await uploadFileToStorage(file, folderPath);
+                anexosProcessados.push({
+                    name: file.name,
+                    type: file.type,
+                    url: uploadResult.url
+                });
+            }
 
             await set(novaSolicitacaoRef, {
-                dadosSolicitacao: { ...formData, anexos },
+                dadosSolicitacao: { ...formData, anexos: anexosProcessados },
                 dadosUsuario: dadosUsuarioParaSalvar,
                 userId: formData.identificacao === 'identificado' ? currentUser.uid : 'anonimo',
                 status: 'Recebida',

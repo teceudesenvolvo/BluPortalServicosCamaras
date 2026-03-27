@@ -5,6 +5,7 @@ import { ref, get, push, update, remove } from 'firebase/database';
 import AdminSidebar from '../../components/AdminSidebar';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
+import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
 // Ícones
 import { LiaPlusSolid, LiaEditSolid, LiaTrashSolid, LiaTimesSolid, LiaSaveSolid } from "react-icons/lia";
@@ -27,6 +28,7 @@ const AdminVereadores = () => {
     };
 
     const [formData, setFormData] = useState(initialFormState);
+    const [selectedAvatarFile, setSelectedAvatarFile] = useState(null);
 
     // Leitura única (economiza downloads - especialmente importante
     // porque cada vereador tem avatarBase64 que é muito pesado)
@@ -68,9 +70,10 @@ const AdminVereadores = () => {
     const handleImageChange = (e) => {
         const file = e.target.files[0];
         if (file) {
+            setSelectedAvatarFile(file); // Guarda para o upload no submit
             const reader = new FileReader();
             reader.onloadend = () => {
-                setFormData(prev => ({ ...prev, avatarBase64: reader.result }));
+                setFormData(prev => ({ ...prev, avatarBase64: reader.result })); // Preview visual apenas
             };
             reader.readAsDataURL(file);
         }
@@ -79,6 +82,7 @@ const AdminVereadores = () => {
     const handleNew = () => {
         setFormData(initialFormState);
         setSelectedId(null);
+        setSelectedAvatarFile(null);
         setIsEditing(false);
         setShowModal(true);
     };
@@ -94,6 +98,7 @@ const AdminVereadores = () => {
             tipo: 'Vereador'
         });
         setSelectedId(vereador.id);
+        setSelectedAvatarFile(null); // Reseta o arquivo ao abrir edição
         setIsEditing(true);
         setShowModal(true);
     };
@@ -115,20 +120,30 @@ const AdminVereadores = () => {
         setFormData(initialFormState);
         setIsEditing(false);
         setSelectedId(null);
+        setSelectedAvatarFile(null);
         setShowModal(false);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
         
         try {
+            let dataToSave = { ...formData };
+            
+            // Faz o upload se uma nova imagem foi selecionada
+            if (selectedAvatarFile) {
+                const uploadResult = await uploadFileToStorage(selectedAvatarFile, 'vereadores/avatares');
+                dataToSave.avatarBase64 = uploadResult.url;
+            }
+
             if (selectedId) {
                 // Atualizar existente
-                await update(ref(db, `${config.cityCollection}/vereadores/${selectedId}`), formData);
+                await update(ref(db, `${config.cityCollection}/vereadores/${selectedId}`), dataToSave);
                 alert("Vereador atualizado com sucesso!");
             } else {
                 // Criar novo
-                await push(ref(db, `${config.cityCollection}/vereadores/`), formData);
+                await push(ref(db, `${config.cityCollection}/vereadores/`), dataToSave);
                 alert("Vereador cadastrado com sucesso!");
             }
             handleCancel();
@@ -136,6 +151,8 @@ const AdminVereadores = () => {
         } catch (error) {
             console.error("Erro ao salvar:", error);
             alert("Erro ao salvar as informações.");
+        } finally {
+            setLoading(false);
         }
     };
 
