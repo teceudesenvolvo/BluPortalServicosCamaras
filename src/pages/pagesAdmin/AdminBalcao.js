@@ -208,6 +208,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                 <div className="detail-item"><strong>Motivo:</strong></div>
                                 <p className="detail-description">{solicitacao.dadosSolicitacao?.descricao || 'Não especificado'}</p>
                             </>
+                            
                         ) : solicitacao.dadosSolicitacao?.assunto === 'Emissão de Documentos' ? (
                             <>
                                 <div className="detail-item"><strong>Tipo de Documento:</strong> {solicitacao.dadosSolicitacao?.tipoDocumento || 'N/A'}</div>
