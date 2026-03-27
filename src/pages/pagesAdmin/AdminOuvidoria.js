@@ -6,6 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
+import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane } from "react-icons/lia";
 
 // Modal Component
@@ -275,17 +276,29 @@ const AdminOuvidoriaDashboard = () => {
 
     const handleAdminFileUpload = async (id, file) => {
         if (!file) return;
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = async () => {
-            const fileData = { name: file.name, type: file.type, data: reader.result, sender: 'admin', timestamp: serverTimestamp() };
+        try {
+            const folderPath = `ouvidoria/admin-uploads/${id}`;
+            const uploadResult = await uploadFileToStorage(file, folderPath);
+            
+            const fileData = { 
+                name: file.name, 
+                type: file.type, 
+                url: uploadResult.url,
+                data: uploadResult.url, 
+                sender: 'admin', 
+                timestamp: serverTimestamp() 
+            };
+
             const itemRef = ref(db, `${config.cityCollection}/ouvidoria/${id}`);
             const snapshot = await get(itemRef);
             const currentData = snapshot.val();
             const currentFiles = currentData.arquivos || [];
             await update(itemRef, { arquivos: [...currentFiles, fileData] });
             alert("Arquivo enviado!");
-        };
+        } catch (error) {
+            console.error("Erro no upload admin:", error);
+            alert("Erro ao enviar arquivo.");
+        }
     };
 
     const statusTabs = ['Todas', 'Recebida', 'Em Análise', 'Respondida', 'Encaminhada'];

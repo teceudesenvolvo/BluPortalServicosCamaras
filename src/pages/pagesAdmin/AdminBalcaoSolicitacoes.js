@@ -88,6 +88,32 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
     const handleStatusSave = () => onStatusChange(solicitacao.id, newStatus);
     const handleFileUpload = (e) => onFileUpload(solicitacao.id, e.target.files[0]);
     const handleNotifyUser = () => onNotifyUser(solicitacao);
+
+    const handleMigrateFile = async (file, category, index) => {
+        if (!file.data || !file.data.startsWith('data:')) return;
+        try {
+            const response = await fetch(file.data);
+            const blob = await response.blob();
+            const convertedFile = new File([blob], file.name, { type: file.type });
+            
+            const folderPath = `balcao-cidadao/migrated/${solicitacao.id}`;
+            const uploadResult = await uploadFileToStorage(convertedFile, folderPath);
+            
+            const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${solicitacao.id}/dadosSolicitacao/anexos/${category}/${index}`);
+            
+            await update(itemRef, {
+                url: uploadResult.url,
+                data: uploadResult.url 
+            });
+            
+            file.url = uploadResult.url;
+            file.data = uploadResult.url;
+            alert("Arquivo migrado com sucesso!");
+        } catch (error) {
+            console.error("Erro ao migrar arquivo:", error);
+            alert("Erro ao migrar arquivo.");
+        }
+    };
     const handleSendMessage = () => {
         if (message.trim() === '') return;
         onSendMessage(solicitacao.id, message);
@@ -136,15 +162,22 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                     </>
                                 )}
                                 <div className="detail-item" style={{ marginTop: '10px' }}><strong>Documentos Anexados:</strong></div>
-                                {solicitacao.dadosSolicitacao.anexos && Object.keys(solicitacao.dadosSolicitacao.anexos).length > 0 ? (
+                                {solicitacao.dadosSolicitacao.anexos && Object.entries(solicitacao.dadosSolicitacao.anexos).length > 0 ? (
                                     <ul className="file-list" style={{ marginTop: '5px', paddingLeft: '20px' }}>
-                                        {Object.values(solicitacao.dadosSolicitacao.anexos).flat().map((file, index) => (
-                                            <li key={index}>
-                                                <button onClick={() => setViewingFile(file)} className="file-link" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>
-                                                    <LiaPaperclipSolid /> {file.name}
-                                                </button>
-                                            </li>
-                                        ))}
+                                        {Object.entries(solicitacao.dadosSolicitacao.anexos).map(([category, files]) => 
+                                            files.map((file, index) => (
+                                                <li key={`${category}-${index}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                                                    <button onClick={() => setViewingFile(file)} className="file-link" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>
+                                                        <LiaPaperclipSolid /> {file.name}
+                                                    </button>
+                                                    {file.data?.startsWith('data:') && (
+                                                        <button onClick={() => handleMigrateFile(file, category, index)} className="btn-secondary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
+                                                            <LiaUploadSolid /> Migrar para Storage
+                                                        </button>
+                                                    )}
+                                                </li>
+                                            ))
+                                        )}
                                     </ul>
                                 ) : (<p className="detail-description">Nenhum documento anexado.</p>)}
                             </>

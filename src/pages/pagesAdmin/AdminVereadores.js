@@ -22,7 +22,7 @@ const AdminVereadores = () => {
         cargo: '',
         dataNascimento: '',
         partido: '',
-        avatarBase64: '',
+        avatarUrl: '', // Alterado para armazenar URL do Storage
         biografia: '',
         tipo: 'Vereador' // Fixo para manter compatibilidade com queries existentes
     };
@@ -33,8 +33,8 @@ const AdminVereadores = () => {
     // Leitura única (economiza downloads - especialmente importante
     // porque cada vereador tem avatarBase64 que é muito pesado)
     const fetchVereadores = useCallback(async () => {
-        setLoading(true);
         try {
+            setLoading(true); // Mover para dentro do try para evitar que o loading fique preso
             const vereadoresRef = ref(db, `${config.cityCollection}/vereadores`);
             const snapshot = await get(vereadoresRef);
             const data = snapshot.val();
@@ -42,7 +42,7 @@ const AdminVereadores = () => {
                 const list = Object.keys(data).map(key => ({
                     id: key,
                     ...data[key]
-                })).sort((a, b) => a.name.localeCompare(b.name));
+                })).sort((a, b) => (a.name || '').localeCompare(b.name || '')); // Adicionado fallback para name
                 setVereadores(list);
             } else {
                 setVereadores([]);
@@ -73,7 +73,7 @@ const AdminVereadores = () => {
             setSelectedAvatarFile(file); // Guarda para o upload no submit
             const reader = new FileReader();
             reader.onloadend = () => {
-                setFormData(prev => ({ ...prev, avatarBase64: reader.result })); // Preview visual apenas
+                setFormData(prev => ({ ...prev, avatarUrl: reader.result })); // Preview visual apenas (temporário, será substituído pela URL do Storage)
             };
             reader.readAsDataURL(file);
         }
@@ -93,7 +93,7 @@ const AdminVereadores = () => {
             cargo: vereador.cargo || 'Vereador',
             dataNascimento: vereador.dataNascimento || '',
             partido: vereador.partido || '',
-            avatarBase64: vereador.avatarBase64 || '',
+            avatarUrl: vereador.avatarUrl || vereador.avatarBase64 || '', // Prioriza avatarUrl, fallback para avatarBase64
             biografia: vereador.biografia || '',
             tipo: 'Vereador'
         });
@@ -134,7 +134,7 @@ const AdminVereadores = () => {
             // Faz o upload se uma nova imagem foi selecionada
             if (selectedAvatarFile) {
                 const uploadResult = await uploadFileToStorage(selectedAvatarFile, 'vereadores/avatares');
-                dataToSave.avatarBase64 = uploadResult.url;
+                dataToSave.avatarUrl = uploadResult.url; // Salva a URL do Storage
             }
 
             if (selectedId) {
@@ -184,8 +184,8 @@ const AdminVereadores = () => {
                                 {vereadores.map(vereador => (
                                     <li key={vereador.id} className="data-list-item" style={{ cursor: 'default' }}>
                                         <div className="item-avatar" style={{ marginRight: '15px' }}>
-                                            {vereador.avatarBase64 ? (
-                                                <img src={vereador.avatarBase64} alt={vereador.name} style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover' }} />
+                                            {(vereador.avatarUrl || vereador.avatarBase64) ? ( // Renderiza avatarUrl ou avatarBase64 (para compatibilidade com dados antigos)
+                                                <img src={vereador.avatarUrl || vereador.avatarBase64} alt={vereador.name} style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover' }} />
                                             ) : (
                                                 <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#eee' }}></div>
                                             )}
@@ -256,9 +256,9 @@ const AdminVereadores = () => {
                                         <div className="form-group">
                                             <label>Foto (Avatar)</label>
                                             <input type="file" accept="image/*" onChange={handleImageChange} className="form-input" />
-                                            {formData.avatarBase64 && (
-                                                <div style={{ marginTop: '10px' }}>
-                                                    <img src={formData.avatarBase64} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '50%' }} />
+                                            {formData.avatarUrl && (
+                                                <div style={{ marginTop: '10px' }}> {/* Usa avatarUrl para preview */}
+                                                    <img src={formData.avatarUrl} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '50%' }} />
                                                 </div>
                                             )}
                                         </div>

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, orderByKey, limitToLast, onValue, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get } from 'firebase/database';
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
@@ -116,7 +116,7 @@ const AvailabilityModal = ({ onClose, onSave }) => {
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <div className="modal-header"><h3>Configurar Disponibilidade</h3><button onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button></div>
+                <div className="modal-header"><h3>Configurar Disponibilidade</h3><button type="button" onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button></div>
                 <div className="modal-body">
                     <p>Marque os dias e informe os horários separados por vírgula (ex: 08:00, 09:00).</p>
                     {Object.keys(daysOfWeek).map(day => (
@@ -144,13 +144,18 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
     useEffect(() => {
         if (solicitacao) {
             setNewStatus(solicitacao.status || '');
+            
+            // Otimização: Se já temos os dados básicos no objeto, não precisamos buscar no nó /users
+            // a menos que precisemos de informações em tempo real que não foram salvas no ticket.
+            if (solicitacao.dadosUsuario && solicitacao.userId === 'anonimo') {
+                setConsumerProfile({ name: 'Anônimo' });
+                setLoadingProfile(false);
+                return;
+            }
+
             const fetchConsumerProfile = async () => {
                 const userId = solicitacao.userId;
-                if (!userId) {
-                    setConsumerProfile(solicitacao.dadosUsuario || {});
-                    setLoadingProfile(false);
-                    return;
-                }
+                if (!userId) return;
                 setLoadingProfile(true);
                 const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
                 try {
@@ -172,6 +177,34 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
     const handleStatusSave = () => onStatusChange(solicitacao.id, newStatus);
     const handleFileUpload = (e) => onFileUpload(solicitacao.id, e.target.files[0]);
     const handleNotifyUser = () => onNotifyUser(solicitacao);
+
+    const handleMigrateFile = async (file, category, index) => {
+        if (!file.data || !file.data.startsWith('data:')) return;
+        try {
+            const response = await fetch(file.data);
+            const blob = await response.blob();
+            const convertedFile = new File([blob], file.name, { type: file.type });
+
+            const folderPath = `balcao-cidadao/migrated/${solicitacao.id}`;
+            const uploadResult = await uploadFileToStorage(convertedFile, folderPath);
+
+            const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${solicitacao.id}/dadosSolicitacao/anexos/${category}/${index}`);
+            
+            await update(itemRef, {
+                url: uploadResult.url,
+                data: uploadResult.url // Substituímos o base64 pela URL
+            });
+            
+            // Atualização local para feedback imediato
+            file.url = uploadResult.url;
+            file.data = uploadResult.url;
+            alert("Arquivo migrado para o Storage com sucesso!");
+        } catch (error) {
+            console.error("Erro ao migrar arquivo:", error);
+            alert("Falha ao migrar arquivo.");
+        }
+    };
+
     const handleSendMessage = () => {
         if (message.trim() === '') return;
         onSendMessage(solicitacao.id, message);
@@ -205,12 +238,9 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                             <>
                                 <div className="detail-item"><strong>Data Agendada:</strong> {solicitacao.appointmentDate || solicitacao.dadosSolicitacao?.appointmentDate || 'N/A'}</div>
                                 <div className="detail-item"><strong>Horário Agendado:</strong> {solicitacao.appointmentTime || solicitacao.dadosSolicitacao?.appointmentTime || 'N/A'}</div>
-                                <div className="detail-item"><strong>Data Agendada:</strong> {solicitacao.dadosSolicitacao?.appointmentDate || 'N/A'}</div>
-                                <div className="detail-item"><strong>Horário Agendado:</strong> {solicitacao.dadosSolicitacao?.appointmentTime || 'N/A'}</div>
                                 <div className="detail-item"><strong>Motivo:</strong></div>
                                 <p className="detail-description">{solicitacao.dadosSolicitacao?.descricao || 'Não especificado'}</p>
                             </>
-                            
                         ) : solicitacao.dadosSolicitacao?.assunto === 'Emissão de Documentos' ? (
                             <>
                                 <div className="detail-item"><strong>Tipo de Documento:</strong> {solicitacao.dadosSolicitacao?.tipoDocumento || 'N/A'}</div>
@@ -223,15 +253,22 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                     </>
                                 )}
                                 <div className="detail-item" style={{ marginTop: '10px' }}><strong>Documentos Anexados:</strong></div>
-                                {solicitacao.dadosSolicitacao.anexos && Object.keys(solicitacao.dadosSolicitacao.anexos).length > 0 ? (
+                                {solicitacao.dadosSolicitacao.anexos && Object.entries(solicitacao.dadosSolicitacao.anexos).length > 0 ? (
                                     <ul className="file-list" style={{ marginTop: '5px', paddingLeft: '20px' }}>
-                                        {Object.values(solicitacao.dadosSolicitacao.anexos).flat().map((file, index) => (
-                                            <li key={index}>
-                                                <button onClick={() => setViewingFile(file)} className="file-link" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>
-                                                    <LiaPaperclipSolid /> {file.name}
-                                                </button>
-                                            </li>
-                                        ))}
+                                        {Object.entries(solicitacao.dadosSolicitacao.anexos).map(([category, files]) => 
+                                            files.map((file, index) => (
+                                                <li key={`${category}-${index}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                                                    <button onClick={() => setViewingFile(file)} className="file-link" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>
+                                                        <LiaPaperclipSolid /> {file.name}
+                                                    </button>
+                                                    {file.data?.startsWith('data:') && (
+                                                        <button onClick={() => handleMigrateFile(file, category, index)} className="btn-secondary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
+                                                            <LiaUploadSolid /> Migrar para Storage
+                                                        </button>
+                                                    )}
+                                                </li>
+                                            ))
+                                        )}
                                     </ul>
                                 ) : (<p className="detail-description">Nenhum documento anexado.</p>)}
                             </>
@@ -309,14 +346,17 @@ const AdminBalcaoDashboard = () => {
         return () => unsubscribe();
     }, [navigate]);
 
-    useEffect(() => {
+    // Memorizando a função de busca para evitar re-declarações e permitir chamadas manuais
+    const fetchData = useCallback(async () => {
         if (!isAuthReady) return;
-
+        
+        setLoading(true);
         // limitToLast(100) para economizar downloads; Firebase push keys são cronológicos
         const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
         const q = query(solicitacoesRef, orderByKey(), limitToLast(50));
-
-        const unsubscribe = onValue(q, (snapshot) => {
+        
+        try {
+            const snapshot = await get(q);
             const data = snapshot.val();
             const fetchedData = data 
                 ? Object.keys(data)
@@ -337,10 +377,16 @@ const AdminBalcaoDashboard = () => {
                 orderedCounts[status] = counts[status] || 0;
             });
             setStatusCounts(orderedCounts);
-        });
-
-        return () => unsubscribe();
+        } catch (error) {
+            console.error('Erro ao buscar solicitações:', error);
+        } finally {
+            setLoading(false);
+        }
     }, [isAuthReady]);
+
+    useEffect(() => {
+        fetchData(); // Chama a função uma vez ao montar
+    }, [fetchData]);
 
     useEffect(() => {
         if (!chartRef.current || Object.keys(statusCounts).length === 0) return;
@@ -409,6 +455,7 @@ const AdminBalcaoDashboard = () => {
         await update(itemRef, { status: newStatus });
         await sendNotification({ ...selectedSolicitacao, id, status: newStatus });
         alert('Status atualizado!');
+        fetchData(); // Atualiza localmente após a alteração
         handleCloseModal();
     };
 
@@ -431,6 +478,7 @@ const AdminBalcaoDashboard = () => {
         const newMessageRef = push(messagesRef);
         await set(newMessageRef, { text, sender: 'admin', timestamp: serverTimestamp() });
         await sendNotification({ ...selectedSolicitacao, id });
+        fetchData(); // Atualiza para mostrar a nova mensagem
         alert('Mensagem enviada!');
     };
 
@@ -489,6 +537,9 @@ const AdminBalcaoDashboard = () => {
                     <div className="header-title-section">
                         <h1>Admin Balcão do Cidadão</h1>
                         <p>Visão geral das solicitações</p>
+                        <button onClick={fetchData} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.8rem' }}>
+                            ↻ Atualizar lista
+                        </button>
                     </div>
                     <div className="user-profile">
                         <div className="user-text">

@@ -64,6 +64,32 @@ const ComplaintDetailsModal = ({ denuncia, onClose, onStatusChange, onSendMessag
         onStatusChange(denuncia.id, newStatus);
     };
 
+    const handleMigrateFile = async (file, index) => {
+        if (!file.data || !file.data.startsWith('data:')) return;
+        try {
+            const response = await fetch(file.data);
+            const blob = await response.blob();
+            const convertedFile = new File([blob], file.name, { type: file.type });
+            
+            const folderPath = `denuncias-procon/migrated/${denuncia.id}`;
+            const uploadResult = await uploadFileToStorage(convertedFile, folderPath);
+            
+            const itemRef = ref(db, `${config.cityCollection}/denuncias-procon/${denuncia.id}/arquivos/${index}`);
+            
+            await update(itemRef, {
+                url: uploadResult.url,
+                data: uploadResult.url
+            });
+            
+            file.url = uploadResult.url;
+            file.data = uploadResult.url;
+            alert("Arquivo migrado com sucesso!");
+        } catch (error) {
+            console.error("Erro na migração:", error);
+            alert("Falha ao migrar arquivo.");
+        }
+    };
+
     const handleFileUpload = (e) => {
         // Lógica para upload de arquivo pelo admin (a ser implementada)
         onFileUpload(denuncia.id, e.target.files[0]);
@@ -145,9 +171,25 @@ const ComplaintDetailsModal = ({ denuncia, onClose, onStatusChange, onSendMessag
                         </div>
                         <button onClick={handleStatusSave} className="btn-primary" style={{ alignSelf: 'flex-end', height: '45px' }}>Salvar Status</button>
                     </div>
-                    <div className="detail-item"><strong>Arquivos do Usuário:</strong>
-                        {denuncia.arquivos?.length > 0 ? denuncia.arquivos.map(file => <a href={file.url || file.data} target="_blank" rel="noopener noreferrer" key={file.name} className="file-link"><LiaPaperclipSolid /> {file.name}</a>) : "Nenhum arquivo enviado."}
-                    </div>
+                    <div className="detail-item" style={{ marginTop: '10px' }}><strong>Arquivos do Usuário:</strong></div>
+                    {denuncia.arquivos?.length > 0 ? (
+                        <ul className="file-list" style={{ marginTop: '5px', paddingLeft: '20px' }}>
+                            {denuncia.arquivos.map((file, index) => (
+                                <li key={index} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                                    <a href={file.url || file.data} target="_blank" rel="noopener noreferrer" className="file-link">
+                                        <LiaPaperclipSolid /> {file.name}
+                                    </a>
+                                    {file.data?.startsWith('data:') && (
+                                        <button onClick={() => handleMigrateFile(file, index)} className="btn-secondary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
+                                            <LiaUploadSolid /> Migrar para Storage
+                                        </button>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="detail-description">Nenhum arquivo enviado.</p>
+                    )}
 
                     <hr />
                     <h4>Mensagens</h4>
@@ -435,12 +477,10 @@ const AdminProconDashboard = () => {
             const arquivosAtuais = denunciaAtual.arquivos || [];
             await update(denunciaRef, { arquivos: [...arquivosAtuais, fileData] });
             alert("Arquivo enviado com sucesso!");
-        } catch (error) {
+        } catch (err) {
+            console.error("Erro no upload admin:", err);
             alert("Falha ao enviar o arquivo.");
         }
-        reader.onerror = () => {
-            alert("Erro ao ler o arquivo.");
-        };
     };
 
     // Mapeamento de status para rótulos de tab

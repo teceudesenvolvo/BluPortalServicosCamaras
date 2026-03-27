@@ -6,6 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
+import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane } from "react-icons/lia";
 
 // =============================================================
@@ -314,22 +315,29 @@ const AdminJuridicoDashboard = () => {
 
     const handleAdminFileUpload = async (solicitacaoId, file) => {
         if (!file) return;
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = async () => {
-            const fileData = { name: file.name, type: file.type, data: reader.result, sender: 'admin', timestamp: serverTimestamp() };
+        try {
+            const folderPath = `atendimento-juridico/admin-uploads/${solicitacaoId}`;
+            const uploadResult = await uploadFileToStorage(file, folderPath);
+
+            const fileData = { 
+                name: file.name, 
+                type: file.type, 
+                url: uploadResult.url,
+                data: uploadResult.url, 
+                sender: 'admin', 
+                timestamp: serverTimestamp() 
+            };
+
             const solicitacaoRef = ref(db, `${config.cityCollection}/atendimento-juridico/${solicitacaoId}`);
-            try {
-                const snapshot = await get(solicitacaoRef);
-                const solicitacaoAtual = snapshot.val();
-                const arquivosAtuais = solicitacaoAtual.arquivos || [];
-                const novosArquivos = [...arquivosAtuais, fileData];
-                await update(solicitacaoRef, { arquivos: novosArquivos });
-                alert("Arquivo enviado com sucesso!");
-            } catch (error) {
-                alert("Falha ao enviar o arquivo.");
-            }
-        };
+            const snapshot = await get(solicitacaoRef);
+            const solicitacaoAtual = snapshot.val();
+            const arquivosAtuais = solicitacaoAtual.arquivos || [];
+            await update(solicitacaoRef, { arquivos: [...arquivosAtuais, fileData] });
+            alert("Arquivo enviado com sucesso!");
+        } catch (error) {
+            console.error("Erro no upload admin:", error);
+            alert("Falha ao enviar o arquivo.");
+        }
     };
 
     const statusTabs = ['Todas', 'Aguardando Atendimento', 'Em Análise', 'Concluído'];
