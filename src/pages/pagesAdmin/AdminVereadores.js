@@ -8,7 +8,7 @@ import 'react-quill-new/dist/quill.snow.css';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
 // Ícones
-import { LiaPlusSolid, LiaEditSolid, LiaTrashSolid, LiaTimesSolid, LiaSaveSolid } from "react-icons/lia";
+import { LiaPlusSolid, LiaEditSolid, LiaTrashSolid, LiaTimesSolid, LiaSaveSolid, LiaUploadSolid } from "react-icons/lia";
 
 const AdminVereadores = () => {
     const [vereadores, setVereadores] = useState([]);
@@ -124,6 +124,63 @@ const AdminVereadores = () => {
         setShowModal(false);
     };
 
+    // Função para migrar imagem Base64 individual para Storage
+    const handleMigrateAvatar = async (vereador) => {
+        const base64Data = vereador.avatarBase64;
+        if (!base64Data || !base64Data.startsWith('data:')) return;
+
+        try {
+            setLoading(true);
+            // 1. Converte o Base64 para um arquivo (Blob)
+            const response = await fetch(base64Data);
+            const blob = await response.blob();
+            const convertedFile = new File([blob], `${vereador.id}-avatar.jpg`, { type: blob.type });
+
+            // 2. Faz o upload para o Storage
+            const folderPath = `vereadores/avatares/${vereador.id}`;
+            const uploadResult = await uploadFileToStorage(convertedFile, folderPath);
+
+            // 3. Atualiza o banco: define avatarUrl e remove avatarBase64
+            const itemRef = ref(db, `${config.cityCollection}/vereadores/${vereador.id}`);
+            await update(itemRef, {
+                avatarUrl: uploadResult.url,
+                avatarBase64: null // Remove o campo pesado
+            });
+
+            alert(`Imagem do vereador ${vereador.name} migrada com sucesso!`);
+            fetchVereadores();
+        } catch (error) {
+            console.error("Erro ao migrar imagem:", error);
+            alert("Erro ao migrar imagem.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Função para migrar todas as imagens da página em lote
+    const handleMigrateAll = async () => {
+        const toMigrate = vereadores.filter(v => v.avatarBase64?.startsWith('data:'));
+        if (toMigrate.length === 0) return;
+
+        if (!window.confirm(`Deseja migrar ${toMigrate.length} imagens para o Storage? Isso reduzirá drasticamente o peso do banco de dados.`)) return;
+
+        setLoading(true);
+        let successCount = 0;
+        for (const v of toMigrate) {
+            try {
+                const res = await fetch(v.avatarBase64);
+                const blob = await res.blob();
+                const file = new File([blob], `${v.id}-avatar.jpg`, { type: blob.type });
+                const up = await uploadFileToStorage(file, `vereadores/avatares/${v.id}`);
+                await update(ref(db, `${config.cityCollection}/vereadores/${v.id}`), { avatarUrl: up.url, avatarBase64: null });
+                successCount++;
+            } catch (err) { console.error(`Erro ao migrar ${v.name}:`, err); }
+        }
+        setLoading(false);
+        alert(`${successCount} imagens migradas com sucesso!`);
+        fetchVereadores();
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -171,6 +228,11 @@ const AdminVereadores = () => {
                     
                     {/* Ações da Página */}
                     <div className="page-actions-bar" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
+                        {vereadores.some(v => v.avatarBase64?.startsWith('data:')) && (
+                            <button className="btn-secondary" onClick={handleMigrateAll} style={{ marginRight: '10px' }}>
+                                <LiaUploadSolid style={{ marginRight: '5px' }} /> Migrar Imagens (Storage)
+                            </button>
+                        )}
                         <button className="btn-primary" onClick={handleNew}>
                             <LiaPlusSolid style={{ marginRight: '5px' }} /> Novo Vereador
                         </button>
@@ -195,6 +257,16 @@ const AdminVereadores = () => {
                                             <span style={{ display: 'block', fontSize: '0.9em', color: '#666' }}>{vereador.cargo} - {vereador.partido}</span>
                                         </div>
                                         <div className="item-actions" style={{ display: 'flex', gap: '10px' }}>
+                                            {vereador.avatarBase64?.startsWith('data:') && (
+                                                <button 
+                                                    onClick={() => handleMigrateAvatar(vereador)} 
+                                                    className="btn-icon" 
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#28a745' }}
+                                                    title="Migrar imagem para o Storage"
+                                                >
+                                                    <LiaUploadSolid size={22} />
+                                                </button>
+                                            )}
                                             <button 
                                                 onClick={() => handleEdit(vereador)} 
                                                 className="btn-icon" 
