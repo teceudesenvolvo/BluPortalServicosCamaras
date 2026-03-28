@@ -339,7 +339,7 @@ const AdminBalcaoAgendamentos = () => {
     /* ── Ações do Modal ── */
     const sendNotification = async (solicitacao) => {
         if (!solicitacao.userId || solicitacao.userId === 'anonimo') return;
-        const notificacoesRef = ref(db, 'notifications');
+        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
         const newNotificationRef = push(notificacoesRef);
         await set(newNotificationRef, {
             isRead: false,
@@ -373,7 +373,7 @@ const AdminBalcaoAgendamentos = () => {
     const handleNotifyUser = async (solicitacao) => {
         const userData = solicitacao.dadosUsuario;
         if (!userData || !userData.id) return alert("Usuário não identificado.");
-        const notificacoesRef = ref(db, 'notificacoes');
+        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
         const newNotificationRef = push(notificacoesRef);
         await set(newNotificationRef, {
             userId: userData.id,

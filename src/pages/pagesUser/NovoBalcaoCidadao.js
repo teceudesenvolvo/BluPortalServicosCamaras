@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
 import { db } from '../../firebase'; 
@@ -12,6 +12,7 @@ import { LiaPaperPlane, LiaArrowLeftSolid } from "react-icons/lia";
 
 const NovoBalcaoCidadao = () => {
     const navigate = useNavigate();
+    const { id: editId } = useParams();
     const { currentUser } = useAuth();
 
     // States for form control
@@ -33,6 +34,7 @@ const NovoBalcaoCidadao = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loggedInUserData, setLoggedInUserData] = useState(null);
+    const [existingSolicitacao, setExistingSolicitacao] = useState(null);
     const [, setLoadingProfile] = useState(true);
 
     useEffect(() => {
@@ -40,6 +42,56 @@ const NovoBalcaoCidadao = () => {
             navigate('/login');
         }
     }, [currentUser, navigate]);
+
+    // Busca dados existentes para edição
+    useEffect(() => {
+        if (editId && currentUser) {
+            const fetchExistingData = async () => {
+                const docRef = ref(db, `${config.cityCollection}/balcao-cidadao/${editId}`);
+                try {
+                    const snap = await get(docRef);
+                    if (snap.exists()) {
+                        const data = snap.val();
+                        // Segurança: impede que usuários editem solicitações de outros
+                        if (data.userId !== currentUser.uid) {
+                            navigate('/balcao');
+                            return;
+                        }
+
+                        setExistingSolicitacao(data);
+                        setAssunto(data.dadosSolicitacao?.assunto || '');
+                        setTipoDocumento(data.dadosSolicitacao?.tipoDocumento || '');
+                        
+                        if (data.dadosSolicitacao?.detalhes) {
+                            setFormData(data.dadosSolicitacao.detalhes);
+                        } else if (data.dadosSolicitacao?.descricao) {
+                            setFormData({ descricao: data.dadosSolicitacao.descricao });
+                        }
+
+                        if (data.dadosBeneficiario) {
+                            const b = data.dadosBeneficiario;
+                            setDestino(b.id === 'outro' ? 'outro' : 'voce');
+                            if (b.id === 'outro') {
+                                setParentesco(b.parentesco || '');
+                                setOtherPerson({ name: b.name || '', cpf: b.cpf || '', phone: b.phone || '' });
+                                // Verifica se o endereço é diferente do original para setar a preferência
+                                if (b.endereco && b.endereco.cep !== loggedInUserData?.cep) {
+                                    setEnderecoPreference('novo');
+                                    setNovoEndereco(b.endereco);
+                                }
+                                if (b.phone !== loggedInUserData?.phone) {
+                                    setPhonePreference('novo');
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error("Erro ao carregar solicitação:", err);
+                }
+            };
+            fetchExistingData();
+        }
+    }, [editId, currentUser, navigate, loggedInUserData]);
 
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) {
@@ -133,26 +185,28 @@ const NovoBalcaoCidadao = () => {
         setSuccess('');
 
         try {
-            // Validação de duplicidade: Nome + CPF + Assunto
-            const beneficiaryName = destino === 'voce' ? (loggedInUserData?.name) : otherPerson.name;
-            const beneficiaryCpf = destino === 'voce' ? (loggedInUserData?.cpf) : otherPerson.cpf;
+            // Validação de duplicidade (apenas para novas solicitações)
+            if (!editId) {
+                const beneficiaryName = destino === 'voce' ? (loggedInUserData?.name) : otherPerson.name;
+                const beneficiaryCpf = destino === 'voce' ? (loggedInUserData?.cpf) : otherPerson.cpf;
 
-            const checkRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
-            const snapshot = await get(checkRef);
-            
-            if (snapshot.exists()) {
-                const existingRequests = Object.values(snapshot.val());
-                const isDuplicate = existingRequests.some(item => 
-                    item.dadosBeneficiario?.cpf === beneficiaryCpf &&
-                    item.dadosBeneficiario?.name?.toLowerCase() === beneficiaryName?.toLowerCase() &&
-                    item.dadosSolicitacao?.assunto === assunto &&
-                    item.status !== 'Concluído' && item.status !== 'Cancelado'
-                );
+                const checkRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
+                const snapshot = await get(checkRef);
+                
+                if (snapshot.exists()) {
+                    const existingRequests = Object.values(snapshot.val());
+                    const isDuplicate = existingRequests.some(item => 
+                        item.dadosBeneficiario?.cpf === beneficiaryCpf &&
+                        item.dadosBeneficiario?.name?.toLowerCase() === beneficiaryName?.toLowerCase() &&
+                        item.dadosSolicitacao?.assunto === assunto &&
+                        item.status !== 'Concluído' && item.status !== 'Cancelado'
+                    );
 
-                if (isDuplicate) {
-                    setError(`Já existe uma solicitação de "${assunto}" em andamento para ${beneficiaryName} (CPF: ${beneficiaryCpf}).`);
-                    setLoading(false);
-                    return;
+                    if (isDuplicate) {
+                        setError(`Já existe uma solicitação de "${assunto}" em andamento para ${beneficiaryName} (CPF: ${beneficiaryCpf}).`);
+                        setLoading(false);
+                        return;
+                    }
                 }
             }
 
@@ -191,8 +245,9 @@ const NovoBalcaoCidadao = () => {
                     return;
                 }
                 
-                // Processa o upload de todos os anexos para o Storage
-                const anexosProcessados = {};
+                // Processa anexos: Se houver novos, apaga os antigos do Storage
+                const anexosProcessados = editId ? { ...(existingSolicitacao?.dadosSolicitacao?.anexos || {}) } : {};
+
                 for (const [key, filesArray] of Object.entries(anexos)) {
                     const uploadedFiles = [];
                     for (const file of filesArray) {
@@ -225,18 +280,23 @@ const NovoBalcaoCidadao = () => {
                 };
             }
 
-      const novaSolicitacaoRef = push(ref(db, `${config.cityCollection}/balcao-cidadao`));
+            const solicitacaoRef = editId 
+                ? ref(db, `${config.cityCollection}/balcao-cidadao/${editId}`)
+                : push(ref(db, `${config.cityCollection}/balcao-cidadao`));
 
-            await set(novaSolicitacaoRef, {
+            const payload = {
                 dadosSolicitacao: dadosDaSolicitacao,
                 dadosUsuario: dadosUsuarioParaSalvar,
                 dadosBeneficiario: dadosBeneficiario,
                 userId: currentUser.uid,
-                status: 'Aguardando Atendimento',
-                dataSolicitacao: serverTimestamp(),
-            });
+                status: editId ? (existingSolicitacao?.status || 'Aguardando Atendimento') : 'Aguardando Atendimento',
+                dataSolicitacao: editId ? existingSolicitacao.dataSolicitacao : serverTimestamp(),
+                ultimaAtualizacao: serverTimestamp()
+            };
 
-            setSuccess('Sua solicitação foi enviada com sucesso! Você será redirecionado em breve.');
+            await set(solicitacaoRef, payload);
+
+            setSuccess(`Sua solicitação foi ${editId ? 'atualizada' : 'enviada'} com sucesso!`);
             setTimeout(() => navigate('/balcao'), 3000);
         } catch (err) {
             console.error("Erro ao enviar solicitação:", err);

@@ -1,6 +1,24 @@
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+// Adicione estas importações se não existirem no firebaseStorageUtils.js
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '../firebase';
 import { v4 as uuidv4 } from 'uuid'; // Precisamos de um ID único para evitar sobrepor arquivos
+
+/**
+ * Remove um arquivo do Firebase Storage a partir de sua URL.
+ * @param {string} fileUrl - A URL completa do arquivo no Storage.
+ */
+export const deleteFileFromStorage = async (fileUrl) => {
+    if (!fileUrl || !fileUrl.startsWith('http')) return;
+    
+    try {
+        const fileRef = ref(storage, fileUrl);
+        await deleteObject(fileRef);
+        console.log("Arquivo removido do Storage com sucesso.");
+    } catch (error) {
+        console.error("Erro ao deletar arquivo do Storage:", error);
+        // Não lançamos o erro para não travar o fluxo de salvamento caso a deleção falhe
+    }
+};
 
 /**
  * Função utilitária para fazer upload de arquivos para o Firebase Storage

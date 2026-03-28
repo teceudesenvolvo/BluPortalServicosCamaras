@@ -117,7 +117,7 @@ const Perfil = () => {
             
             // Se tiver um novo arquivo de imagem, envia pro Storage
             if (selectedAvatarFile) {
-                const uploadResult = await uploadFileToStorage(selectedAvatarFile, `users/avatars/${userAuth.uid}`);
+                const uploadResult = await uploadFileToStorage(selectedAvatarFile, `${config.cityCollection}/perfil/${userAuth.uid}`);
                 // Sobrecreve a chave antiga com a nova URL
                 dataToSave.avatarBase64 = uploadResult.url; 
             }

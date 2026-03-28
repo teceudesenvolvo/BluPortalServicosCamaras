@@ -7,7 +7,7 @@ import Sidebar from '../../components/Sidebar';
 import config from '../../config';
 
 // Ícones
-import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane } from "react-icons/lia";
+import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane, LiaEditSolid } from "react-icons/lia";
 
 // Componente para Agendamento
 const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
@@ -376,10 +376,22 @@ const BalcaoCidadao = () => {
                                         <strong>Assunto: {solicitacao.dadosSolicitacao?.assunto || 'Não especificado'}</strong>
                                         <span>Data: {new Date(solicitacao.dataSolicitacao).toLocaleDateString('pt-BR')}</span>
                                     </div>
-                                    <div className="item-status">
-                                        <span className={`status-badge ${getStatusClass(solicitacao.status)}`}>
-                                            {solicitacao.status}
-                                        </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                        <div className="item-status">
+                                            <span className={`status-badge ${getStatusClass(solicitacao.status)}`}>
+                                                {solicitacao.status}
+                                            </span>
+                                        </div>
+                                        {['Aguardando Atendimento', 'Em Análise'].includes(solicitacao.status) && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); navigate(`/balcao/novo/${solicitacao.id}`); }}
+                                                className="btn-icon"
+                                                title="Editar solicitação"
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
+                                            >
+                                                <LiaEditSolid size={22} color="var(--primary-color, #2563eb)" />
+                                            </button>
+                                        )}
                                     </div>
                                 </li>
                             ))}
