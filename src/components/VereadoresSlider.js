@@ -23,12 +23,12 @@ const VereadorCard = ({ nome, nomeParlamentar, foto }) => (
 );
 
 // Função para garantir que o avatar seja uma Data URL válida
-const getAvatarSrc = (avatarBase64) => {
-    if (!avatarBase64) return null;
-    if (avatarBase64.startsWith('http')) return avatarBase64;
-    if (avatarBase64.startsWith('data:image')) return avatarBase64;
+const getAvatarSrc = (src) => {
+    if (!src) return null;
+    if (src.startsWith('http')) return src;
+    if (src.startsWith('data:image')) return src;
     // Assume um formato padrão se o prefixo estiver faltando
-    return `data:image/jpeg;base64,${avatarBase64}`;
+    return `data:image/jpeg;base64,${src}`;
 };
 
 // Componente: Slider dos Vereadores
@@ -101,7 +101,7 @@ const VereadoresSlider = () => {
                         <VereadorCard
                             nome={v.name} // Campo 'name' do Firebase
                             nomeParlamentar={v.cargo} // Campo 'tipo' (será 'Vereador')
-                            foto={getAvatarSrc(v.avatarBase64)} // Campo 'avatarBase64' para a foto
+                            foto={getAvatarSrc(v.avatarUrl || v.avatarBase64)} // Prioriza a URL do Storage
                         />
                     </SplideSlide>
                 ))}
