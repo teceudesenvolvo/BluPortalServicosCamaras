@@ -552,7 +552,7 @@ const AdminBalcaoDashboard = () => {
 
                 <div className="page-actions-bar">
                     <button onClick={() => setIsAvailabilityModalOpen(true)} className="btn-secondary">Configurar Horários</button>
-                    <button onClick={() => navigate('/admin-balcao/agendamentos')} className="btn-secondary">Visualizar Agendamentos</button>
+                    <button onClick={() => navigate('/admin-balcao/agendamentos')} className="btn-primary">Visualizar Agendamentos</button>
                 </div>
 
                 <div className="data-sections-grid">
