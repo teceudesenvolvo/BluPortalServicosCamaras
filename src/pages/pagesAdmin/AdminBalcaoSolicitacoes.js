@@ -328,15 +328,15 @@ const AdminBalcaoSolicitacoes = () => {
     const handleFilterChange = () => setCurrentPage(1);
 
     /* ── Ações ── */
-    const sendNotification = async (solicitacao) => {
+    const sendNotification = async (solicitacao, customMessage) => {
         if (!solicitacao.userId || solicitacao.userId === "anonimo" || !solicitacao.dadosUsuario?.email) {
             console.log("Usuário anônimo ou sem e-mail, notificação não enviada.");
             return;
         }
 
         const cityName = config.cityCollection.charAt(0).toUpperCase() + config.cityCollection.slice(1);
-        const notificationTitle = "Sua solicitação para o Balcão do cidadão teve movimentação.";
-        const notificationDescription = `Abra agora mesmo o aplicativo da Câmara Municipal de ${cityName} para acompanhar. Protocolo: ${solicitacao.id}.`;
+        const notificationTitle = customMessage?.title || "Sua solicitação para o Balcão do cidadão teve movimentação.";
+        const notificationDescription = customMessage?.body || `Abra agora mesmo o aplicativo da Câmara Municipal de ${cityName} para acompanhar. Protocolo: ${solicitacao.id}.`;
 
         const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
         const newNotificationRef = push(notificacoesRef);
@@ -365,7 +365,10 @@ const AdminBalcaoSolicitacoes = () => {
     const handleStatusChange = async (id, newStatus) => {
         const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
         await update(itemRef, { status: newStatus });
-        await sendNotification({ ...selectedSolicitacao, id, status: newStatus });
+        await sendNotification(
+            { ...selectedSolicitacao, id, status: newStatus },
+            { title: "Status de Solicitação Atualizado", body: `O status da sua solicitação (Protocolo: ${id}) foi alterado para: ${newStatus}.` }
+        );
         alert('Status atualizado!');
         setSelectedSolicitacao(null);
         fetchSolicitacoes(); // Atualiza a lista
@@ -375,7 +378,10 @@ const AdminBalcaoSolicitacoes = () => {
         const messagesRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}/messages`);
         const newMessageRef = push(messagesRef);
         await set(newMessageRef, { text, sender: 'admin', timestamp: serverTimestamp() });
-        await sendNotification({ ...selectedSolicitacao, id });
+        await sendNotification(
+            { ...selectedSolicitacao, id },
+            { title: "Nova Mensagem da Câmara", body: `Você recebeu uma nova resposta administrativa sobre sua solicitação (Protocolo: ${id}): "${text}"` }
+        );
         alert('Mensagem enviada!');
     };
 

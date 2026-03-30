@@ -235,15 +235,15 @@ const AdminProcuradoriaDashboard = () => {
     const handleOpenModal = (solicitacao) => setSelectedSolicitacao(solicitacao);
     const handleCloseModal = () => setSelectedSolicitacao(null);
 
-    const sendNotification = async (solicitacao) => {
+    const sendNotification = async (solicitacao, customMessage) => {
         if (!solicitacao.userId || solicitacao.userId === 'anonimo' || !solicitacao.dadosUsuario?.email) {
             console.log("Usuário anônimo ou sem e-mail, notificação não enviada.");
             return;
         }
 
         const cityName = config.cityCollection.charAt(0).toUpperCase() + config.cityCollection.slice(1);
-        const notificationTitle = `Sua solicitação para a Procuradoria da Mulher foi atualizada.`;
-        const notificationDescription = `Abra o aplicativo da Câmara Municipal de ${cityName} para acompanhar os detalhes. Protocolo: ${solicitacao.id}.`;
+        const notificationTitle = customMessage?.title || `Sua solicitação para a Procuradoria da Mulher foi atualizada.`;
+        const notificationDescription = customMessage?.body || `Abra o aplicativo da Câmara Municipal de ${cityName} para acompanhar os detalhes. Protocolo: ${solicitacao.id}.`;
 
         // 1. Salva a notificação no app
         const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
@@ -274,7 +274,10 @@ const AdminProcuradoriaDashboard = () => {
     const handleStatusChange = async (id, newStatus) => {
         const itemRef = ref(db, `${config.cityCollection}/procuradoria-mulher/${id}`);
         await update(itemRef, { status: newStatus });
-        await sendNotification({ ...selectedSolicitacao, id, status: newStatus });
+        await sendNotification(
+            { ...selectedSolicitacao, id, status: newStatus },
+            { title: "Atualização de Status - Procuradoria", body: `O status do seu atendimento foi alterado para: ${newStatus}.` }
+        );
         alert('Status atualizado!');
         handleCloseModal();
         fetchSolicitacoes(); // Atualiza a lista
@@ -284,7 +287,10 @@ const AdminProcuradoriaDashboard = () => {
         const messagesRef = ref(db, `${config.cityCollection}/procuradoria-mulher/${id}/messages`);
         const newMessageRef = push(messagesRef);
         await set(newMessageRef, { text, sender: 'admin', timestamp: serverTimestamp() });
-        await sendNotification({ ...selectedSolicitacao, id });
+        await sendNotification(
+            { ...selectedSolicitacao, id },
+            { title: "Nova Mensagem - Procuradoria", body: `Você recebeu uma nova mensagem da equipe de atendimento: "${text}"` }
+        );
         alert('Mensagem enviada!');
     };
 

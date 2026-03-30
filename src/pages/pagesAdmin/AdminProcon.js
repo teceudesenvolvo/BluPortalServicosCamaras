@@ -374,7 +374,7 @@ const AdminProconDashboard = () => {
         setSelectedDenuncia(null);
     };
 
-    const sendNotification = async (denuncia) => {
+    const sendNotification = async (denuncia, customMessage) => {
         if (!denuncia.userId || denuncia.userId === 'anonimo') {
             console.log("Usuário anônimo, notificação não enviada.");
             return;
@@ -399,8 +399,8 @@ const AdminProconDashboard = () => {
         };
 
         const cityName = config.cityCollection.charAt(0).toUpperCase() + config.cityCollection.slice(1);
-        const notificationTitle = `Sua reclamação no Procon foi atualizada.`;
-        const notificationDescription = `Abra o aplicativo da Câmara Municipal de ${cityName} para acompanhar os detalhes. Protocolo: ${denuncia.id}.`;
+        const notificationTitle = customMessage?.title || `Sua reclamação no Procon foi atualizada.`;
+        const notificationDescription = customMessage?.body || `Abra o aplicativo da Câmara Municipal de ${cityName} para acompanhar os detalhes. Protocolo: ${denuncia.id}.`;
 
         // 1. Salva a notificação no app
         const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
@@ -431,7 +431,10 @@ const AdminProconDashboard = () => {
     const handleStatusChange = async (denunciaId, newStatus) => {
     const denunciaRef = ref(db, `${config.cityCollection}/denuncias-procon/${denunciaId}`);
         await update(denunciaRef, { status: newStatus });
-        await sendNotification({ ...selectedDenuncia, id: denunciaId, status: newStatus });
+        await sendNotification(
+            { ...selectedDenuncia, id: denunciaId, status: newStatus },
+            { title: "Alteração de Status Procon", body: `Sua reclamação teve o status alterado para: ${newStatus}.` }
+        );
         alert('Status atualizado com sucesso!');
         handleCloseModal();
         fetchDenuncias(); // Atualiza a lista
@@ -445,7 +448,10 @@ const AdminProconDashboard = () => {
             sender: 'admin',
             timestamp: serverTimestamp(),
         });
-        await sendNotification({ ...selectedDenuncia, id: denunciaId });
+        await sendNotification(
+            { ...selectedDenuncia, id: denunciaId },
+            { title: "Resposta do Procon disponível", body: `O Procon enviou uma nova mensagem: "${messageText}"` }
+        );
         alert('Mensagem enviada com sucesso!');
     };
 
