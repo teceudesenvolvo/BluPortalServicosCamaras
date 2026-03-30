@@ -288,6 +288,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                 <option value="Aguardando Atendimento">Aguardando Atendimento</option>
                                 <option value="Em Análise">Em Análise</option>
                                 <option value="Concluído">Concluído</option>
+                                <option value="Cancelado">Cancelado</option>
                             </select>
                         </div>
                         <button onClick={handleStatusSave} className="btn-primary" style={{ alignSelf: 'flex-end', height: '45px' }}>Salvar Status</button>
@@ -466,7 +467,14 @@ const AdminBalcaoDashboard = () => {
 
     const handleStatusChange = async (id, newStatus) => {
         const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
-        await update(itemRef, { status: newStatus });
+        let updateData = { status: newStatus };
+        if (newStatus === 'Cancelado') {
+            // Set deletion timestamp for 3 days from now
+            updateData.deletionTimestamp = Date.now() + 3 * 24 * 60 * 60 * 1000;
+        } else {
+            updateData.deletionTimestamp = null; // Clear if status is changed from Cancelado
+        }
+        await update(itemRef, updateData);
         await sendNotification({ ...selectedSolicitacao, id, status: newStatus });
         alert('Status atualizado!');
         fetchData(); // Atualiza localmente após a alteração
