@@ -1,5 +1,5 @@
 const {onValueCreated} = require("firebase-functions/v2/database");
-const {onSchedule} = require("firebase-functions/v2/scheduler"); // Import onSchedule
+const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {defineString, defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin"); // Keep admin for database operations
 const nodemailer = require("nodemailer");
@@ -48,17 +48,19 @@ exports.sendMailOnNewRequest = onValueCreated(
 );
 
 // New scheduled function to delete cancelled requests
-exports.deleteCancelledBalcaoRequests = onSchedule('every 24 hours', async (event) => {
-    const now = Date.now();
-    const rootRef = admin.database().ref();
+exports.deleteCancelledBalcaoRequests = onSchedule(
+    "every 24 hours",
+    async (event) => {
+      const now = Date.now();
+      const rootRef = admin.database().ref();
 
-    try {
-        const snapshot = await rootRef.once('value');
+      try {
+        const snapshot = await rootRef.once("value");
         const citiesData = snapshot.val();
 
         if (!citiesData) {
-            console.log("No data found at root. Exiting scheduled deletion.");
-            return null;
+          console.log("No data found at root. Exiting scheduled deletion.");
+          return null;
         }
 
         const deletionPromises = [];
@@ -66,31 +68,35 @@ exports.deleteCancelledBalcaoRequests = onSchedule('every 24 hours', async (even
         // Iterate through each city (top-level key)
         // Assuming top-level keys are city collections
         for (const cityKey in citiesData) {
-            if (citiesData.hasOwnProperty(cityKey)) {
-                const balcaoCidadaoRef = rootRef.child(`${cityKey}/balcao-cidadao`);
-                
-                // Query for requests that are cancelled and past their deletion timestamp
-                const cancelledRequestsSnapshot = await balcaoCidadaoRef
-                    .orderByChild('deletionTimestamp')
-                    .endAt(now)
-                    .once('value');
+          if (Object.prototype.hasOwnProperty.call(citiesData, cityKey)) {
+            const balRef = rootRef.child(`${cityKey}/balcao-cidadao`);
 
-                cancelledRequestsSnapshot.forEach(childSnapshot => {
-                    const request = childSnapshot.val();
-                    // Double-check status and deletionTimestamp to ensure only truly cancelled ones are deleted
-                    if (request.status === 'Cancelado' && request.deletionTimestamp && request.deletionTimestamp <= now) {
-                        console.log(`[${cityKey}] Deleting cancelled request: ${childSnapshot.key}`);
-                        deletionPromises.push(childSnapshot.ref.remove());
-                    }
-                });
-            }
+            // Query cancelled and past deletion timestamp
+            const cancelledRequestsSnapshot = await balRef
+                .orderByChild("deletionTimestamp")
+                .endAt(now)
+                .once("value");
+
+            cancelledRequestsSnapshot.forEach((childSnapshot) => {
+              const request = childSnapshot.val();
+              // Double-check status and deletionTimestamp
+              if (request.status === "Cancelado" &&
+                  request.deletionTimestamp &&
+                  request.deletionTimestamp <= now) {
+                console.log(`[${cityKey}] Deleting: ${childSnapshot.key}`);
+                deletionPromises.push(childSnapshot.ref.remove());
+              }
+            });
+          }
         }
 
         await Promise.all(deletionPromises);
-        console.log(`Scheduled deletion run completed. ${deletionPromises.length} requests deleted.`);
+        console.log("Scheduled deletion run completed. " +
+            `${deletionPromises.length} requests deleted.`);
         return null;
-    } catch (error) {
-        console.error("Error in deleteCancelledBalcaoRequests scheduled function:", error);
+      } catch (error) {
+        console.error("Error in deleteCancelledBalcaoRequests function:",
+            error);
         return null;
-    }
-});
+      }
+    });
