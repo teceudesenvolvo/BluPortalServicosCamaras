@@ -198,6 +198,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                     <option value="Aguardando Atendimento">Aguardando Atendimento</option>
                                     <option value="Em Análise">Em Análise</option>
                                     <option value="Concluído">Concluído</option>
+                                    <option value="Cancelado">Cancelado</option>
                                 </select>
                             </div>
                             <button onClick={handleStatusSave} className="btn-primary" style={{ alignSelf: 'flex-end', height: '45px' }}>Salvar Status</button>
@@ -338,7 +339,15 @@ const AdminBalcaoAgendamentos = () => {
 
     /* ── Ações do Modal ── */
     const sendNotification = async (solicitacao) => {
-        if (!solicitacao.userId || solicitacao.userId === 'anonimo') return;
+        if (!solicitacao.userId || solicitacao.userId === "anonimo" || !solicitacao.dadosUsuario?.email) {
+            console.log("Usuário anônimo ou sem e-mail, notificação não enviada.");
+            return;
+        }
+
+        const cityName = config.cityCollection.charAt(0).toUpperCase() + config.cityCollection.slice(1);
+        const notificationTitle = "Seu agendamento foi atualizado.";
+        const notificationDescription = `Verifique os detalhes no aplicativo da Câmara Municipal de ${cityName}. Protocolo: ${solicitacao.id}.`;
+
         const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
         const newNotificationRef = push(notificacoesRef);
         await set(newNotificationRef, {
@@ -346,10 +355,20 @@ const AdminBalcaoAgendamentos = () => {
             protocolo: solicitacao.id,
             targetUserId: solicitacao.userId,
             timestamp: serverTimestamp(),
-            tituloNotification: "Seu agendamento foi atualizado.",
-            descricaoNotification: "Verifique os detalhes no aplicativo da Câmara Municipal.",
-            userEmail: solicitacao.dadosUsuario?.email,
+            tituloNotification: notificationTitle,
+            descricaoNotification: notificationDescription,
+            userEmail: solicitacao.dadosUsuario.email,
             userId: solicitacao.userId
+        });
+
+        const mailRef = ref(db, `${config.cityCollection}/mail`);
+        const newMailRef = push(mailRef);
+        await set(newMailRef, {
+            to: solicitacao.dadosUsuario.email,
+            message: {
+                subject: notificationTitle,
+                html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
+            },
         });
     };
 
@@ -373,14 +392,29 @@ const AdminBalcaoAgendamentos = () => {
     const handleNotifyUser = async (solicitacao) => {
         const userData = solicitacao.dadosUsuario;
         if (!userData || !userData.id) return alert("Usuário não identificado.");
+        if (!userData.email) return alert("E-mail do usuário não encontrado.");
+
+        const notificationTitle = "Notificação de Atualização";
+        const notificationMessage = `Seu agendamento no Balcão do Cidadão para ${solicitacao.dadosSolicitacao?.appointmentDate} foi atualizada.`;
+
         const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
         const newNotificationRef = push(notificacoesRef);
         await set(newNotificationRef, {
             userId: userData.id,
             userEmail: userData.email,
-            message: `Seu agendamento no Balcão do Cidadão para ${solicitacao.dadosSolicitacao?.appointmentDate} foi atualizado.`,
+            message: notificationMessage,
             timestamp: serverTimestamp(),
             read: false,
+        });
+
+        const mailRef = ref(db, `${config.cityCollection}/mail`);
+        const newMailRef = push(mailRef);
+        await set(newMailRef, {
+            to: userData.email,
+            message: {
+                subject: notificationTitle,
+                html: `<p>${notificationMessage}</p>`,
+            },
         });
         alert(`Usuário ${userData.email} notificado!`);
     };

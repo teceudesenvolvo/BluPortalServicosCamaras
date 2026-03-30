@@ -431,10 +431,14 @@ const AdminBalcaoDashboard = () => {
     const handleCloseModal = () => setSelectedSolicitacao(null);
 
     const sendNotification = async (solicitacao) => {
-        if (!solicitacao.userId || solicitacao.userId === 'anonimo') {
-            console.log("Usuário anônimo, notificação não enviada.");
+        if (!solicitacao.userId || solicitacao.userId === "anonimo" || !solicitacao.dadosUsuario?.email) {
+            console.log("Usuário anônimo ou sem e-mail, notificação não enviada.");
             return;
         }
+
+        const cityName = config.cityCollection.charAt(0).toUpperCase() + config.cityCollection.slice(1);
+        const notificationTitle = "Sua solicitação para o Balcão do cidadão teve movimentação.";
+        const notificationDescription = `Abra agora mesmo o aplicativo da Câmara Municipal de ${cityName} para acompanhar. Protocolo: ${solicitacao.id}.`;
 
         const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
         const newNotificationRef = push(notificacoesRef);
@@ -443,10 +447,20 @@ const AdminBalcaoDashboard = () => {
             protocolo: solicitacao.id,
             targetUserId: solicitacao.userId,
             timestamp: serverTimestamp(),
-            tituloNotification: "Sua solicitação para o Balcão do cidadão teve movimentação.",
-            descricaoNotification: "Abra agora mesmo o aplicativo da Câmara Municipal de Pacatuba para acompanhar.",
+            tituloNotification: notificationTitle,
+            descricaoNotification: notificationDescription,
             userEmail: solicitacao.dadosUsuario.email,
             userId: solicitacao.userId
+        });
+
+        const mailRef = ref(db, `${config.cityCollection}/mail`);
+        const newMailRef = push(mailRef);
+        await set(newMailRef, {
+            to: solicitacao.dadosUsuario.email,
+            message: {
+                subject: notificationTitle,
+                html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
+            },
         });
     };
 
@@ -485,15 +499,29 @@ const AdminBalcaoDashboard = () => {
     const handleNotifyUser = async (solicitacao) => {
         const userData = solicitacao.dadosUsuario;
         if (!userData || !userData.id) return alert("Usuário não identificado.");
+        if (!userData.email) return alert("E-mail do usuário não encontrado.");
+
+        const notificationTitle = "Notificação de Atualização";
+        const notificationMessage = `Sua solicitação no Balcão do Cidadão sobre "${solicitacao.dadosSolicitacao.assunto}" foi atualizada.`;
 
         const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
         const newNotificationRef = push(notificacoesRef);
         await set(newNotificationRef, {
             userId: userData.id,
             userEmail: userData.email,
-            message: `Sua solicitação no Balcão do Cidadão sobre "${solicitacao.dadosSolicitacao.assunto}" foi atualizada.`,
+            message: notificationMessage,
             timestamp: serverTimestamp(),
             read: false,
+        });
+
+        const mailRef = ref(db, `${config.cityCollection}/mail`);
+        const newMailRef = push(mailRef);
+        await set(newMailRef, {
+            to: userData.email,
+            message: {
+                subject: notificationTitle,
+                html: `<p>${notificationMessage}</p>`,
+            },
         });
         alert(`Usuário ${userData.email} notificado!`);
     };

@@ -1,24 +1,28 @@
 const {onValueCreated} = require("firebase-functions/v2/database");
-const {defineString} = require("firebase-functions/params");
+const {defineString, defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 
 admin.initializeApp();
 
 const gmailEmail = defineString("GMAIL_EMAIL");
-const gmailPassword = defineString("GMAIL_PASSWORD");
+const gmailAppPassword = defineSecret("GMAIL_APP_PASSWORD");
 
 let mailTransport;
 
 exports.sendMailOnNewRequest = onValueCreated(
-    "/{city}/mail/{pushId}",
+    {
+      ref: "/{city}/mail/{pushId}",
+      secrets: [gmailAppPassword],
+    },
     async (event) => {
+      const pass = await gmailAppPassword.value();
       if (!mailTransport) {
         mailTransport = nodemailer.createTransport({
           service: "gmail",
           auth: {
             user: gmailEmail.value(),
-            pass: gmailPassword.value(),
+            pass: pass,
           },
         });
       }
