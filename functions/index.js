@@ -36,7 +36,7 @@ exports.sendMailOnNewRequest = onValueCreated(
 
       const emailFooter = "<br><br><hr><p><i>Por favor não responda " +
           "este email. Email oficial da câmara:<br/>" +
-          "camara@camaraparaipaba.ce.gov.br</i></p>" +
+          "balcaocidadao25@gmail.com</i></p>" +
           "<p>Este email foi enviado automaticamente pelo sistema do " +
           "Portal de Serviços da Câmara Municipal de Paraipaba.<br/>" +
           " Se você tiver dúvidas ou precisar de assistência, por " +
