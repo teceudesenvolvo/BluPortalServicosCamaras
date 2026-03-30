@@ -34,11 +34,22 @@ exports.sendMailOnNewRequest = onValueCreated(
 
       const mailData = snapshot.val();
 
+      const emailFooter = "<br><br><hr><p><i>Por favor não responda " +
+          "este email. Email oficial da câmara:<br/>" +
+          "camara@camaraparaipaba.ce.gov.br</i></p>" +
+          "<p>Este email foi enviado automaticamente pelo sistema do " +
+          "Portal de Serviços da Câmara Municipal de Paraipaba.<br/>" +
+          " Se você tiver dúvidas ou precisar de assistência, por " +
+          "favor entre em contato com a câmara através do email " +
+          "acima. Obrigado por utilizar o Portal de Serviços da " +
+          "Câmara Municipal de Paraipaba. <strong>" +
+          "Atenciosamente,<br>Blu Tecnologias</strong></p>";
+
       const mailOptions = {
         from: `"Portal de Serviços" <${gmailEmail.value()}>`,
         to: mailData.to,
         subject: mailData.message.subject,
-        html: mailData.message.html,
+        html: `${mailData.message.html}${emailFooter}`,
       };
 
       await mailTransport.sendMail(mailOptions);
