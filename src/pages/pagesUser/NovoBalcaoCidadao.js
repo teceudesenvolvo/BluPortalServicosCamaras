@@ -138,9 +138,20 @@ const NovoBalcaoCidadao = () => {
 
     const handleFileChange = (e) => {
         const { name, files } = e.target;
+        const filesArray = Array.from(files);
+        const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+
+        const invalidFiles = filesArray.filter(file => file.size > MAX_SIZE);
+        if (invalidFiles.length > 0) {
+            setError(`Os seguintes arquivos excedem o limite de 2MB: ${invalidFiles.map(f => f.name).join(', ')}`);
+            e.target.value = ""; 
+            return;
+        }
+
+        setError('');
         // Salva diretamente os objetos File para upload no submit
-        if (files && files.length > 0) {
-            setAnexos(prev => ({ ...prev, [name]: Array.from(files) }));
+        if (filesArray.length > 0) {
+            setAnexos(prev => ({ ...prev, [name]: filesArray }));
         }
     };
 
@@ -220,11 +231,29 @@ const NovoBalcaoCidadao = () => {
 
             let dadosBeneficiario;
             if (destino === 'voce') {
-                dadosBeneficiario = { ...dadosUsuarioParaSalvar, parentesco: 'O Próprio', endereco: { rua: loggedInUserData?.address, numero: loggedInUserData?.number, bairro: loggedInUserData?.neighborhood, cidade: loggedInUserData?.city, estado: loggedInUserData?.state, cep: loggedInUserData?.cep } };
+                dadosBeneficiario = { 
+                    ...dadosUsuarioParaSalvar, 
+                    parentesco: 'O Próprio', 
+                    endereco: { 
+                        rua: loggedInUserData?.address || 'Não informado', 
+                        numero: loggedInUserData?.numero || 'S/N', 
+                        bairro: loggedInUserData?.neighborhood || 'Não informado', 
+                        cidade: loggedInUserData?.city || 'Não informado', 
+                        estado: loggedInUserData?.state || 'Não informado', 
+                        cep: loggedInUserData?.cep || 'Não informado' 
+                    } 
+                };
             } else {
                 const phoneFinal = phonePreference === 'mesmo' ? (loggedInUserData?.phone || 'Não informado') : otherPerson.phone;
                 const enderecoFinal = enderecoPreference === 'mesmo' 
-                    ? { rua: loggedInUserData?.address, numero: loggedInUserData?.number, bairro: loggedInUserData?.neighborhood, cidade: loggedInUserData?.city, estado: loggedInUserData?.state, cep: loggedInUserData?.cep }
+                    ? { 
+                        rua: loggedInUserData?.address || 'Não informado', 
+                        numero: loggedInUserData?.numero || 'S/N', 
+                        bairro: loggedInUserData?.neighborhood || 'Não informado', 
+                        cidade: loggedInUserData?.city || 'Não informado', 
+                        estado: loggedInUserData?.state || 'Não informado', 
+                        cep: loggedInUserData?.cep || 'Não informado' 
+                    }
                     : novoEndereco;
                 
                 dadosBeneficiario = {
@@ -232,8 +261,15 @@ const NovoBalcaoCidadao = () => {
                     name: otherPerson.name,
                     cpf: otherPerson.cpf,
                     phone: phoneFinal,
-                    parentesco: parentesco,
-                    endereco: enderecoFinal
+                    parentesco: parentesco || 'Não informado',
+                    endereco: {
+                        rua: enderecoFinal.rua || 'Não informado',
+                        numero: enderecoFinal.numero || 'S/N',
+                        bairro: enderecoFinal.bairro || 'Não informado',
+                        cidade: enderecoFinal.cidade || 'Não informado',
+                        estado: enderecoFinal.estado || 'Não informado',
+                        cep: enderecoFinal.cep || 'Não informado'
+                    }
                 };
             }
 
@@ -300,7 +336,7 @@ const NovoBalcaoCidadao = () => {
             setTimeout(() => navigate('/balcao'), 3000);
         } catch (err) {
             console.error("Erro ao enviar solicitação:", err);
-            setError('Ocorreu um erro ao enviar sua solicitação. Tente novamente mais tarde.');
+            setError(`Erro ao enviar solicitação: ${err.message || 'Erro desconhecido'}`);
         } finally {
             setLoading(false);
         }
