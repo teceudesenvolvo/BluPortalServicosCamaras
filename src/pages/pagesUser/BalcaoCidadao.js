@@ -5,7 +5,7 @@ import { db } from '../../firebase';
 import { ref, get, query, orderByChild, equalTo, onValue, push, set, serverTimestamp, update } from 'firebase/database';
 import Sidebar from '../../components/Sidebar';
 import config from '../../config';
-import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
+import { uploadFileToStorage, deleteFileFromStorage } from '../../utils/firebaseStorageUtils';
 
 // Ícones
 import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane, LiaEditSolid, LiaPaperclipSolid, LiaUploadSolid } from "react-icons/lia";
@@ -134,6 +134,17 @@ const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
     );
 };
 
+// Mapeamento de nomes técnicos dos campos para labels amigáveis
+const FIELD_LABELS = {
+    cin_certidao: "Certidão de Nascimento/Casamento",
+    cin_responsavel: "Documento do Responsável",
+    cpf_identidade: "Documento de Identidade (RG/CNH)",
+    cpf_estado_civil: "Comprovante de Estado Civil",
+    cpf_selfie: "Selfie com Documento",
+    cpf_residencia: "Comprovante de Residência",
+    arquivos_adicionais: "Arquivos Adicionais"
+};
+
 // Componente Modal para exibir detalhes
 const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmit, onUploadFiles }) => {
     const [message, setMessage] = useState('');
@@ -150,16 +161,16 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmi
         }
     };
 
-    const handleFileChange = async (e) => {
+    const handleFileUpdate = async (e, fieldKey) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
         
         setUploading(true);
         try {
-            await onUploadFiles(solicitacao.id, files);
-            alert("Arquivos enviados com sucesso!");
+            await onUploadFiles(solicitacao.id, files, fieldKey);
+            alert("Arquivo atualizado com sucesso!");
         } catch (error) {
-            alert("Erro ao enviar arquivos. Tente novamente.");
+            alert("Erro ao atualizar arquivo. Tente novamente.");
         } finally {
             setUploading(false);
         }
@@ -212,30 +223,44 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmi
                     )}
 
                     <hr />
-                    <h4>Arquivos Anexados</h4>
+                    <h4>Documentação e Anexos</h4>
                     <div className="attachments-list" style={{ marginBottom: '15px' }}>
-                        {dadosSolicitacao?.anexos ? (
+                        {dadosSolicitacao?.anexos && Object.keys(dadosSolicitacao.anexos).length > 0 ? (
                             Object.entries(dadosSolicitacao.anexos).map(([field, files]) => (
-                                Array.isArray(files) && files.map((file, idx) => (
-                                    <div key={`${field}-${idx}`} className="attachment-item" style={{ marginBottom: '8px' }}>
-                                        <a href={file.url} target="_blank" rel="noopener noreferrer" className="file-link" style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#2563eb', textDecoration: 'none' }}>
-                                            <LiaPaperclipSolid /> {file.name}
-                                        </a>
+                                <div key={field} style={{ marginBottom: '12px', padding: '10px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                                    <strong style={{ fontSize: '0.85rem', color: '#4b5563', display: 'block', marginBottom: '5px' }}>
+                                        {FIELD_LABELS[field] || field}:
+                                    </strong>
+                                    {Array.isArray(files) && files.map((file, idx) => (
+                                        <div key={`${field}-${idx}`} className="attachment-item" style={{ marginBottom: '5px' }}>
+                                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="file-link" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#2563eb', textDecoration: 'none', fontSize: '0.9rem' }}>
+                                                <LiaPaperclipSolid /> {file.name}
+                                            </a>
+                                        </div>
+                                    ))}
+                                    <div style={{ marginTop: '8px' }}>
+                                        <label className="btn-secondary" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 10px', fontSize: '0.75rem', borderRadius: '4px' }}>
+                                            <LiaUploadSolid size={14} />
+                                            {uploading ? 'Enviando...' : 'Substituir Arquivo'}
+                                            <input type="file" multiple={field === 'arquivos_adicionais'} onChange={(e) => handleFileUpdate(e, field)} hidden disabled={uploading} />
+                                        </label>
                                     </div>
-                                ))
+                                </div>
                             ))
                         ) : (
                             <p style={{ color: '#666', fontSize: '0.9rem' }}>Nenhum arquivo anexado.</p>
                         )}
                     </div>
 
-                    <div className="upload-section">
-                        <label className="btn-secondary" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', fontSize: '0.9rem' }}>
-                            <LiaUploadSolid size={18} />
-                            {uploading ? 'Enviando...' : 'Anexar Novos Arquivos'}
-                            <input type="file" multiple onChange={handleFileChange} hidden disabled={uploading} />
-                        </label>
-                    </div>
+                    {(!dadosSolicitacao?.anexos || !dadosSolicitacao.anexos.arquivos_adicionais) && (
+                        <div className="upload-section" style={{ marginTop: '10px' }}>
+                            <label className="btn-secondary" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', fontSize: '0.9rem' }}>
+                                <LiaUploadSolid size={18} />
+                                {uploading ? 'Enviando...' : 'Anexar Outros Arquivos'}
+                                <input type="file" multiple onChange={(e) => handleFileUpdate(e, 'arquivos_adicionais')} hidden disabled={uploading} />
+                            </label>
+                        </div>
+                    )}
 
                     <hr />
                     <h4>Mensagens</h4>
@@ -366,10 +391,25 @@ const BalcaoCidadao = () => {
         }
     };
 
-    const handleUploadFiles = async (solicitacaoId, files) => {
+    const handleUploadFiles = async (solicitacaoId, files, fieldKey = 'arquivos_adicionais') => {
         if (!currentUser) return;
         
         try {
+            const solicitacaoRef = ref(db, `${config.cityCollection}/balcao-cidadao/${solicitacaoId}`);
+            const snapshot = await get(solicitacaoRef);
+            const currentData = snapshot.val();
+            const currentAnexos = currentData.dadosSolicitacao?.anexos || {};
+
+            // Se estivermos atualizando um campo específico (não os adicionais), removemos os arquivos antigos do Storage
+            if (fieldKey !== 'arquivos_adicionais' && currentAnexos[fieldKey]) {
+                const oldFiles = currentAnexos[fieldKey];
+                if (Array.isArray(oldFiles)) {
+                    for (const f of oldFiles) {
+                        await deleteFileFromStorage(f.url);
+                    }
+                }
+            }
+
             const uploadedFiles = [];
             const folderPath = `${config.cityCollection}/balcao-cidadao/${currentUser.uid}/anexos`;
             
@@ -382,19 +422,18 @@ const BalcaoCidadao = () => {
                 });
             }
 
-            const solicitacaoRef = ref(db, `${config.cityCollection}/balcao-cidadao/${solicitacaoId}`);
-            const snapshot = await get(solicitacaoRef);
-            const currentData = snapshot.val();
-            
-            const currentAnexos = currentData.dadosSolicitacao?.anexos || {};
-            const updatedAnexos = {
-                ...currentAnexos,
-                arquivos_adicionais: [...(currentAnexos.arquivos_adicionais || []), ...uploadedFiles]
-            };
+            let updatedFieldFiles = uploadedFiles;
+            // Se for a lista de arquivos adicionais, anexamos. Caso contrário, substituímos.
+            if (fieldKey === 'arquivos_adicionais') {
+                updatedFieldFiles = [...(currentAnexos.arquivos_adicionais || []), ...uploadedFiles];
+            }
 
-            await update(solicitacaoRef, { 'dadosSolicitacao/anexos': updatedAnexos, ultimaAtualizacao: serverTimestamp() });
+            await update(solicitacaoRef, { 
+                [`dadosSolicitacao/anexos/${fieldKey}`]: updatedFieldFiles, 
+                ultimaAtualizacao: serverTimestamp() 
+            });
         } catch (error) {
-            console.error("Erro ao fazer upload de arquivos extras:", error);
+            console.error("Erro ao processar upload de arquivos:", error);
             throw error;
         }
     };
