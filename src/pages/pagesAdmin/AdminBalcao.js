@@ -606,7 +606,7 @@ const AdminBalcaoDashboard = () => {
                 </div>
 
                 <div className="data-card" style={{ width: '95%' }}>
-                    <div className="card-header"><h3>Atividades Recentes</h3></div>
+                    <div className="card-header"><h3>Atendimentos</h3></div>
                     <div className="chart-container">
                         <div style={{ height: '450px', width: '100%' }}>
                             {loading ? <p>Carregando...</p> : <canvas ref={chartRef}></canvas>}
