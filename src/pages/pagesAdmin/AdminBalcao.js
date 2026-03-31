@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { ref, query, orderByKey, update, push, set, serverTimestamp, get } from 'firebase/database';
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
-import { LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane, LiaPaperclipSolid, LiaSearchSolid, LiaDownloadSolid } from "react-icons/lia";
+import { LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane, LiaPaperclipSolid, LiaDownloadSolid } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
 // Lightbox para visualizar arquivos inline
@@ -341,12 +341,9 @@ const AdminBalcaoDashboard = () => {
 
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [solicitacoes, setSolicitacoes] = useState([]);
-    const [currentTab, setCurrentTab] = useState('Todas');
     const [statusCounts, setStatusCounts] = useState({});
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -362,9 +359,8 @@ const AdminBalcaoDashboard = () => {
         if (!isAuthReady) return;
         
         setLoading(true);
-        // limitToLast(100) para economizar downloads; Firebase push keys são cronológicos
         const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
-        const q = query(solicitacoesRef, orderByKey(), limitToLast(50));
+        const q = query(solicitacoesRef, orderByKey());
         
         try {
             const snapshot = await get(q);
@@ -374,7 +370,6 @@ const AdminBalcaoDashboard = () => {
                     .map(key => ({ id: key, ...data[key] }))
                     .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
                 : [];
-            setSolicitacoes(fetchedData);
 
             const counts = fetchedData.reduce((acc, item) => {
                 const status = item.status || 'Não Classificado';
@@ -406,20 +401,41 @@ const AdminBalcaoDashboard = () => {
 
         const ctx = chartRef.current.getContext('2d');
         chartInstance.current = new Chart(ctx, {
-            type: 'pie',
+            type: 'bar',
             data: {
                 labels: Object.keys(statusCounts),
                 datasets: [{
                     label: 'Total de Solicitações',
                     data: Object.values(statusCounts),
-                    backgroundColor: ['#FFC107', '#2196F3', '#4CAF50', '#9E9E9E'],
+                    backgroundColor: [
+                        'rgba(37, 99, 235, 0.7)',
+                        'rgba(255, 192, 9, 0.7)',
+                        'rgba(76, 175, 80, 0.7)',
+                        'rgba(239, 68, 68, 0.7)',
+                        'rgba(156, 163, 175, 0.7)',
+                        'rgba(139, 92, 246, 0.7)',
+                    ],
+                    borderColor: [
+                        '#2563eb',
+                        '#ffc009',
+                        '#4caf50',
+                        '#ef4444',
+                        '#9ca3af',
+                        '#8b5cf6',
+                    ],
+                    borderWidth: 1
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: {
+                    duration: 2000,
+                    easing: 'easeOutQuart'
+                },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
                 plugins: {
-                    legend: { position: 'top' },
+                    legend: { display: false },
                     title: { display: true, text: 'Solicitações por Status', font: { size: 16, weight: '600' } }
                 }
             }
@@ -428,17 +444,6 @@ const AdminBalcaoDashboard = () => {
         return () => { if (chartInstance.current) chartInstance.current.destroy(); };
     }, [statusCounts]);
 
-    const filteredSolicitacoes = solicitacoes.filter(item => {
-        const matchesTab = currentTab === 'Todas' || item.status === currentTab;
-        const searchLower = searchTerm.toLowerCase();
-        const matchesSearch =
-            (item.dadosSolicitacao?.assunto?.toLowerCase() || '').includes(searchLower) ||
-            (item.dadosUsuario?.name?.toLowerCase() || '').includes(searchLower) ||
-            (item.id?.toLowerCase() || '').includes(searchLower);
-        return matchesTab && matchesSearch;
-    });
-
-    const handleOpenModal = (solicitacao) => setSelectedSolicitacao(solicitacao);
     const handleCloseModal = () => setSelectedSolicitacao(null);
 
     const sendNotification = async (solicitacao) => {
@@ -571,8 +576,6 @@ const AdminBalcaoDashboard = () => {
         }
     };
 
-    const statusTabs = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Concluído'];
-
     if (!isAuthReady) return <div className="loading-screen">Carregando...</div>;
 
     return (
@@ -598,66 +601,16 @@ const AdminBalcaoDashboard = () => {
 
                 <div className="page-actions-bar">
                     <button onClick={() => setIsAvailabilityModalOpen(true)} className="btn-secondary">Configurar Horários</button>
-                    <button onClick={() => navigate('/admin-balcao/agendamentos')} className="btn-primary">Visualizar Agendamentos</button>
+                    <button onClick={() => navigate('/admin-balcao/agendamentos')} className="btn-secondary" style={{background: "#ffc009", borderColor: "#ffc009", textAlign: "center"}}>Visualizar Agendamentos</button>
+                    <button onClick={() => navigate('/admin-balcao/solicitacoes')} className="btn-primary" >Ver todas solicitações</button>
                 </div>
 
-                <div className="data-sections-grid">
-                    <div className="data-card">
-                        <div className="card-header"><h3>Atividades Recentes</h3></div>
-                        <div className="tabs-header" style={{ marginBottom: '20px' }}>
-                            {statusTabs.map(tab => (
-                                <button key={tab} className={`tab-button ${currentTab === tab ? 'active' : ''}`} onClick={() => setCurrentTab(tab)}>
-                                    {tab}
-                                </button>
-                            ))}
+                <div className="data-card" style={{ width: '95%' }}>
+                    <div className="card-header"><h3>Atividades Recentes</h3></div>
+                    <div className="chart-container">
+                        <div style={{ height: '450px', width: '100%' }}>
+                            {loading ? <p>Carregando...</p> : <canvas ref={chartRef}></canvas>}
                         </div>
-                        <div className="chart-container">
-                            <div style={{ height: '350px', width: '100%' }}>
-                                {loading ? <p>Carregando...</p> : <canvas ref={chartRef}></canvas>}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="data-card">
-                        <div className="card-header"><h3>Últimas Solicitações ({currentTab})</h3></div>
-                        <div style={{ marginBottom: '15px', position: 'relative' }}>
-                            <LiaSearchSolid style={{ position: 'absolute', left: '10px', top: '10px', color: '#888' }} size={20} />
-                            <input
-                                type="text"
-                                placeholder="Buscar por assunto, nome ou protocolo..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="form-input"
-                                style={{ paddingLeft: '40px' }}
-                            />
-                        </div>
-                        {loading && <p>Carregando...</p>}
-                        {!loading && filteredSolicitacoes.length === 0 && <p>Nenhuma solicitação com o status "{currentTab}".</p>}
-                        <ul className="data-list">
-                            {filteredSolicitacoes.reverse().slice(0, 5).map(item => (
-                                <li key={item.id} className="data-list-item" onClick={() => handleOpenModal(item)}>
-                                    <div className="item-main-info">
-                                        <strong>{item.dadosSolicitacao?.assunto || 'Sem assunto'}</strong>
-                                        <span>Solicitante: {item.dadosUsuario?.name || 'N/A'}</span>
-                                        {item.dadosBeneficiario?.id === 'outro' && (
-                                            <span style={{ fontSize: '0.8rem', color: '#ef4444', fontStyle: 'italic' }}>Beneficiário: {item.dadosBeneficiario.name}</span>
-                                        )}
-                                    </div>
-                                    <div className="item-status"><span className={`status-badge status-${item.status?.toLowerCase().replace(/\s/g, '-') || 'pending'}`}>{item.status || 'Pendente'}</span></div>
-                                </li>
-                            ))}
-                        </ul>
-                        {filteredSolicitacoes.length > 0 && (
-                            <div style={{ marginTop: '16px', textAlign: 'center' }}>
-                                <button
-                                    onClick={() => navigate('/admin-balcao/solicitacoes')}
-                                    className="btn-primary"
-                                    style={{ width: '100%' }}
-                                >
-                                    Ver todos
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
 
