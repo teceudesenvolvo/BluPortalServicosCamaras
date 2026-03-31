@@ -141,6 +141,16 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                             )}
                         </div>
 
+                    {solicitacao.dadosBeneficiario && solicitacao.dadosBeneficiario.id === 'outro' && (
+                        <div className="data-card" style={{ marginTop: '20px' }}>
+                            <div className="card-header"><h3>Dados do Beneficiário</h3></div>
+                            <div className="detail-item"><strong>Nome:</strong> {solicitacao.dadosBeneficiario.name || 'N/A'}</div>
+                            <div className="detail-item"><strong>CPF:</strong> {solicitacao.dadosBeneficiario.cpf || 'N/A'}</div>
+                            <div className="detail-item"><strong>Telefone:</strong> {solicitacao.dadosBeneficiario.phone || 'N/A'}</div>
+                            <div className="detail-item"><strong>Parentesco:</strong> {solicitacao.dadosBeneficiario.parentesco || 'N/A'}</div>
+                        </div>
+                    )}
+
                         <div className="data-card" style={{ marginTop: '20px' }}>
                             <div className="card-header"><h3>Descrição da Solicitação</h3></div>
                             <div className="detail-item"><strong>Assunto:</strong> {solicitacao.dadosSolicitacao?.assunto || 'N/A'}</div>
@@ -610,6 +620,9 @@ const AdminBalcaoAgendamentos = () => {
 
                                         <div className="item-main-info">
                                             <strong style={{ fontSize: '1.05rem' }}>{item.dadosUsuario?.name || 'Solicitante Desconhecido'}</strong>
+                                            {item.dadosBeneficiario?.id === 'outro' && (
+                                                <span style={{ fontSize: '0.8rem', color: '#ef4444', fontStyle: 'italic', marginBottom: '4px', display: 'block' }}>Beneficiário: {item.dadosBeneficiario.name}</span>
+                                            )}
                                             <span style={{ color: '#4b5563', fontSize: '0.9rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                                 Motivo: {item.dadosSolicitacao?.descricao || 'Não informado'}
                                             </span>

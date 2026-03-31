@@ -139,7 +139,7 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmi
 
     if (!solicitacao) return null;
 
-    const { dadosSolicitacao, status, dataSolicitacao, messages, appointmentDate, appointmentTime } = solicitacao;
+    const { dadosSolicitacao, dadosBeneficiario, status, dataSolicitacao, messages, appointmentDate, appointmentTime } = solicitacao;
 
     const handleSend = () => {
         if (message.trim()) {
@@ -162,6 +162,15 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmi
                         <>
                             <div className="detail-item"><strong>Data Agendada:</strong> {appointmentDate}</div>
                             <div className="detail-item"><strong>Horário Agendado:</strong> {appointmentTime}</div>
+                        </>
+                    )}
+                    {dadosBeneficiario && (
+                        <>
+                            <hr />
+                            <h4>Dados do Beneficiário</h4>
+                            <div className="detail-item"><strong>Nome:</strong> {dadosBeneficiario.name || 'N/A'}</div>
+                            <div className="detail-item"><strong>CPF:</strong> {dadosBeneficiario.cpf || 'N/A'}</div>
+                            <div className="detail-item"><strong>Parentesco:</strong> {dadosBeneficiario.parentesco || 'N/A'}</div>
                         </>
                     )}
                     <hr />
@@ -374,6 +383,9 @@ const BalcaoCidadao = () => {
                                 <li key={solicitacao.id} className="data-list-item" onClick={() => handleOpenModal(solicitacao)}>
                                     <div className="item-main-info">
                                         <strong>Assunto: {solicitacao.dadosSolicitacao?.assunto || 'Não especificado'}</strong>
+                                        {solicitacao.dadosBeneficiario?.id === 'outro' && (
+                                            <span style={{ fontSize: '0.85rem', color: '#666', fontStyle: 'italic' }}>Beneficiário: {solicitacao.dadosBeneficiario.name}</span>
+                                        )}
                                         <span>Data: {new Date(solicitacao.dataSolicitacao).toLocaleDateString('pt-BR')}</span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>

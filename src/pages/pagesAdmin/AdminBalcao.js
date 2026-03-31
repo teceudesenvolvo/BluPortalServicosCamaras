@@ -231,6 +231,16 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                         )}
                     </div>
 
+                    {solicitacao.dadosBeneficiario && solicitacao.dadosBeneficiario.id === 'outro' && (
+                        <div className="data-card" style={{ marginTop: '20px' }}>
+                            <div className="card-header"><h3>Dados do Beneficiário</h3></div>
+                            <div className="detail-item"><strong>Nome:</strong> {solicitacao.dadosBeneficiario.name || 'N/A'}</div>
+                            <div className="detail-item"><strong>CPF:</strong> {solicitacao.dadosBeneficiario.cpf || 'N/A'}</div>
+                            <div className="detail-item"><strong>Telefone:</strong> {solicitacao.dadosBeneficiario.phone || 'N/A'}</div>
+                            <div className="detail-item"><strong>Parentesco:</strong> {solicitacao.dadosBeneficiario.parentesco || 'N/A'}</div>
+                        </div>
+                    )}
+
                     <div className="data-card" style={{ marginTop: '20px' }}>
                         <div className="card-header"><h3>Descrição da Solicitação</h3></div>
                         <div className="detail-item"><strong>Assunto:</strong> {solicitacao.dadosSolicitacao?.assunto || 'N/A'}</div>
@@ -629,6 +639,9 @@ const AdminBalcaoDashboard = () => {
                                     <div className="item-main-info">
                                         <strong>{item.dadosSolicitacao?.assunto || 'Sem assunto'}</strong>
                                         <span>Solicitante: {item.dadosUsuario?.name || 'N/A'}</span>
+                                        {item.dadosBeneficiario?.id === 'outro' && (
+                                            <span style={{ fontSize: '0.8rem', color: '#ef4444', fontStyle: 'italic' }}>Beneficiário: {item.dadosBeneficiario.name}</span>
+                                        )}
                                     </div>
                                     <div className="item-status"><span className={`status-badge status-${item.status?.toLowerCase().replace(/\s/g, '-') || 'pending'}`}>{item.status || 'Pendente'}</span></div>
                                 </li>
