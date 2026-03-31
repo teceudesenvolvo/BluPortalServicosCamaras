@@ -5,9 +5,10 @@ import { db } from '../../firebase';
 import { ref, get, query, orderByChild, equalTo, onValue, push, set, serverTimestamp, update } from 'firebase/database';
 import Sidebar from '../../components/Sidebar';
 import config from '../../config';
+import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
 // Ícones
-import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane, LiaEditSolid } from "react-icons/lia";
+import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane, LiaEditSolid, LiaPaperclipSolid, LiaUploadSolid } from "react-icons/lia";
 
 // Componente para Agendamento
 const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
@@ -134,8 +135,9 @@ const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
 };
 
 // Componente Modal para exibir detalhes
-const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmit }) => {
+const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmit, onUploadFiles }) => {
     const [message, setMessage] = useState('');
+    const [uploading, setUploading] = useState(false);
 
     if (!solicitacao) return null;
 
@@ -145,6 +147,21 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmi
         if (message.trim()) {
             onSendMessage(solicitacao.id, message);
             setMessage('');
+        }
+    };
+
+    const handleFileChange = async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+        
+        setUploading(true);
+        try {
+            await onUploadFiles(solicitacao.id, files);
+            alert("Arquivos enviados com sucesso!");
+        } catch (error) {
+            alert("Erro ao enviar arquivos. Tente novamente.");
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -193,6 +210,32 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmi
                     {status === 'Agendamento Liberado' && (
                         <AgendamentoSection solicitacaoId={solicitacao.id} onScheduled={onScheduleSubmit} />
                     )}
+
+                    <hr />
+                    <h4>Arquivos Anexados</h4>
+                    <div className="attachments-list" style={{ marginBottom: '15px' }}>
+                        {dadosSolicitacao?.anexos ? (
+                            Object.entries(dadosSolicitacao.anexos).map(([field, files]) => (
+                                Array.isArray(files) && files.map((file, idx) => (
+                                    <div key={`${field}-${idx}`} className="attachment-item" style={{ marginBottom: '8px' }}>
+                                        <a href={file.url} target="_blank" rel="noopener noreferrer" className="file-link" style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#2563eb', textDecoration: 'none' }}>
+                                            <LiaPaperclipSolid /> {file.name}
+                                        </a>
+                                    </div>
+                                ))
+                            ))
+                        ) : (
+                            <p style={{ color: '#666', fontSize: '0.9rem' }}>Nenhum arquivo anexado.</p>
+                        )}
+                    </div>
+
+                    <div className="upload-section">
+                        <label className="btn-secondary" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', fontSize: '0.9rem' }}>
+                            <LiaUploadSolid size={18} />
+                            {uploading ? 'Enviando...' : 'Anexar Novos Arquivos'}
+                            <input type="file" multiple onChange={handleFileChange} hidden disabled={uploading} />
+                        </label>
+                    </div>
 
                     <hr />
                     <h4>Mensagens</h4>
@@ -323,6 +366,39 @@ const BalcaoCidadao = () => {
         }
     };
 
+    const handleUploadFiles = async (solicitacaoId, files) => {
+        if (!currentUser) return;
+        
+        try {
+            const uploadedFiles = [];
+            const folderPath = `${config.cityCollection}/balcao-cidadao/${currentUser.uid}/anexos`;
+            
+            for (const file of files) {
+                const result = await uploadFileToStorage(file, folderPath);
+                uploadedFiles.push({
+                    name: file.name,
+                    type: file.type,
+                    url: result.url
+                });
+            }
+
+            const solicitacaoRef = ref(db, `${config.cityCollection}/balcao-cidadao/${solicitacaoId}`);
+            const snapshot = await get(solicitacaoRef);
+            const currentData = snapshot.val();
+            
+            const currentAnexos = currentData.dadosSolicitacao?.anexos || {};
+            const updatedAnexos = {
+                ...currentAnexos,
+                arquivos_adicionais: [...(currentAnexos.arquivos_adicionais || []), ...uploadedFiles]
+            };
+
+            await update(solicitacaoRef, { 'dadosSolicitacao/anexos': updatedAnexos, ultimaAtualizacao: serverTimestamp() });
+        } catch (error) {
+            console.error("Erro ao fazer upload de arquivos extras:", error);
+            throw error;
+        }
+    };
+
     const handleScheduleSubmit = async (solicitacaoId, date, time) => {
         const solicitacaoRef = ref(db, `${config.cityCollection}/balcao-cidadao/${solicitacaoId}`);
         const bookedSlotRef = ref(db, `${config.cityCollection}/balcao-config/bookedSlots/${date}`);
@@ -416,6 +492,7 @@ const BalcaoCidadao = () => {
                     onClose={() => setSelectedSolicitacao(null)}
                     onSendMessage={handleSendMessage}
                     onScheduleSubmit={handleScheduleSubmit}
+                    onUploadFiles={handleUploadFiles}
                 />
             </div>
         </div>
