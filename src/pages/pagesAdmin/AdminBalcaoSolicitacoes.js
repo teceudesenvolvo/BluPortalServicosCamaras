@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get, endBefore } from 'firebase/database';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 import config from '../../config';
@@ -249,6 +249,7 @@ const AdminBalcaoSolicitacoes = () => {
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [loading, setLoading] = useState(true);
     const [solicitacoes, setSolicitacoes] = useState([]);
+    const [firstKey, setFirstKey] = useState(null); // Chave do primeiro item da página atual
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
 
     // Filtros
@@ -259,33 +260,55 @@ const AdminBalcaoSolicitacoes = () => {
     const [filterDateTo, setFilterDateTo] = useState('');
     const [showFilters, setShowFilters] = useState(false);
 
-    // Paginação
+    // Paginação e Filtros
     const [currentPage, setCurrentPage] = useState(1);
+    const [cursors, setCursors] = useState([null]); // Histórico de cursores para navegação
     const itemsPerPage = 15;
+    const [isLastPage, setIsLastPage] = useState(false);
+    const hasActiveFilters = !!(searchTerm || filterStatus !== 'Todas' || filterAssunto !== 'Todos' || filterDateFrom || filterDateTo);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) setIsAuthReady(true);
             else navigate('/');
-            setLoading(false);
         });
         return () => unsubscribe();
     }, [navigate]);
 
-    // Leitura única com limite (economiza downloads)
-    const fetchSolicitacoes = useCallback(async () => {
+    const fetchSolicitacoes = useCallback(async (cursor = null, direction = 'next', filtering = false) => {
         setLoading(true);
         try {
             const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
-            const q = query(solicitacoesRef, orderByKey(), limitToLast(200));
+            let q;
+
+            if (filtering) {
+                // Se houver filtros ativos, buscamos uma massa maior de dados (ex: 500)
+                // para que a filtragem local (nome, assunto, status) funcione de forma ampla.
+                // RTDB não suporta filtros múltiplos ou "contains" no servidor.
+                q = query(solicitacoesRef, orderByKey(), limitToLast(500));
+            } else if (!cursor) {
+                // Carga inicial normal: apenas 15
+                q = query(solicitacoesRef, orderByKey(), limitToLast(itemsPerPage));
+            } else if (direction === 'next') {
+                q = query(solicitacoesRef, orderByKey(), endBefore(cursor), limitToLast(itemsPerPage));
+            }
+
             const snapshot = await get(q);
             const data = snapshot.val();
-            const fetchedData = data
-                ? Object.keys(data)
+            
+            if (data) {
+                const keys = Object.keys(data);
+                const fetchedData = keys
                     .map(key => ({ id: key, ...data[key] }))
-                    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-                : [];
-            setSolicitacoes(fetchedData);
+                    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+                setSolicitacoes(fetchedData);
+                setFirstKey(keys[0]);
+                setIsLastPage(filtering ? true : keys.length < itemsPerPage);
+            } else {
+                if (!cursor) setSolicitacoes([]);
+                setIsLastPage(true);
+            }
         } catch (error) {
             console.error('Erro ao buscar solicitações:', error);
         } finally {
@@ -295,8 +318,38 @@ const AdminBalcaoSolicitacoes = () => {
 
     useEffect(() => {
         if (!isAuthReady) return;
+        
+        setCurrentPage(1);
+        setCursors([null]);
+
+        if (hasActiveFilters) {
+            fetchSolicitacoes(null, 'next', true);
+        } else {
+            fetchSolicitacoes();
+        }
+    }, [isAuthReady, searchTerm, filterStatus, filterAssunto, filterDateFrom, filterDateTo, hasActiveFilters, fetchSolicitacoes]);
+
+    const handleNextPage = () => {
+        const nextCursor = firstKey;
+        setCursors(prev => [...prev, nextCursor]);
+        fetchSolicitacoes(nextCursor, 'next');
+        setCurrentPage(prev => prev + 1);
+    };
+
+    const handlePrevPage = () => {
+        if (currentPage <= 1) return;
+        const newHistory = cursors.slice(0, -1);
+        const targetCursor = newHistory[newHistory.length - 1];
+        fetchSolicitacoes(targetCursor, 'next');
+        setCursors(newHistory);
+        setCurrentPage(prev => prev - 1);
+    };
+
+    const handleResetPagination = () => {
+        setCurrentPage(1);
+        setCursors([null]);
         fetchSolicitacoes();
-    }, [isAuthReady, fetchSolicitacoes]);
+    };
 
     /* ── Filtragem ── */
     const assuntos = ['Todos', ...new Set(solicitacoes.map(s => s.dadosSolicitacao?.assunto).filter(Boolean))];
@@ -327,14 +380,6 @@ const AdminBalcaoSolicitacoes = () => {
 
         return matchesSearch && matchesStatus && matchesAssunto && matchesDate;
     });
-
-    const totalPages = Math.ceil(filteredSolicitacoes.length / itemsPerPage);
-    const paginatedItems = filteredSolicitacoes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-    const handlePageChange = (page) => {
-        setCurrentPage(page);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
 
     const handleFilterChange = () => setCurrentPage(1);
 
@@ -471,8 +516,6 @@ const AdminBalcaoSolicitacoes = () => {
         setCurrentPage(1);
     };
 
-    const hasActiveFilters = searchTerm || filterStatus !== 'Todas' || filterAssunto !== 'Todos' || filterDateFrom || filterDateTo;
-
     if (!isAuthReady) return <div className="loading-screen">Carregando...</div>;
 
     return (
@@ -489,9 +532,9 @@ const AdminBalcaoSolicitacoes = () => {
                         >
                             <LiaArrowLeftSolid size={18} /> Voltar ao Dashboard
                         </button>
-                        <h1>Todas as Solicitações</h1>
+                        <h1>Solicitações Recentes</h1>
                         <p>Balcão do Cidadão — {filteredSolicitacoes.length} solicitaç{filteredSolicitacoes.length === 1 ? 'ão' : 'ões'} encontrada{filteredSolicitacoes.length === 1 ? '' : 's'}</p>
-                        <button onClick={fetchSolicitacoes} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
+                        <button onClick={handleResetPagination} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
                             ↻ Atualizar dados
                         </button>
                     </div>
@@ -593,9 +636,6 @@ const AdminBalcaoSolicitacoes = () => {
                 <div className="data-card">
                     <div className="card-header">
                         <h3>Solicitações ({filteredSolicitacoes.length})</h3>
-                        <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
-                            Página {currentPage} de {totalPages || 1}
-                        </span>
                     </div>
 
                     {loading && <p>Carregando...</p>}
@@ -612,7 +652,7 @@ const AdminBalcaoSolicitacoes = () => {
                     )}
 
                     <ul className="data-list">
-                        {paginatedItems.reverse().map((item, index) => (
+                        {filteredSolicitacoes.map((item, index) => (
                             <li
                                 key={item.id}
                                 className="data-list-item"
@@ -651,35 +691,33 @@ const AdminBalcaoSolicitacoes = () => {
                     </ul>
 
                     {/* Paginação */}
-                    {totalPages > 1 && (
+                    {!loading && !hasActiveFilters && solicitacoes.length > 0 && (
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
                             <button
-                                onClick={() => handlePageChange(currentPage - 1)}
+                                onClick={handleResetPagination}
                                 disabled={currentPage === 1}
                                 className="btn-secondary"
                                 style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
                             >
-                                ‹ Anterior
+                                ⇤ Primeira Página
                             </button>
 
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                                <button
-                                    key={page}
-                                    onClick={() => handlePageChange(page)}
-                                    className={currentPage === page ? 'btn-primary' : 'btn-secondary'}
-                                    style={{ padding: '6px 12px', minWidth: '38px' }}
-                                >
-                                    {page}
-                                </button>
-                            ))}
+                            <button
+                                onClick={handlePrevPage}
+                                disabled={currentPage === 1}
+                                className="btn-secondary"
+                                style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
+                            >
+                                Anterior
+                            </button>
 
                             <button
-                                onClick={() => handlePageChange(currentPage + 1)}
-                                disabled={currentPage === totalPages}
-                                className="btn-secondary"
-                                style={{ padding: '6px 14px', opacity: currentPage === totalPages ? 0.4 : 1 }}
+                                onClick={handleNextPage}
+                                disabled={isLastPage}
+                                className="btn-primary"
+                                style={{ padding: '6px 20px', opacity: isLastPage ? 0.4 : 1 }}
                             >
-                                Próxima ›
+                                Próxima Página ➔
                             </button>
                         </div>
                     )}
