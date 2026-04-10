@@ -174,7 +174,9 @@ const AdminJuridicoDashboard = () => {
             const q = query(solicitacoesRef, orderByKey(), limitToLast(200));
             const snapshot = await get(q);
             const data = snapshot.val();
-            const fetchedSolicitacoes = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+            const fetchedSolicitacoes = data 
+                ? Object.keys(data).map(key => ({ id: key, ...data[key] })).sort((a, b) => (b.dataSolicitacao || 0) - (a.dataSolicitacao || 0))
+                : [];
             setSolicitacoes(fetchedSolicitacoes);
 
             const counts = fetchedSolicitacoes.reduce((acc, item) => {

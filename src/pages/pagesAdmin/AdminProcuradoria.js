@@ -166,7 +166,9 @@ const AdminProcuradoriaDashboard = () => {
             const q = query(solicitacoesRef, orderByKey(), limitToLast(200));
             const snapshot = await get(q);
             const data = snapshot.val();
-            const fetchedData = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+            const fetchedData = data 
+                ? Object.keys(data).map(key => ({ id: key, ...data[key] })).sort((a, b) => (b.dataSolicitacao || 0) - (a.dataSolicitacao || 0))
+                : [];
             setSolicitacoes(fetchedData);
 
             const counts = fetchedData.reduce((acc, item) => {

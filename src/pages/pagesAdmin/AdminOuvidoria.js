@@ -158,7 +158,9 @@ const AdminOuvidoriaDashboard = () => {
             const q = query(manifestacoesRef, orderByKey(), limitToLast(200));
             const snapshot = await get(q);
             const data = snapshot.val();
-            const fetchedData = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+            const fetchedData = data 
+                ? Object.keys(data).map(key => ({ id: key, ...data[key] })).sort((a, b) => (b.dataManifestacao || 0) - (a.dataManifestacao || 0))
+                : [];
             setManifestacoes(fetchedData);
 
             const counts = fetchedData.reduce((acc, item) => {

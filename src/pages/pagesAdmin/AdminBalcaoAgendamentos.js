@@ -292,22 +292,11 @@ const AdminBalcaoAgendamentos = () => {
                         appointmentTime: item.appointmentTime || item.dadosSolicitacao?.appointmentTime
                     }))
                     .sort((a, b) => {
-                        const today = new Date().toISOString().split('T')[0];
                         const dateA = a.appointmentDate || '0000-00-00';
                         const dateB = b.appointmentDate || '0000-00-00';
                         const dateTimeA = `${dateA}T${a.appointmentTime || '00:00'}`;
                         const dateTimeB = `${dateB}T${b.appointmentTime || '00:00'}`;
-
-                        const isPastA = dateA < today;
-                        const isPastB = dateB < today;
-
-                        // 1. Prioriza agendamentos futuros/atuais sobre os passados
-                        if (isPastA && !isPastB) return 1;
-                        if (!isPastA && isPastB) return -1;
-
-                        // 2. Se ambos forem futuros, o mais próximo vem primeiro (ASC)
-                        // 3. Se ambos forem passados, o mais recente vem primeiro (DESC)
-                        return isPastA ? dateTimeB.localeCompare(dateTimeA) : dateTimeA.localeCompare(dateTimeB);
+                        return dateTimeB.localeCompare(dateTimeA);
                     })
                 : [];
             setAgendamentos(fetchedData);
