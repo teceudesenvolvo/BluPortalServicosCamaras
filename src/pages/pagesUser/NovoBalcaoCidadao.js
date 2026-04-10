@@ -139,11 +139,11 @@ const NovoBalcaoCidadao = () => {
     const handleFileChange = (e) => {
         const { name, files } = e.target;
         const filesArray = Array.from(files);
-        const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+        const MAX_SIZE = 12 * 1024 * 1024; // 5MB
 
         const invalidFiles = filesArray.filter(file => file.size > MAX_SIZE);
         if (invalidFiles.length > 0) {
-            setError(`Os seguintes arquivos excedem o limite de 2MB: ${invalidFiles.map(f => f.name).join(', ')}`);
+            setError(`Os seguintes arquivos excedem o limite de 12MB: ${invalidFiles.map(f => f.name).join(', ')}`);
             e.target.value = ""; 
             return;
         }
