@@ -325,7 +325,8 @@ const NovoBalcaoCidadao = () => {
                 dadosUsuario: dadosUsuarioParaSalvar,
                 dadosBeneficiario: dadosBeneficiario,
                 userId: currentUser.uid,
-                status: editId ? (existingSolicitacao?.status || 'Aguardando Atendimento') : 'Aguardando Atendimento',
+                status: editId ? 'Documentação Reenviada' : 'Aguardando Atendimento',
+                deletionTimestamp: null,
                 dataSolicitacao: editId ? existingSolicitacao.dataSolicitacao : serverTimestamp(),
                 ultimaAtualizacao: serverTimestamp()
             };

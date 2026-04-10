@@ -207,6 +207,8 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                 <option value="Aguardando Atendimento">Aguardando Atendimento</option>
                                 <option value="Em Análise">Em Análise</option>
                                 <option value="Concluído">Concluído</option>
+                                <option value="Documentação Reprovada">Documentação Reprovada</option>
+                                <option value="Documentação Reenviada">Documentação Reenviada</option>
                                 <option value="Cancelado">Cancelado</option>
                             </select>
                         </div>
@@ -353,7 +355,7 @@ const AdminBalcaoSolicitacoes = () => {
 
     /* ── Filtragem ── */
     const assuntos = ['Todos', ...new Set(solicitacoes.map(s => s.dadosSolicitacao?.assunto).filter(Boolean))];
-    const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Concluído', 'Não Classificado'];
+    const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Concluído', 'Não Classificado'];
 
     const filteredSolicitacoes = solicitacoes.filter(item => {
         const searchLower = searchTerm.toLowerCase();
@@ -421,8 +423,11 @@ const AdminBalcaoSolicitacoes = () => {
     const handleStatusChange = async (id, newStatus) => {
         const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
         let updateData = { status: newStatus };
-        if (newStatus === 'Cancelado') {
-            // Set deletion timestamp for 3 days from now
+        if (newStatus === 'Concluído') {
+            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
+        } else if (newStatus === 'Documentação Reprovada') {
+            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
+        } else if (newStatus === 'Cancelado') {
             updateData.deletionTimestamp = Date.now() + 3 * 24 * 60 * 60 * 1000;
         } else {
             updateData.deletionTimestamp = null; // Clear if status is changed from Cancelado

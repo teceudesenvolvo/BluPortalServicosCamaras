@@ -167,6 +167,8 @@ const ComplaintDetailsModal = ({ denuncia, onClose, onStatusChange, onSendMessag
                                 <option value="Pendente">Pendente</option>
                                 <option value="Em Negociação">Em Negociação</option>
                                 <option value="Finalizada">Finalizada</option>
+                                <option value="Documentação Reprovada">Documentação Reprovada</option>
+                                <option value="Documentação Reenviada">Documentação Reenviada</option>
                             </select>
                         </div>
                         <button onClick={handleStatusSave} className="btn-primary" style={{ alignSelf: 'flex-end', height: '45px' }}>Salvar Status</button>
@@ -259,7 +261,11 @@ const AdminProconDashboard = () => {
             const q = query(denunciasRef, orderByKey(), limitToLast(200));
             const snapshot = await get(q);
             const data = snapshot.val();
-            const fetchedDenuncias = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+            const fetchedDenuncias = data 
+                ? Object.keys(data)
+                    .map(key => ({ id: key, ...data[key] }))
+                    .sort((a, b) => (b.createdAt || b.timestamp || 0) - (a.createdAt || a.timestamp || 0))
+                : [];
             
             setDenuncias(fetchedDenuncias);
             
@@ -270,7 +276,7 @@ const AdminProconDashboard = () => {
                 return acc;
             }, {});
 
-            const fixedStatuses = ['Em Análise', 'Pendente', 'Finalizada', 'Em Negociação', 'Não Classificado'];
+            const fixedStatuses = ['Em Análise', 'Pendente', 'Finalizada', 'Em Negociação', 'Documentação Reprovada', 'Documentação Reenviada', 'Não Classificado'];
             
             const orderedCounts = {};
             fixedStatuses.forEach(status => {
@@ -430,7 +436,15 @@ const AdminProconDashboard = () => {
 
     const handleStatusChange = async (denunciaId, newStatus) => {
     const denunciaRef = ref(db, `${config.cityCollection}/denuncias-procon/${denunciaId}`);
-        await update(denunciaRef, { status: newStatus });
+        let updateData = { status: newStatus };
+        if (newStatus === 'Finalizada') {
+            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
+        } else if (newStatus === 'Documentação Reprovada') {
+            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
+        } else {
+            updateData.deletionTimestamp = null;
+        }
+        await update(denunciaRef, updateData);
         await sendNotification(
             { ...selectedDenuncia, id: denunciaId, status: newStatus },
             { title: "Alteração de Status Procon", body: `Sua reclamação teve o status alterado para: ${newStatus}.` }
@@ -490,7 +504,7 @@ const AdminProconDashboard = () => {
     };
 
     // Mapeamento de status para rótulos de tab
-    const statusTabs = ['Todas', 'Em Análise', 'Pendente', 'Finalizada', 'Em Negociação'];
+    const statusTabs = ['Todas', 'Em Análise', 'Pendente', 'Finalizada', 'Em Negociação', 'Documentação Reprovada', 'Documentação Reenviada'];
 
     if (!isAuthReady) {
         return <div className="loading-screen">Carregando autenticação...</div>;

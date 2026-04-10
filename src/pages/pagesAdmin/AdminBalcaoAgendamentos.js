@@ -208,6 +208,8 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                     <option value="Aguardando Atendimento">Aguardando Atendimento</option>
                                     <option value="Em Análise">Em Análise</option>
                                     <option value="Concluído">Concluído</option>
+                                    <option value="Documentação Reprovada">Documentação Reprovada</option>
+                                    <option value="Documentação Reenviada">Documentação Reenviada</option>
                                     <option value="Cancelado">Cancelado</option>
                                 </select>
                             </div>
@@ -290,12 +292,22 @@ const AdminBalcaoAgendamentos = () => {
                         appointmentTime: item.appointmentTime || item.dadosSolicitacao?.appointmentTime
                     }))
                     .sort((a, b) => {
-                        const dateA = a.appointmentDate || '9999-99-99';
-                        const timeA = a.appointmentTime || '23:59';
-                        const dateB = b.appointmentDate || '9999-99-99';
-                        const timeB = b.appointmentTime || '23:59';
-                        if (dateA === dateB) return timeA.localeCompare(timeB);
-                        return dateA.localeCompare(dateB);
+                        const today = new Date().toISOString().split('T')[0];
+                        const dateA = a.appointmentDate || '0000-00-00';
+                        const dateB = b.appointmentDate || '0000-00-00';
+                        const dateTimeA = `${dateA}T${a.appointmentTime || '00:00'}`;
+                        const dateTimeB = `${dateB}T${b.appointmentTime || '00:00'}`;
+
+                        const isPastA = dateA < today;
+                        const isPastB = dateB < today;
+
+                        // 1. Prioriza agendamentos futuros/atuais sobre os passados
+                        if (isPastA && !isPastB) return 1;
+                        if (!isPastA && isPastB) return -1;
+
+                        // 2. Se ambos forem futuros, o mais próximo vem primeiro (ASC)
+                        // 3. Se ambos forem passados, o mais recente vem primeiro (DESC)
+                        return isPastA ? dateTimeB.localeCompare(dateTimeA) : dateTimeA.localeCompare(dateTimeB);
                     })
                 : [];
             setAgendamentos(fetchedData);
@@ -312,7 +324,7 @@ const AdminBalcaoAgendamentos = () => {
     }, [isAuthReady, fetchAgendamentos]);
 
     /* ── Filtragem ── */
-    const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Concluído', 'Não Classificado'];
+    const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Concluído', 'Cancelado', 'Não Classificado'];
 
     const filteredAgendamentos = agendamentos.filter(item => {
         const searchLower = searchTerm.toLowerCase();
@@ -385,8 +397,11 @@ const AdminBalcaoAgendamentos = () => {
     const handleStatusChange = async (id, newStatus) => {
         const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
         let updateData = { status: newStatus };
-        if (newStatus === 'Cancelado') {
-            // Set deletion timestamp for 3 days from now
+        if (newStatus === 'Concluído') {
+            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000; // 5 dias
+        } else if (newStatus === 'Documentação Reprovada') {
+            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000; // 5 dias
+        } else if (newStatus === 'Cancelado') {
             updateData.deletionTimestamp = Date.now() + 3 * 24 * 60 * 60 * 1000;
         } else {
             updateData.deletionTimestamp = null; // Clear if status is changed from Cancelado

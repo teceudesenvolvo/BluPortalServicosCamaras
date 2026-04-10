@@ -293,6 +293,8 @@ const getStatusClass = (status) => {
         case 'Em Análise': return 'status-in-progress';
         case 'Agendado': return 'status-in-progress';
         case 'Concluído': return 'status-completed';
+        case 'Documentação Reprovada': return 'status-danger';
+        case 'Documentação Reenviada': return 'status-in-progress';
         default: return '';
     }
 };
@@ -430,7 +432,9 @@ const BalcaoCidadao = () => {
 
             await update(solicitacaoRef, { 
                 [`dadosSolicitacao/anexos/${fieldKey}`]: updatedFieldFiles, 
-                ultimaAtualizacao: serverTimestamp() 
+                ultimaAtualizacao: serverTimestamp(),
+                status: 'Documentação Reenviada',
+                deletionTimestamp: null
             });
         } catch (error) {
             console.error("Erro ao processar upload de arquivos:", error);
