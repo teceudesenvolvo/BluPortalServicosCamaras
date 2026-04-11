@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { ref, query, orderByKey, update, push, set, serverTimestamp, get } from 'firebase/database';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 import config from '../../config';
