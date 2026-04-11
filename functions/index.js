@@ -134,10 +134,6 @@ exports.cleanupExpiredRequests = onSchedule(
         const citiesData = snapshot.val();
         if (!citiesData) return null;
         const deletionPromises = [];
-        const today = new Date();
-        const fiveDaysAgo = new Date();
-        fiveDaysAgo.setDate(today.getDate() - 5);
-        const fiveDaysAgoStr = fiveDaysAgo.toISOString().split("T")[0];
 
         for (const cityKey in citiesData) {
           if (Object.prototype.hasOwnProperty.call(citiesData, cityKey)) {
@@ -153,33 +149,28 @@ exports.cleanupExpiredRequests = onSchedule(
               const collRef = rootRef.child(collPath);
               const expiredSnapshot = await collRef
                   .orderByChild("deletionTimestamp")
+                  .startAt(1)
                   .endAt(now).once("value");
 
               expiredSnapshot.forEach((child) => {
-                processDeletion(child, deletionPromises, cityKey, collName);
+                const val = child.val();
+                if (!val) return;
+
+                // Status finais que permitem a exclusão após o prazo de carência
+                const finalStatuses = [
+                  "Concluído", "Concluída", "Cancelado", "Cancelada",
+                  "Finalizada", "Respondida",
+                ];
+
+                const isFinalStatus = finalStatuses.includes(val.status);
+
+                // Proteção extra: apenas apaga se o deletionTimestamp venceu 
+                // E o status for um dos estados finais autorizados.
+                if (val.deletionTimestamp && val.deletionTimestamp <= now &&
+                    isFinalStatus) {
+                  processDeletion(child, deletionPromises, cityKey, collName);
+                }
               });
-
-              if (collName === "balcao-cidadao") {
-                // Busca todos os itens para encontrar agendamentos expirados
-                // que ainda não foram concluídos/cancelados
-                const allItemsSnap = await collRef.once("value");
-                const allItems = allItemsSnap.val() || {};
-                Object.keys(allItems).forEach((itemId) => {
-                  const req = allItems[itemId];
-                  const appDate = req.appointmentDate ||
-                                 req.dadosSolicitacao?.appointmentDate;
-                  const appTime = req.appointmentTime ||
-                                 req.dadosSolicitacao?.appointmentTime;
-
-                  // Remove apenas o horário agendado se tiver mais de 5 dias
-                  if (req.status === "Agendado" && appDate && appTime &&
-                      appDate < fiveDaysAgoStr) {
-                    const slotPath = `${cityKey}/balcao-config/bookedSlots/` +
-                                    `${appDate}/${appTime}`;
-                    deletionPromises.push(rootRef.child(slotPath).remove());
-                  }
-                });
-              }
             }
           }
         }

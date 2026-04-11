@@ -440,8 +440,6 @@ const AdminProconDashboard = () => {
         let updateData = { status: newStatus };
         if (newStatus === 'Finalizada' || newStatus === 'Cancelado') {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
-        } else if (newStatus === 'Documentação Reprovada') {
-            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
         } else {
             updateData.deletionTimestamp = null;
         }

@@ -423,11 +423,7 @@ const AdminBalcaoSolicitacoes = () => {
     const handleStatusChange = async (id, newStatus) => {
         const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
         let updateData = { status: newStatus };
-        if (newStatus === 'Concluído') {
-            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
-        } else if (newStatus === 'Documentação Reprovada') {
-            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
-        } else if (newStatus === 'Cancelado') {
+        if (newStatus === 'Concluído' || newStatus === 'Cancelado') {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
         } else {
             updateData.deletionTimestamp = null; // Clear if status is changed from Cancelado

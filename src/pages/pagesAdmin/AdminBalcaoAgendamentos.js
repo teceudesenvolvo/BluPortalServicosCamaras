@@ -386,7 +386,7 @@ const AdminBalcaoAgendamentos = () => {
     const handleStatusChange = async (id, newStatus) => {
         const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
         let updateData = { status: newStatus };
-        if (newStatus === 'Concluído' || newStatus === 'Documentação Reprovada' || newStatus === 'Cancelado') {
+        if (newStatus === 'Concluído' || newStatus === 'Cancelado') {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000; // Agenda para 5 dias
         } else {
             updateData.deletionTimestamp = null;
