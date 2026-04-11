@@ -168,13 +168,17 @@ exports.cleanupExpiredRequests = onSchedule(
                 // e o status for um dos estados finais autorizados.
                 if (val.deletionTimestamp && val.deletionTimestamp <= now &&
                     isFinalStatus) {
-                  console.log(`DELETANDO: Solicitação ${child.key} (Status: ${val.status}) expirou.`);
+                  console.log(`DELETANDO: Solicitação ${child.key} ` +
+                      `(Status: ${val.status}) expirou.`);
                   processDeletion(child, deletionPromises, cityKey, collName);
                 } else if (val.deletionTimestamp) {
-                  const waitTime = Math.round((val.deletionTimestamp - now) / (1000 * 60 * 60));
-                  console.log(`MANTENDO: ${child.key} ainda tem ${waitTime} horas de carência.`);
+                  const diffMs = val.deletionTimestamp - now;
+                  const waitTime = Math.round(diffMs / (1000 * 60 * 60));
+                  console.log(`MANTENDO: ${child.key} ainda tem ` +
+                      `${waitTime} horas de carência.`);
                 } else {
-                  // Registros sem deletionTimestamp (como "Aguardando Atendimento") nem entram aqui
+                  // Registros sem deletionTimestamp (como "Aguardando
+                  // Atendimento") nem entram aqui
                 }
               });
             }
