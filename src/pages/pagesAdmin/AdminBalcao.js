@@ -483,9 +483,8 @@ const AdminBalcaoDashboard = () => {
     const handleStatusChange = async (id, newStatus) => {
         const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
         let updateData = { status: newStatus };
-        if (newStatus === 'Cancelado') {
-            // Set deletion timestamp for 3 days from now
-            updateData.deletionTimestamp = Date.now() + 3 * 24 * 60 * 60 * 1000;
+        if (newStatus === 'Concluído' || newStatus === 'Cancelado') {
+            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
         } else {
             updateData.deletionTimestamp = null; // Clear if status is changed from Cancelado
         }

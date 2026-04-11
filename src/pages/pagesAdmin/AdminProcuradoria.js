@@ -104,6 +104,7 @@ const SolicitacaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage,
                                 <option value="Em Acolhimento">Em Acolhimento</option>
                                 <option value="Encaminhada">Encaminhada</option>
                                 <option value="Concluída">Concluída</option>
+                                <option value="Cancelada">Cancelada</option>
                             </select>
                         </div>
                         <button onClick={handleStatusSave} className="btn-primary" style={{ alignSelf: 'flex-end', height: '45px' }}>Salvar Status</button>
@@ -275,7 +276,13 @@ const AdminProcuradoriaDashboard = () => {
 
     const handleStatusChange = async (id, newStatus) => {
         const itemRef = ref(db, `${config.cityCollection}/procuradoria-mulher/${id}`);
-        await update(itemRef, { status: newStatus });
+        let updateData = { status: newStatus };
+        if (newStatus === 'Concluída' || newStatus === 'Cancelada') {
+            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
+        } else {
+            updateData.deletionTimestamp = null;
+        }
+        await update(itemRef, updateData);
         await sendNotification(
             { ...selectedSolicitacao, id, status: newStatus },
             { title: "Atualização de Status - Procuradoria", body: `O status do seu atendimento foi alterado para: ${newStatus}.` }

@@ -100,23 +100,27 @@ function cleanupFiles(request, promises) {
  * Realiza a limpeza de arquivos e remove o registro do banco
  * @param {Object} snapshot Snapshot do Firebase
  * @param {Array} promises Array de promessas
+ * @param {string} cityKey Chave da cidade
+ * @param {string} collName Nome da coleção
  */
-function processDeletion(snapshot, promises) {
-  cleanupFiles(snapshot.val(), promises);
-  promises.push(snapshot.ref.remove());
-}
-
-/**
- * Realiza a limpeza por ID e dados
- * @param {string} id ID do item
- * @param {object} data Dados do item
- * @param {string} path Caminho completo no banco
- * @param {Array} promises Array de promessas
- */
-function processDeletionById(id, data, path, promises) {
+function processDeletion(snapshot, promises, cityKey, collName) {
+  const data = snapshot.val();
   cleanupFiles(data, promises);
-  const itemRef = admin.database().ref().child(`${path}/${id}`);
-  promises.push(itemRef.remove());
+
+  // Limpeza do slot específico no calendário se for Balcão do Cidadão
+  if (collName === "balcao-cidadao" && data) {
+    const appDate = data.appointmentDate ||
+                   data.dadosSolicitacao?.appointmentDate;
+    const appTime = data.appointmentTime ||
+                   data.dadosSolicitacao?.appointmentTime;
+    if (appDate && appTime) {
+      const slotPath = `${cityKey}/balcao-config/bookedSlots/` +
+                      `${appDate}/${appTime}`;
+      promises.push(snapshot.ref.root.child(slotPath).remove());
+    }
+  }
+
+  promises.push(snapshot.ref.remove());
 }
 
 // Função agendada para apagar solicitações expiradas
@@ -131,11 +135,19 @@ exports.cleanupExpiredRequests = onSchedule(
         if (!citiesData) return null;
         const deletionPromises = [];
         const today = new Date();
-        const todayStr = today.toISOString().split("T")[0];
+        const fiveDaysAgo = new Date();
+        fiveDaysAgo.setDate(today.getDate() - 5);
+        const fiveDaysAgoStr = fiveDaysAgo.toISOString().split("T")[0];
 
         for (const cityKey in citiesData) {
           if (Object.prototype.hasOwnProperty.call(citiesData, cityKey)) {
-            const collections = ["balcao-cidadao", "denuncias-procon"];
+            const collections = [
+              "balcao-cidadao",
+              "denuncias-procon",
+              "atendimento-juridico",
+              "procuradoria-mulher",
+              "ouvidoria",
+            ];
             for (const collName of collections) {
               const collPath = `${cityKey}/${collName}`;
               const collRef = rootRef.child(collPath);
@@ -144,21 +156,27 @@ exports.cleanupExpiredRequests = onSchedule(
                   .endAt(now).once("value");
 
               expiredSnapshot.forEach((child) => {
-                processDeletion(child, deletionPromises);
+                processDeletion(child, deletionPromises, cityKey, collName);
               });
 
               if (collName === "balcao-cidadao") {
+                // Busca todos os itens para encontrar agendamentos expirados
+                // que ainda não foram concluídos/cancelados
                 const allItemsSnap = await collRef.once("value");
                 const allItems = allItemsSnap.val() || {};
                 Object.keys(allItems).forEach((itemId) => {
                   const req = allItems[itemId];
                   const appDate = req.appointmentDate ||
                                  req.dadosSolicitacao?.appointmentDate;
-                  if (req.status === "Agendado" && appDate &&
-                      appDate < todayStr) {
-                    processDeletionById(
-                        itemId, req, collPath, deletionPromises,
-                    );
+                  const appTime = req.appointmentTime ||
+                                 req.dadosSolicitacao?.appointmentTime;
+
+                  // Remove apenas o horário agendado se tiver mais de 5 dias
+                  if (req.status === "Agendado" && appDate && appTime &&
+                      appDate < fiveDaysAgoStr) {
+                    const slotPath = `${cityKey}/balcao-config/bookedSlots/` +
+                                    `${appDate}/${appTime}`;
+                    deletionPromises.push(rootRef.child(slotPath).remove());
                   }
                 });
               }

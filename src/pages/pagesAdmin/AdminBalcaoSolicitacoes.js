@@ -428,7 +428,7 @@ const AdminBalcaoSolicitacoes = () => {
         } else if (newStatus === 'Documentação Reprovada') {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
         } else if (newStatus === 'Cancelado') {
-            updateData.deletionTimestamp = Date.now() + 3 * 24 * 60 * 60 * 1000;
+            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
         } else {
             updateData.deletionTimestamp = null; // Clear if status is changed from Cancelado
         }

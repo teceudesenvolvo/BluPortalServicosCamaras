@@ -97,6 +97,7 @@ const ManifestacaoModal = ({ manifestacao, onClose, onStatusChange, onSendMessag
                                 <option value="Em Análise">Em Análise</option>
                                 <option value="Respondida">Respondida</option>
                                 <option value="Encaminhada">Encaminhada</option>
+                                <option value="Cancelada">Cancelada</option>
                             </select>
                         </div>
                         <button onClick={handleStatusSave} className="btn-primary" style={{ alignSelf: 'flex-end', height: '45px' }}>Salvar Status</button>
@@ -261,7 +262,13 @@ const AdminOuvidoriaDashboard = () => {
 
     const handleStatusChange = async (id, newStatus) => {
         const itemRef = ref(db, `${config.cityCollection}/ouvidoria/${id}`);
-        await update(itemRef, { status: newStatus });
+        let updateData = { status: newStatus };
+        if (newStatus === 'Respondida' || newStatus === 'Cancelada') {
+            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
+        } else {
+            updateData.deletionTimestamp = null;
+        }
+        await update(itemRef, updateData);
         await sendNotification({ ...selectedManifestacao, id, status: newStatus });
         alert('Status atualizado!');
         handleCloseModal();

@@ -256,7 +256,7 @@ const AdminBalcaoAgendamentos = () => {
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterStatus, setFilterStatus] = useState('Todas');
+    const [filterStatus, setFilterStatus] = useState('Agendado');
     const [filterDateFrom, setFilterDateFrom] = useState('');
     const [filterDateTo, setFilterDateTo] = useState('');
     const [showFilters, setShowFilters] = useState(false);
@@ -278,14 +278,14 @@ const AdminBalcaoAgendamentos = () => {
         setLoading(true);
         try {
             const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
-            // Buscamos os últimos registros e filtramos localmente para evitar o erro de "Index not defined"
-            const q = query(solicitacoesRef, orderByKey(), limitToLast(300));
+            // Removido o limitToLast(300) para garantir que todos os registros sejam analisados,
+            // permitindo que agendamentos antigos ou fora do range de 300 apareçam.
+            const q = query(solicitacoesRef, orderByKey());
             const snapshot = await get(q);
             const data = snapshot.val();
             const fetchedData = data
                 ? Object.keys(data)
                     .map(key => ({ id: key, ...data[key] }))
-                    .filter(item => item.status === 'Agendado')
                     .map(item => ({
                         ...item,
                         appointmentDate: item.appointmentDate || item.dadosSolicitacao?.appointmentDate,
@@ -386,15 +386,12 @@ const AdminBalcaoAgendamentos = () => {
     const handleStatusChange = async (id, newStatus) => {
         const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
         let updateData = { status: newStatus };
-        if (newStatus === 'Concluído') {
-            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000; // 5 dias
-        } else if (newStatus === 'Documentação Reprovada') {
-            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000; // 5 dias
-        } else if (newStatus === 'Cancelado') {
-            updateData.deletionTimestamp = Date.now() + 3 * 24 * 60 * 60 * 1000;
+        if (newStatus === 'Concluído' || newStatus === 'Documentação Reprovada' || newStatus === 'Cancelado') {
+            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000; // Agenda para 5 dias
         } else {
-            updateData.deletionTimestamp = null; // Clear if status is changed from Cancelado
+            updateData.deletionTimestamp = null;
         }
+        
         await update(itemRef, updateData);
         await sendNotification({ ...selectedSolicitacao, id, status: newStatus });
         alert('Status atualizado!');
@@ -470,13 +467,13 @@ const AdminBalcaoAgendamentos = () => {
 
     const clearFilters = () => {
         setSearchTerm('');
-        setFilterStatus('Todas');
+        setFilterStatus('Agendado');
         setFilterDateFrom('');
         setFilterDateTo('');
         setCurrentPage(1);
     };
 
-    const hasActiveFilters = searchTerm || filterStatus !== 'Todas' || filterDateFrom || filterDateTo;
+    const hasActiveFilters = searchTerm || filterStatus !== 'Agendado' || filterDateFrom || filterDateTo;
 
     if (!isAuthReady) return <div className="loading-screen">Carregando...</div>;
 

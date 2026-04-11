@@ -167,6 +167,7 @@ const ComplaintDetailsModal = ({ denuncia, onClose, onStatusChange, onSendMessag
                                 <option value="Pendente">Pendente</option>
                                 <option value="Em Negociação">Em Negociação</option>
                                 <option value="Finalizada">Finalizada</option>
+                                <option value="Cancelado">Cancelado</option>
                                 <option value="Documentação Reprovada">Documentação Reprovada</option>
                                 <option value="Documentação Reenviada">Documentação Reenviada</option>
                             </select>
@@ -437,7 +438,7 @@ const AdminProconDashboard = () => {
     const handleStatusChange = async (denunciaId, newStatus) => {
     const denunciaRef = ref(db, `${config.cityCollection}/denuncias-procon/${denunciaId}`);
         let updateData = { status: newStatus };
-        if (newStatus === 'Finalizada') {
+        if (newStatus === 'Finalizada' || newStatus === 'Cancelado') {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
         } else if (newStatus === 'Documentação Reprovada') {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;

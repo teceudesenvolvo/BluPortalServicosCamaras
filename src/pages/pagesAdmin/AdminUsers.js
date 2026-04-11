@@ -5,7 +5,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
-import { LiaTimesSolid, LiaSaveSolid, LiaUserEditSolid } from "react-icons/lia";
+import { LiaTimesSolid, LiaSaveSolid, LiaUserEditSolid, LiaEnvelopeSolid } from "react-icons/lia";
 
 // Modal para Edição de Usuário
 const UserEditModal = ({ user, onClose, onSave }) => {
@@ -84,6 +84,72 @@ const UserEditModal = ({ user, onClose, onSave }) => {
     );
 };
 
+// Novo Modal para Envio de Email em Massa
+const SendEmailModal = ({ onClose, onSend, loading, currentBatchStartIndex, totalUsers, batchSize }) => {
+    const [subject, setSubject] = useState('');
+    const [body, setBody] = useState('');
+
+    const currentBatchEndIndex = Math.min(currentBatchStartIndex + batchSize, totalUsers);
+    const isLastBatch = currentBatchEndIndex >= totalUsers;
+
+    const handleSendClick = () => {
+        if (!subject.trim() || !body.trim()) {
+            alert('Por favor, preencha o assunto e o corpo do e-mail.');
+            return;
+        }
+        onSend(subject, body);
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', width: '90%' }}>
+                <div className="modal-header">
+                    <h3>Enviar E-mail para Todos os Usuários</h3>
+                    <button onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button>
+                </div>
+                <div className="modal-body">
+                    {totalUsers > 0 && (
+                        <p style={{ marginBottom: '15px', fontSize: '0.9rem', color: '#666' }}>
+                            Enviando para usuários {currentBatchStartIndex + 1} a {currentBatchEndIndex} de {totalUsers}.
+                        </p>
+                    )}
+                    <div className="form-group">
+                        <label>Assunto:</label>
+                        <input
+                            type="text"
+                            value={subject}
+                            onChange={(e) => setSubject(e.target.value)}
+                            className="form-input"
+                            placeholder="Assunto do e-mail"
+                        />
+                    </div>
+                    <div className="form-group" style={{ marginTop: '15px' }}>
+                        <label>Corpo do E-mail:</label>
+                        <textarea
+                            value={body}
+                            onChange={(e) => setBody(e.target.value)}
+                            className="form-input"
+                            rows="10"
+                            placeholder="Digite o conteúdo do e-mail aqui..."
+                        ></textarea>
+                    </div>
+                    <div className="form-actions" style={{ marginTop: '20px' }}>
+                        <button onClick={handleSendClick} className="btn-primary" disabled={loading}>
+                            <LiaEnvelopeSolid style={{ marginRight: '8px' }} />
+                            {loading ? 'Enviando Lote...' : (isLastBatch ? 'Finalizar Envio' : 'Enviar Próximo Lote')}
+                        </button>
+                        <button onClick={onClose} className="btn-secondary" disabled={loading} style={{ marginLeft: '10px' }}>
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+
 // Componente Principal
 const AdminUsersDashboard = () => {
     const navigate = useNavigate();
@@ -92,6 +158,10 @@ const AdminUsersDashboard = () => {
     const [users, setUsers] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedUser, setSelectedUser] = useState(null);
+    
+    const BATCH_SIZE = 20; // Define o tamanho do lote
+    const [currentBatchStartIndex, setCurrentBatchStartIndex] = useState(200); // Começa em 20, pois os primeiros 20 já foram enviados
+    const [showEmailModal, setShowEmailModal] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -128,7 +198,8 @@ const AdminUsersDashboard = () => {
     const handleOpenModal = (user) => setSelectedUser(user);
     const handleCloseModal = () => setSelectedUser(null);
 
-    const sendNotification = async (userData) => {
+    // Função auxiliar para enviar notificação (mantida como estava)
+    const sendNotification = useCallback(async (userData) => {
         if (!userData.uid || !userData.email) {
             console.log("Dados do usuário incompletos, notificação não enviada.");
             return;
@@ -162,7 +233,7 @@ const AdminUsersDashboard = () => {
                 html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
             },
         });
-    };
+    }, []);
 
     const handleSaveUser = async (userId, updatedData) => {
         const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
@@ -175,6 +246,59 @@ const AdminUsersDashboard = () => {
         } catch (error) {
             alert('Falha ao atualizar o usuário.');
             console.error("Erro ao salvar usuário:", error);
+        }
+    };
+
+    const handleOpenEmailModal = () => setShowEmailModal(true);
+    const handleCloseEmailModal = () => setShowEmailModal(false);
+
+    const handleSendEmailBatch = async (subject, body) => {
+        const usersToSend = filteredUsers.slice(currentBatchStartIndex, currentBatchStartIndex + BATCH_SIZE);
+
+        if (usersToSend.length === 0) {
+            alert('Todos os usuários já receberam o e-mail ou não há mais usuários para enviar.');
+            handleCloseEmailModal();
+            setCurrentBatchStartIndex(0); // Reset for future mass emails
+            return;
+        }
+
+        const confirmMessage = `Tem certeza que deseja enviar este e-mail para ${usersToSend.length} usuários (do total de ${filteredUsers.length})?`;
+        if (!window.confirm(confirmMessage)) {
+            return;
+        }
+
+        setLoading(true); // Usar o loading principal para desabilitar o botão de abrir o modal
+        try {
+            const mailRef = ref(db, `${config.cityCollection}/mail`);
+            const sendPromises = usersToSend.map(user => {
+                if (user.email) {
+                    return set(push(mailRef), {
+                        to: user.email,
+                        message: {
+                            subject: subject,
+                            html: `<p>${body}</p>`,
+                        },
+                    });
+                }
+                return Promise.resolve(); // Resolve para usuários sem e-mail
+            });
+            await Promise.all(sendPromises);
+
+            const nextStartIndex = currentBatchStartIndex + BATCH_SIZE;
+            setCurrentBatchStartIndex(nextStartIndex);
+
+            if (nextStartIndex >= filteredUsers.length) {
+                alert(`Lote enviado com sucesso! Todos os ${filteredUsers.length} usuários receberam o e-mail.`);
+                handleCloseEmailModal();
+                setCurrentBatchStartIndex(0); // Reset for future mass emails
+            } else {
+                alert(`Lote de ${usersToSend.length} e-mails enviado com sucesso! Próximo lote: usuários ${nextStartIndex + 1} a ${Math.min(nextStartIndex + BATCH_SIZE, filteredUsers.length)}.`);
+            }
+        } catch (error) {
+            alert('Erro ao enviar e-mails em massa.');
+            console.error('Erro ao enviar e-mails em massa:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -197,6 +321,9 @@ const AdminUsersDashboard = () => {
                         <p>Visualize e edite os perfis dos usuários do portal</p>
                         <button onClick={fetchUsers} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
                             ↻ Atualizar dados
+                        </button>
+                        <button onClick={handleOpenEmailModal} className="btn-primary" disabled={loading} style={{ marginTop: '8px', marginLeft: '10px' }}>
+                            <LiaEnvelopeSolid style={{ marginRight: '8px' }} /> Enviar E-mail para Todos
                         </button>
                     </div>
                     <div className="user-profile">
@@ -247,6 +374,15 @@ const AdminUsersDashboard = () => {
                     onClose={handleCloseModal}
                     onSave={handleSaveUser}
                 />
+
+                {showEmailModal && <SendEmailModal
+                    onClose={handleCloseEmailModal}
+                    onSend={handleSendEmailBatch}
+                    loading={loading} // Use o loading principal para desabilitar o botão de envio enquanto a requisição está em andamento
+                    currentBatchStartIndex={currentBatchStartIndex}
+                    totalUsers={filteredUsers.length}
+                    batchSize={BATCH_SIZE}
+                />}
             </div>
         </div>
     );

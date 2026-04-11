@@ -108,6 +108,7 @@ const SolicitacaoJuridicoModal = ({ solicitacao, onClose, onStatusChange, onSend
                                 <option value="Aguardando Atendimento">Aguardando Atendimento</option>
                                 <option value="Em Análise">Em Análise</option>
                                 <option value="Concluído">Concluído</option>
+                                <option value="Cancelado">Cancelado</option>
                             </select>
                         </div>
                         <button onClick={handleStatusSave} className="btn-primary" style={{ alignSelf: 'flex-end', height: '45px' }}>Salvar Status</button>
@@ -296,7 +297,13 @@ const AdminJuridicoDashboard = () => {
 
     const handleStatusChange = async (solicitacaoId, newStatus) => {
         const solicitacaoRef = ref(db, `${config.cityCollection}/atendimento-juridico/${solicitacaoId}`);
-        await update(solicitacaoRef, { status: newStatus });
+        let updateData = { status: newStatus };
+        if (newStatus === 'Concluído' || newStatus === 'Cancelado') {
+            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
+        } else {
+            updateData.deletionTimestamp = null;
+        }
+        await update(solicitacaoRef, updateData);
         await sendNotification({ ...selectedSolicitacao, id: solicitacaoId, status: newStatus });
         alert('Status atualizado com sucesso!');
         handleCloseModal();
