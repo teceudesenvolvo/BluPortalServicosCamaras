@@ -10,6 +10,7 @@ import {
 
 import Footer from '../components/Footer'; // Importa o novo componente
 import VereadoresSlider from '../components/VereadoresSlider'; // Importa o slider
+import MaintenancePopup from '../components/MaintenancePopup';
 import Logo from '../assets/logo-paraipaba.png';
 import HeroBackground from '../assets/fachada2-cm.jpg';
 
@@ -58,6 +59,7 @@ const HomePage = () => {
 
     return (
         <div className="home-page-modern">
+            <MaintenancePopup />
             <header className="home-header-modern" style={{ backgroundImage: `url(${HeroBackground})` }}>
                 <div className="header-blur-overlay"></div>
                 <div className="nav-container">

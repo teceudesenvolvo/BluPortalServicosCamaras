@@ -436,7 +436,7 @@ const AdminProconDashboard = () => {
     };
 
     const handleStatusChange = async (denunciaId, newStatus) => {
-    const denunciaRef = ref(db, `${config.cityCollection}/denuncias-procon/${denunciaId}`);
+        const denunciaRef = ref(db, `${config.cityCollection}/denuncias-procon/${denunciaId}`);
         let updateData = { status: newStatus };
         if (newStatus === 'Finalizada' || newStatus === 'Cancelado') {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;

@@ -156,7 +156,7 @@ exports.cleanupExpiredRequests = onSchedule(
                 const val = child.val();
                 if (!val) return;
 
-                // Status finais que permitem a exclusão após o prazo de carência
+                // Status finais que permitem a exclusão após o prazo
                 const finalStatuses = [
                   "Concluído", "Concluída", "Cancelado", "Cancelada",
                   "Finalizada", "Respondida",
@@ -164,11 +164,17 @@ exports.cleanupExpiredRequests = onSchedule(
 
                 const isFinalStatus = finalStatuses.includes(val.status);
 
-                // Proteção extra: apenas apaga se o deletionTimestamp venceu 
-                // E o status for um dos estados finais autorizados.
+                // Proteção: só apaga se o deletionTimestamp venceu (5 dias)
+                // e o status for um dos estados finais autorizados.
                 if (val.deletionTimestamp && val.deletionTimestamp <= now &&
                     isFinalStatus) {
+                  console.log(`DELETANDO: Solicitação ${child.key} (Status: ${val.status}) expirou.`);
                   processDeletion(child, deletionPromises, cityKey, collName);
+                } else if (val.deletionTimestamp) {
+                  const waitTime = Math.round((val.deletionTimestamp - now) / (1000 * 60 * 60));
+                  console.log(`MANTENDO: ${child.key} ainda tem ${waitTime} horas de carência.`);
+                } else {
+                  // Registros sem deletionTimestamp (como "Aguardando Atendimento") nem entram aqui
                 }
               });
             }

@@ -284,10 +284,10 @@ const AdminBalcaoSolicitacoes = () => {
             let q;
 
             if (filtering) {
-                // Se houver filtros ativos, buscamos uma massa maior de dados (ex: 500)
-                // para que a filtragem local (nome, assunto, status) funcione de forma ampla.
-                // RTDB não suporta filtros múltiplos ou "contains" no servidor.
-                q = query(solicitacoesRef, orderByKey(), limitToLast(500));
+                // Removido o limite de 500 para garantir que a busca e os filtros 
+                // encontrem registros antigos que ainda estejam pendentes, 
+                // evitando que solicitações "sumam" da lista.
+                q = query(solicitacoesRef, orderByKey());
             } else if (!cursor) {
                 // Carga inicial normal: apenas 15
                 q = query(solicitacoesRef, orderByKey(), limitToLast(itemsPerPage));

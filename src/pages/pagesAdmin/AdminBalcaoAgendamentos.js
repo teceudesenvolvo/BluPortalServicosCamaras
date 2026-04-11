@@ -389,7 +389,7 @@ const AdminBalcaoAgendamentos = () => {
         if (newStatus === 'Concluído' || newStatus === 'Cancelado') {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000; // Agenda para 5 dias
         } else {
-            updateData.deletionTimestamp = null;
+            updateData.deletionTimestamp = null; // Cancela exclusão se voltar a ativo
         }
         
         await update(itemRef, updateData);

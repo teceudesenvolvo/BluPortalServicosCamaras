@@ -9,6 +9,7 @@ import {
 } from "react-icons/lia";
 import { signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
+import MaintenancePopup from '../../components/MaintenancePopup';
 
 // --- Componente: Ítem do Menu Lateral (interno ao Sidebar) ---
 const AdminSidebarItem = ({ icon, title, path, isActive, onClick }) => (
@@ -44,6 +45,7 @@ const AdminSidebar = () => {
 
     return (
         <div className="dashboard-sidebar">
+            <MaintenancePopup />
             <div className="sidebar-header">
                 <img src={Logo} alt="Logo Pacatuba" className="sidebar-logo" style={{ height: '120px', width: 'auto' }} />
                 <button className="sidebar-hamburger-btn" onClick={handleMobileMenuToggle}>
