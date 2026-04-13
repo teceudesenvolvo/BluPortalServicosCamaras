@@ -131,19 +131,18 @@ exports.cleanupExpiredRequests = onSchedule(
       const now = Date.now();
       try {
         const rootRef = admin.database().ref();
-        // Em vez de baixar o banco todo, buscamos apenas as chaves (nomes das cidades)
-        // Nota: O ideal é ter um nó 'metadata/cities' para evitar o scan no root.
+        // Buscamos apenas as chaves das cidades para economizar download.
+        // O ideal é ter um nó 'metadata/cities' para evitar o scan.
         const citiesSnapshot = await rootRef.once("value");
         const citiesData = citiesSnapshot.val();
         if (!citiesData) return null;
 
         const deletionPromises = [];
-        const now = Date.now();
 
         for (const cityKey in citiesData) {
           // Ignoramos nós que não são cidades (ex: logs, metadata)
           if (cityKey === "mail" || cityKey === "notifications") continue;
-          
+
           if (Object.prototype.hasOwnProperty.call(citiesData, cityKey)) {
             const collections = [
               "balcao-cidadao",
