@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, orderByKey, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { ref, query, orderByKey, update, push, set, serverTimestamp, get, limitToLast } from 'firebase/database';
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
@@ -360,7 +360,9 @@ const AdminBalcaoDashboard = () => {
         
         setLoading(true);
         const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
-        const q = query(solicitacoesRef, orderByKey());
+        
+        // Limitamos aos últimos 1000 para o gráfico não pesar a fatura de download
+        const q = query(solicitacoesRef, orderByKey(), limitToLast(1000));
         
         try {
             const snapshot = await get(q);

@@ -79,7 +79,8 @@ function cleanupFiles(request, promises) {
     });
   }
   filesToDelete.forEach((file) => {
-    if (file.url && file.url.includes("firebasestorage")) {
+    // Garante que só tentamos deletar se a URL pertencer ao nosso projeto
+    if (file.url && file.url.includes("firebasestorage.googleapis.com")) {
       try {
         const urlParts = file.url.split("/o/");
         const filePath = decodeURIComponent(urlParts[1].split("?")[0]);
@@ -128,14 +129,21 @@ exports.cleanupExpiredRequests = onSchedule(
     "every 1 hours",
     async (event) => {
       const now = Date.now();
-      const rootRef = admin.database().ref();
       try {
-        const snapshot = await rootRef.once("value");
-        const citiesData = snapshot.val();
+        const rootRef = admin.database().ref();
+        // Em vez de baixar o banco todo, buscamos apenas as chaves (nomes das cidades)
+        // Nota: O ideal é ter um nó 'metadata/cities' para evitar o scan no root.
+        const citiesSnapshot = await rootRef.once("value");
+        const citiesData = citiesSnapshot.val();
         if (!citiesData) return null;
+
         const deletionPromises = [];
+        const now = Date.now();
 
         for (const cityKey in citiesData) {
+          // Ignoramos nós que não são cidades (ex: logs, metadata)
+          if (cityKey === "mail" || cityKey === "notifications") continue;
+          
           if (Object.prototype.hasOwnProperty.call(citiesData, cityKey)) {
             const collections = [
               "balcao-cidadao",

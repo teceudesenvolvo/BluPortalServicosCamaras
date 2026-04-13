@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, orderByKey, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { ref, query, update, push, set, serverTimestamp, get, orderByChild, equalTo } from 'firebase/database';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase';
 import config from '../../config';
@@ -278,9 +278,11 @@ const AdminBalcaoAgendamentos = () => {
         setLoading(true);
         try {
             const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
-            // Removido o limitToLast(300) para garantir que todos os registros sejam analisados,
-            // permitindo que agendamentos antigos ou fora do range de 300 apareçam.
-            const q = query(solicitacoesRef, orderByKey());
+            
+            // Buscamos apenas os registros que realmente estão com status 'Agendado'
+            // Isso reduz o download em até 90% se você tiver muitos concluídos/cancelados.
+            const q = query(solicitacoesRef, orderByChild('status'), equalTo('Agendado'));
+            
             const snapshot = await get(q);
             const data = snapshot.val();
             const fetchedData = data
