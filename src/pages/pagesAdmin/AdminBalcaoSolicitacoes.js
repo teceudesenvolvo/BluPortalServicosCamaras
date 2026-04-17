@@ -51,7 +51,7 @@ const FileViewerModal = ({ file, onClose }) => {
 };
 
 /* ─── Modal de Detalhes (mesmo componente do AdminBalcao) ─── */
-const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage, onFileUpload, onNotifyUser }) => {
+const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage, onFileUpload, onNotifyUser, userProfilesCache, setUserProfilesCache }) => {
     const [newStatus, setNewStatus] = useState(solicitacao ? solicitacao.status || '' : '');
     const [message, setMessage] = useState('');
     const [consumerProfile, setConsumerProfile] = useState(null);
@@ -68,11 +68,22 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                     setLoadingProfile(false);
                     return;
                 }
+
+                // Verificar cache primeiro
+                if (userProfilesCache[userId]) {
+                    setConsumerProfile(userProfilesCache[userId]);
+                    setLoadingProfile(false);
+                    return;
+                }
+
                 setLoadingProfile(true);
                 const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
                 try {
-                    const snapshot = await get(userRef);
-                    setConsumerProfile(snapshot.exists() ? snapshot.val() : solicitacao.dadosUsuario);
+                    const snapshot = await get(userRef); // Usar get para consistência, mas poderia ser once se não precisar realtime
+                    const profile = snapshot.exists() ? snapshot.val() : solicitacao.dadosUsuario;
+                    setConsumerProfile(profile);
+                    // Atualizar cache
+                    setUserProfilesCache(prev => ({ ...prev, [userId]: profile }));
                 } catch (error) {
                     setConsumerProfile(solicitacao.dadosUsuario);
                 } finally {
@@ -81,7 +92,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
             };
             fetchConsumerProfile();
         }
-    }, [solicitacao]);
+    }, [solicitacao, userProfilesCache, setUserProfilesCache]);
 
     if (!solicitacao) return null;
 
@@ -267,7 +278,11 @@ const AdminBalcaoSolicitacoes = () => {
     const [cursors, setCursors] = useState([null]); // Histórico de cursores para navegação
     const itemsPerPage = 15;
     const [isLastPage, setIsLastPage] = useState(false);
+    const [filteredPage, setFilteredPage] = useState(1); // Página atual para filtros
     const hasActiveFilters = !!(searchTerm || filterStatus !== 'Todas' || filterAssunto !== 'Todos' || filterDateFrom || filterDateTo);
+
+    // Cache para perfis de usuários
+    const [userProfilesCache, setUserProfilesCache] = useState({});
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -284,10 +299,12 @@ const AdminBalcaoSolicitacoes = () => {
             let q;
 
             if (filtering) {
-                // Removido o limite de 500 para garantir que a busca e os filtros 
-                // encontrem registros antigos que ainda estejam pendentes, 
-                // evitando que solicitações "sumam" da lista.
-                q = query(solicitacoesRef, orderByKey());
+                // Com filtros, carregar apenas 15 por página do banco
+                if (!cursor) {
+                    q = query(solicitacoesRef, orderByKey(), limitToLast(itemsPerPage));
+                } else if (direction === 'next') {
+                    q = query(solicitacoesRef, orderByKey(), endBefore(cursor), limitToLast(itemsPerPage));
+                }
             } else if (!cursor) {
                 // Carga inicial normal: apenas 15
                 q = query(solicitacoesRef, orderByKey(), limitToLast(itemsPerPage));
@@ -306,7 +323,7 @@ const AdminBalcaoSolicitacoes = () => {
 
                 setSolicitacoes(fetchedData);
                 setFirstKey(keys[0]);
-                setIsLastPage(filtering ? true : keys.length < itemsPerPage);
+                setIsLastPage(filtering ? keys.length < itemsPerPage : keys.length < itemsPerPage);
             } else {
                 if (!cursor) setSolicitacoes([]);
                 setIsLastPage(true);
@@ -316,19 +333,47 @@ const AdminBalcaoSolicitacoes = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [itemsPerPage]);
 
     useEffect(() => {
         if (!isAuthReady) return;
         
         setCurrentPage(1);
         setCursors([null]);
+        setFilteredPage(1);
 
         if (hasActiveFilters) {
             fetchSolicitacoes(null, 'next', true);
         } else {
             fetchSolicitacoes();
         }
+
+        // Limpeza automática de solicitações antigas (com deletionTimestamp expirado)
+        const cleanupOldSolicitacoes = async () => {
+            try {
+                const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
+                const snapshot = await get(solicitacoesRef);
+                const data = snapshot.val();
+                if (data) {
+                    const now = Date.now();
+                    const toDelete = Object.keys(data).filter(key => {
+                        const item = data[key];
+                        return item.deletionTimestamp && item.deletionTimestamp <= now;
+                    });
+                    if (toDelete.length > 0) {
+                        const updates = {};
+                        toDelete.forEach(key => {
+                            updates[key] = null; // Remove do DB
+                        });
+                        await update(solicitacoesRef, updates);
+                        console.log(`Limpeza automática: ${toDelete.length} solicitações removidas.`);
+                    }
+                }
+            } catch (error) {
+                console.error('Erro na limpeza automática:', error);
+            }
+        };
+        cleanupOldSolicitacoes();
     }, [isAuthReady, searchTerm, filterStatus, filterAssunto, filterDateFrom, filterDateTo, hasActiveFilters, fetchSolicitacoes]);
 
     const handleNextPage = () => {
@@ -383,7 +428,17 @@ const AdminBalcaoSolicitacoes = () => {
         return matchesSearch && matchesStatus && matchesAssunto && matchesDate;
     });
 
-    const handleFilterChange = () => setCurrentPage(1);
+    // Paginação para filtros: dividir filteredSolicitacoes em páginas de 15
+    const paginatedFilteredSolicitacoes = hasActiveFilters
+        ? filteredSolicitacoes.slice((filteredPage - 1) * itemsPerPage, filteredPage * itemsPerPage)
+        : filteredSolicitacoes;
+
+    const totalFilteredPages = hasActiveFilters ? Math.ceil(filteredSolicitacoes.length / itemsPerPage) : 1;
+
+    const handleFilterChange = () => {
+        setCurrentPage(1);
+        setFilteredPage(1);
+    };
 
     /* ── Ações ── */
     const sendNotification = async (solicitacao, customMessage) => {
@@ -515,6 +570,7 @@ const AdminBalcaoSolicitacoes = () => {
         setFilterDateFrom('');
         setFilterDateTo('');
         setCurrentPage(1);
+        setFilteredPage(1);
     };
 
     if (!isAuthReady) return <div className="loading-screen">Carregando...</div>;
@@ -641,7 +697,7 @@ const AdminBalcaoSolicitacoes = () => {
 
                     {loading && <p>Carregando...</p>}
 
-                    {!loading && filteredSolicitacoes.length === 0 && (
+                    {!loading && paginatedFilteredSolicitacoes.length === 0 && (
                         <div style={{ textAlign: 'center', padding: '40px 0', color: '#6b7280' }}>
                             <p style={{ fontSize: '1.1rem' }}>Nenhuma solicitação encontrada.</p>
                             {hasActiveFilters && (
@@ -653,7 +709,7 @@ const AdminBalcaoSolicitacoes = () => {
                     )}
 
                     <ul className="data-list">
-                        {filteredSolicitacoes.map((item, index) => (
+                        {paginatedFilteredSolicitacoes.map((item, index) => (
                             <li
                                 key={item.id}
                                 className="data-list-item"
@@ -667,7 +723,7 @@ const AdminBalcaoSolicitacoes = () => {
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         fontSize: '0.8rem', fontWeight: '600', flexShrink: 0
                                     }}>
-                                        {(currentPage - 1) * itemsPerPage + index + 1}
+                                        {hasActiveFilters ? ((filteredPage - 1) * itemsPerPage + index + 1) : ((currentPage - 1) * itemsPerPage + index + 1)}
                                     </span>
                                     <div className="item-main-info">
                                         <strong>{item.dadosSolicitacao?.assunto || 'Sem assunto'}</strong>
@@ -692,35 +748,59 @@ const AdminBalcaoSolicitacoes = () => {
                     </ul>
 
                     {/* Paginação */}
-                    {!loading && !hasActiveFilters && solicitacoes.length > 0 && (
+                    {hasActiveFilters ? (
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
                             <button
-                                onClick={handleResetPagination}
-                                disabled={currentPage === 1}
+                                onClick={() => setFilteredPage(prev => Math.max(1, prev - 1))}
+                                disabled={filteredPage === 1}
                                 className="btn-secondary"
-                                style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
-                            >
-                                ⇤ Primeira Página
-                            </button>
-
-                            <button
-                                onClick={handlePrevPage}
-                                disabled={currentPage === 1}
-                                className="btn-secondary"
-                                style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
+                                style={{ padding: '6px 14px', opacity: filteredPage === 1 ? 0.4 : 1 }}
                             >
                                 Anterior
                             </button>
-
+                            <span style={{ alignSelf: 'center', fontSize: '0.9rem' }}>
+                                Página {filteredPage} de {totalFilteredPages}
+                            </span>
                             <button
-                                onClick={handleNextPage}
-                                disabled={isLastPage}
+                                onClick={() => setFilteredPage(prev => Math.min(totalFilteredPages, prev + 1))}
+                                disabled={filteredPage === totalFilteredPages}
                                 className="btn-primary"
-                                style={{ padding: '6px 20px', opacity: isLastPage ? 0.4 : 1 }}
+                                style={{ padding: '6px 20px', opacity: filteredPage === totalFilteredPages ? 0.4 : 1 }}
                             >
                                 Próxima Página ➔
                             </button>
                         </div>
+                    ) : (
+                        !loading && solicitacoes.length > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
+                                <button
+                                    onClick={handleResetPagination}
+                                    disabled={currentPage === 1}
+                                    className="btn-secondary"
+                                    style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
+                                >
+                                    ⇤ Primeira Página
+                                </button>
+
+                                <button
+                                    onClick={handlePrevPage}
+                                    disabled={currentPage === 1}
+                                    className="btn-secondary"
+                                    style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
+                                >
+                                    Anterior
+                                </button>
+
+                                <button
+                                    onClick={handleNextPage}
+                                    disabled={isLastPage}
+                                    className="btn-primary"
+                                    style={{ padding: '6px 20px', opacity: isLastPage ? 0.4 : 1 }}
+                                >
+                                    Próxima Página ➔
+                                </button>
+                            </div>
+                        )
                     )}
                 </div>
 
@@ -732,6 +812,8 @@ const AdminBalcaoSolicitacoes = () => {
                     onSendMessage={handleSendMessage}
                     onFileUpload={handleAdminFileUpload}
                     onNotifyUser={handleNotifyUser}
+                    userProfilesCache={userProfilesCache}
+                    setUserProfilesCache={setUserProfilesCache}
                 />
             </div>
         </div>

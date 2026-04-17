@@ -1,9 +1,8 @@
-// src/firebase.js
-
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getDatabase } from "firebase/database";
 import { getStorage } from "firebase/storage";
+import { getFirestore } from "firebase/firestore";
 
 // As chaves são lidas das variáveis de ambiente (arquivo .env.local) para segurança e para garantir que a configuração esteja completa.
 const firebaseConfig = {
@@ -23,6 +22,7 @@ const app = initializeApp(firebaseConfig);
 // Exporta os serviços que iremos usar
 export const auth = getAuth(app);
 export const db = getDatabase(app);
+export const firestore = getFirestore(app);
 export const storage = getStorage(app);
 
 // Exporta o app para uso futuro, se necessário

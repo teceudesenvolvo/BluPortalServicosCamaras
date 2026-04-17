@@ -10,6 +10,7 @@ import {
     LiaBarsSolid,
     LiaTimesSolid,
     LiaUsersSolid,
+    LiaCloudDownloadAltSolid,
 } from "react-icons/lia";
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebase';
@@ -67,6 +68,7 @@ const AdminSidebar = () => {
         { title: 'Vereadores', icon: <LiaUserFriendsSolid />, path: '/admin-vereadores', roles: ['Admin', 'Vereador'] },
         { title: 'PIEL', icon: <LiaUsersSolid />, path: '/admin-piel', roles: ['Admin'] },
         { title: 'Gerenciar Usuários', icon: <LiaUsersCogSolid />, path: '/admin-users', roles: ['Admin'] },
+        { title: 'Migração Firestore', icon: <LiaCloudDownloadAltSolid />, path: '/admin-migration', roles: ['Admin'] },
         { title: 'Perfil', icon: <LiaUser />, path: '/perfil', roles: ['Admin', 'Vereador', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão'] },
     ];
 

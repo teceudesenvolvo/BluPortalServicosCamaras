@@ -41,6 +41,7 @@ import AdminOuvidoria from './pages/pagesAdmin/AdminOuvidoria';
 import AdminProcuradoria from './pages/pagesAdmin/AdminProcuradoria';
 import AdminVereadores from './pages/pagesAdmin/AdminVereadores';
 import AdminUsers from './pages/pagesAdmin/AdminUsers';
+import AdminMigration from './pages/pagesAdmin/AdminMigration';
 
 
 function App() {
@@ -84,6 +85,7 @@ function App() {
           <Route path="/admin-users" element={<AdminUsers />} />
           <Route path="/admin-piel" element={<AdminPiel />} />
           <Route path="/admin-balcao/agendamentos" element={<AdminBalcaoAgendamentos />} />
+          <Route path="/admin-migration" element={<AdminMigration />} />
 
         </Routes>
       </Router>

@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
-import { db } from '../../firebase'; 
+import { db, firestore } from '../../firebase'; 
 import config from '../../config'; // Importa a configuração
 import { ref, get, push, set, serverTimestamp } from 'firebase/database';
+import { doc, setDoc } from 'firebase/firestore';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
 // Ícones
@@ -179,6 +180,44 @@ const NovoBalcaoCidadao = () => {
         }
     };
 
+    // Função para salvar em RTDB e Firestore simultaneamente (dual-write)
+    const saveSolicitacaoDualWrite = async (docId, payload) => {
+        const errors = [];
+
+        // Salvar no RTDB
+        try {
+            const solicitacaoRef = ref(db, `${config.cityCollection}/balcao-cidadao/${docId}`);
+            await set(solicitacaoRef, payload);
+            console.log('✅ Solicitação salva no Realtime Database');
+        } catch (err) {
+            const errorMsg = `Erro ao salvar no RTDB: ${err.message}`;
+            console.error(errorMsg);
+            errors.push(errorMsg);
+        }
+
+        // Salvar no Firestore (novo)
+        try {
+            const firestoreRef = doc(firestore, 'balcao-cidadao', docId);
+            const firestorePayload = {
+                ...payload,
+                dataSolicitacao: payload.dataSolicitacao instanceof Date ? payload.dataSolicitacao : new Date(),
+                ultimaAtualizacao: new Date(),
+                migratedAt: new Date().toISOString(),
+                source: 'web'
+            };
+            await setDoc(firestoreRef, firestorePayload);
+            console.log('✅ Solicitação salva no Firestore');
+        } catch (err) {
+            const errorMsg = `Erro ao salvar no Firestore: ${err.message}`;
+            console.error(errorMsg);
+            errors.push(errorMsg);
+        }
+
+        if (errors.length > 0) {
+            throw new Error(errors.join(' | '));
+        }
+    };
+
     // Form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -331,7 +370,11 @@ const NovoBalcaoCidadao = () => {
                 ultimaAtualizacao: serverTimestamp()
             };
 
-            await set(solicitacaoRef, payload);
+            // Obter o ID do documento
+            const docId = editId || solicitacaoRef.key;
+            
+            // Salvar em ambos RTDB e Firestore
+            await saveSolicitacaoDualWrite(docId, payload);
 
             setSuccess(`Sua solicitação foi ${editId ? 'atualizada' : 'enviada'} com sucesso!`);
             setTimeout(() => navigate('/balcao'), 3000);
