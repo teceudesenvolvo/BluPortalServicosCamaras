@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
-import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { firestore } from '../../firebase';
 import config from '../../config';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';

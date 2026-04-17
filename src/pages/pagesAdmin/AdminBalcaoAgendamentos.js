@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, update, push, set, serverTimestamp, get, orderByChild, equalTo } from 'firebase/database';
+import { 
+    collection, query, where, getDocs, doc, updateDoc,
+    getDoc, addDoc, serverTimestamp, limit, startAfter
+} from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '../../firebase';
+import { firestore, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import {
@@ -69,10 +72,10 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                     return;
                 }
                 setLoadingProfile(true);
-                const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
+                const userRef = doc(firestore, 'users', userId);
                 try {
-                    const snapshot = await get(userRef);
-                    setConsumerProfile(snapshot.exists() ? snapshot.val() : solicitacao.dadosUsuario);
+                    const snapshot = await getDoc(userRef);
+                    setConsumerProfile(snapshot.exists() ? snapshot.data() : solicitacao.dadosUsuario);
                 } catch (error) {
                     setConsumerProfile(solicitacao.dadosUsuario);
                 } finally {
@@ -99,11 +102,11 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
             const folderPath = `balcao-cidadao/migrated/${solicitacao.id}`;
             const uploadResult = await uploadFileToStorage(convertedFile, folderPath);
             
-            const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${solicitacao.id}/dadosSolicitacao/anexos/${category}/${index}`);
+            const itemRef = doc(firestore, 'balcao-cidadao', solicitacao.id);
             
-            await update(itemRef, {
-                url: uploadResult.url,
-                data: uploadResult.url 
+            await updateDoc(itemRef, {
+                [`dadosSolicitacao.anexos.${category}.${index}.url`]: uploadResult.url,
+                [`dadosSolicitacao.anexos.${category}.${index}.data`]: uploadResult.url 
             });
             
             file.url = uploadResult.url;
@@ -257,13 +260,20 @@ const AdminBalcaoAgendamentos = () => {
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('Agendado');
+    const [filterAssunto, setFilterAssunto] = useState('Todos');
     const [filterDateFrom, setFilterDateFrom] = useState('');
     const [filterDateTo, setFilterDateTo] = useState('');
     const [showFilters, setShowFilters] = useState(false);
 
     // Paginação
     const [currentPage, setCurrentPage] = useState(1);
+    const [cursors, setCursors] = useState([null]);
+    const [firstKey, setFirstKey] = useState(null);
+    const [isLastPage, setIsLastPage] = useState(false);
     const itemsPerPage = 15;
+    const maxItemsWithFilters = 60; 
+
+    const hasActiveFilters = !!(searchTerm || filterStatus !== 'Agendado' || filterAssunto !== 'Todos' || filterDateFrom || filterDateTo);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -273,82 +283,114 @@ const AdminBalcaoAgendamentos = () => {
         return () => unsubscribe();
     }, [navigate]);
 
-    // Leitura única com filtro server-side por status (economiza downloads)
-    const fetchAgendamentos = useCallback(async () => {
+    // Busca com paginação e filtros no servidor para consultar em todo o banco
+    const fetchAgendamentos = useCallback(async (cursor = null, filtering = false) => {
         setLoading(true);
         try {
-            const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
-            
-            // Buscamos apenas os registros que realmente estão com status 'Agendado'
-            // Isso reduz o download em até 90% se você tiver muitos concluídos/cancelados.
-            const q = query(solicitacoesRef, orderByChild('status'), equalTo('Agendado'));
-            
-            const snapshot = await get(q);
-            const data = snapshot.val();
-            const fetchedData = data
-                ? Object.keys(data)
-                    .map(key => ({ id: key, ...data[key] }))
-                    .map(item => ({
-                        ...item,
-                        appointmentDate: item.appointmentDate || item.dadosSolicitacao?.appointmentDate,
-                        appointmentTime: item.appointmentTime || item.dadosSolicitacao?.appointmentTime
-                    }))
+            const solicitacoesRef = collection(firestore, 'balcao-cidadao');
+
+            let q = query(solicitacoesRef);
+
+            // Filtro de Status no Servidor
+            if (filterStatus !== 'Todas') {
+                q = query(q, where('status', '==', filterStatus));
+            }
+
+            // Filtro de Assunto no Servidor
+            if (filterAssunto !== 'Todos') {
+                q = query(q, where('dadosSolicitacao.assunto', '==', filterAssunto));
+            }
+
+            if (cursor) {
+                q = query(q, startAfter(cursor));
+            }
+
+            // Se estiver filtrando, buscamos um lote maior para que o filtro local (JS) 
+            // encontre registros que não estariam nos 15 primeiros
+            q = query(q, limit(filtering ? maxItemsWithFilters : itemsPerPage));
+
+            const snapshot = await getDocs(q);
+            const fetchedData = !snapshot.empty
+                ? snapshot.docs
+                    .map(doc => {
+                        const data = doc.data();
+                        return { 
+                            id: doc.id, 
+                            ...data,
+                            // Extraímos a data e hora de agendamento aqui para que o .filter abaixo funcione
+                            appointmentDate: data.appointmentDate || data.dadosSolicitacao?.appointmentDate,
+                            appointmentTime: data.appointmentTime || data.dadosSolicitacao?.appointmentTime
+                        };
+                    })
+                    .filter(item => {
+                        // Agora o item.appointmentDate já está preenchido
+                        if (filterDateFrom && item.appointmentDate < filterDateFrom) return false;
+                        if (filterDateTo && item.appointmentDate > filterDateTo) return false;
+                        return true;
+                    })
                     .sort((a, b) => {
-                        const dateA = a.appointmentDate || '0000-00-00';
-                        const dateB = b.appointmentDate || '0000-00-00';
-                        const dateTimeA = `${dateA}T${a.appointmentTime || '00:00'}`;
-                        const dateTimeB = `${dateB}T${b.appointmentTime || '00:00'}`;
+                        // Ordenação local (JS) para garantir que os mais recentes apareçam primeiro
+                        const dateTimeA = `${a.appointmentDate || '0000-00-00'}T${a.appointmentTime || '00:00'}`;
+                        const dateTimeB = `${b.appointmentDate || '0000-00-00'}T${b.appointmentTime || '00:00'}`;
                         return dateTimeB.localeCompare(dateTimeA);
                     })
                 : [];
             setAgendamentos(fetchedData);
+            setFirstKey(snapshot.docs[snapshot.docs.length - 1] || null);
+            setIsLastPage(filtering ? true : snapshot.docs.length < itemsPerPage);
         } catch (error) {
             console.error('Erro ao buscar agendamentos:', error);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [filterStatus, filterAssunto, filterDateFrom, filterDateTo, itemsPerPage, maxItemsWithFilters]);
 
     useEffect(() => {
         if (!isAuthReady) return;
-        fetchAgendamentos();
-    }, [isAuthReady, fetchAgendamentos]);
+        setCurrentPage(1);
+        setCursors([null]);
+        fetchAgendamentos(null, hasActiveFilters);
+    }, [isAuthReady, filterStatus, filterAssunto, filterDateFrom, filterDateTo, searchTerm, hasActiveFilters, fetchAgendamentos]);
 
     /* ── Filtragem ── */
-    const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Concluído', 'Cancelado', 'Não Classificado'];
-
     const filteredAgendamentos = agendamentos.filter(item => {
         const searchLower = searchTerm.toLowerCase();
         const matchesSearch =
+            (item.dadosSolicitacao?.assunto?.toLowerCase() || '').includes(searchLower) ||
             (item.dadosUsuario?.name?.toLowerCase() || '').includes(searchLower) ||
             (item.id?.toLowerCase() || '').includes(searchLower);
 
+        // Adicionando filtros de status e assunto locais para consistência
         const matchesStatus = filterStatus === 'Todas' || item.status === filterStatus;
+        const matchesAssunto = filterAssunto === 'Todos' || (item.dadosSolicitacao?.assunto || item.assunto) === filterAssunto;
 
-        let matchesDate = true;
-        const appDateStr = item.appointmentDate; // Formato YYYY-MM-DD tipicamente
-
-        if (filterDateFrom || filterDateTo) {
-            if (appDateStr) {
-                if (filterDateFrom && appDateStr < filterDateFrom) matchesDate = false;
-                if (filterDateTo && appDateStr > filterDateTo) matchesDate = false;
-            } else {
-                matchesDate = false; // Se não tem data mas o filtro exige data
-            }
-        }
-
-        return matchesSearch && matchesStatus && matchesDate;
+        return matchesSearch && matchesStatus && matchesAssunto;
     });
 
-    const totalPages = Math.ceil(filteredAgendamentos.length / itemsPerPage);
-    const paginatedItems = filteredAgendamentos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-    const handlePageChange = (page) => {
-        setCurrentPage(page);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+    const paginatedItems = filteredAgendamentos;
+    const handleNextPage = () => {
+        const nextCursor = firstKey;
+        setCursors(prev => [...prev, nextCursor]);
+        fetchAgendamentos(nextCursor);
+        setCurrentPage(prev => prev + 1);
     };
 
-    const handleFilterChange = () => setCurrentPage(1);
+    const handlePrevPage = () => {
+        if (currentPage <= 1) return;
+        const newHistory = cursors.slice(0, -1);
+        const targetCursor = newHistory[newHistory.length - 1];
+        fetchAgendamentos(targetCursor);
+        setCursors(newHistory);
+        setCurrentPage(prev => prev - 1);
+    };
+
+    const handleResetPagination = () => {
+        setCurrentPage(1);
+        setCursors([null]);
+        fetchAgendamentos(null);
+    };
+
+    const handleFilterChange = () => { setCurrentPage(1); setCursors([null]); };
 
     /* ── Ações do Modal ── */
     const sendNotification = async (solicitacao) => {
@@ -361,9 +403,8 @@ const AdminBalcaoAgendamentos = () => {
         const notificationTitle = "Seu agendamento foi atualizado.";
         const notificationDescription = `Verifique os detalhes no aplicativo da Câmara Municipal de ${cityName}. Protocolo: ${solicitacao.id}.`;
 
-        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
-        const newNotificationRef = push(notificacoesRef);
-        await set(newNotificationRef, {
+        const notificacoesRef = collection(firestore, 'notifications');
+        await addDoc(notificacoesRef, {
             isRead: false,
             protocolo: solicitacao.id,
             targetUserId: solicitacao.userId,
@@ -374,9 +415,8 @@ const AdminBalcaoAgendamentos = () => {
             userId: solicitacao.userId
         });
 
-        const mailRef = ref(db, `${config.cityCollection}/mail`);
-        const newMailRef = push(mailRef);
-        await set(newMailRef, {
+        const mailRef = collection(firestore, 'mail');
+        await addDoc(mailRef, {
             to: solicitacao.dadosUsuario.email,
             message: {
                 subject: notificationTitle,
@@ -386,7 +426,7 @@ const AdminBalcaoAgendamentos = () => {
     };
 
     const handleStatusChange = async (id, newStatus) => {
-        const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
+        const itemRef = doc(firestore, 'balcao-cidadao', id);
         let updateData = { status: newStatus };
         if (newStatus === 'Concluído' || newStatus === 'Cancelado') {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000; // Agenda para 5 dias
@@ -394,7 +434,7 @@ const AdminBalcaoAgendamentos = () => {
             updateData.deletionTimestamp = null; // Cancela exclusão se voltar a ativo
         }
         
-        await update(itemRef, updateData);
+        await updateDoc(itemRef, updateData);
         await sendNotification({ ...selectedSolicitacao, id, status: newStatus });
         alert('Status atualizado!');
         setSelectedSolicitacao(null);
@@ -402,9 +442,12 @@ const AdminBalcaoAgendamentos = () => {
     };
 
     const handleSendMessage = async (id, text) => {
-        const messagesRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}/messages`);
-        const newMessageRef = push(messagesRef);
-        await set(newMessageRef, { text, sender: 'admin', timestamp: serverTimestamp() });
+        const itemRef = doc(firestore, 'balcao-cidadao', id);
+        const newMessageId = Date.now().toString();
+        const newMessage = { text, sender: 'admin', timestamp: new Date().toISOString() };
+        
+        await updateDoc(itemRef, { [`messages.${newMessageId}`]: newMessage });
+        
         await sendNotification({ ...selectedSolicitacao, id });
         alert('Mensagem enviada!');
     };
@@ -417,19 +460,18 @@ const AdminBalcaoAgendamentos = () => {
         const notificationTitle = "Notificação de Atualização";
         const notificationMessage = `Seu agendamento no Balcão do Cidadão para ${solicitacao.dadosSolicitacao?.appointmentDate} foi atualizada.`;
 
-        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
-        const newNotificationRef = push(notificacoesRef);
-        await set(newNotificationRef, {
+        const notificacoesRef = collection(firestore, 'notifications');
+        await addDoc(notificacoesRef, {
             userId: userData.id,
             userEmail: userData.email,
             message: notificationMessage,
             timestamp: serverTimestamp(),
             read: false,
+            protocolo: solicitacao.id
         });
 
-        const mailRef = ref(db, `${config.cityCollection}/mail`);
-        const newMailRef = push(mailRef);
-        await set(newMailRef, {
+        const mailRef = collection(firestore, 'mail');
+        await addDoc(mailRef, {
             to: userData.email,
             message: {
                 subject: notificationTitle,
@@ -455,11 +497,11 @@ const AdminBalcaoAgendamentos = () => {
                 timestamp: serverTimestamp() 
             };
 
-            const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
-            const snapshot = await get(itemRef);
-            const currentData = snapshot.val();
+            const itemRef = doc(firestore, 'balcao-cidadao', id);
+            const snapshot = await getDoc(itemRef);
+            const currentData = snapshot.data();
             const currentFiles = currentData.arquivos || [];
-            await update(itemRef, { arquivos: [...currentFiles, fileData] });
+            await updateDoc(itemRef, { arquivos: [...currentFiles, fileData] });
             alert("Arquivo enviado!");
         } catch (error) {
             console.error("Erro no upload admin:", error);
@@ -470,12 +512,14 @@ const AdminBalcaoAgendamentos = () => {
     const clearFilters = () => {
         setSearchTerm('');
         setFilterStatus('Agendado');
+        setFilterAssunto('Todos');
         setFilterDateFrom('');
         setFilterDateTo('');
         setCurrentPage(1);
     };
 
-    const hasActiveFilters = searchTerm || filterStatus !== 'Agendado' || filterDateFrom || filterDateTo;
+    const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Concluído', 'Cancelado', 'Não Classificado'];
+    const assuntosList = ['Todos', 'Informações Gerais', 'Emissão de Documentos', 'Agendamento', 'Outros'];
 
     if (!isAuthReady) return <div className="loading-screen">Carregando...</div>;
 
@@ -552,6 +596,18 @@ const AdminBalcaoAgendamentos = () => {
                             </div>
 
                             <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Assunto</label>
+                                <select
+                                    value={filterAssunto}
+                                    onChange={(e) => { setFilterAssunto(e.target.value); handleFilterChange(); }}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                >
+                                    {assuntosList.map(a => <option key={a} value={a}>{a}</option>)}
+                                </select>
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label>Agendado de (Data do evento)</label>
                                 <input
                                     type="date"
@@ -581,7 +637,7 @@ const AdminBalcaoAgendamentos = () => {
                     <div className="card-header">
                         <h3>Lista de Agendamentos</h3>
                         <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
-                            Página {currentPage} de {totalPages || 1}
+                            Página {currentPage} {hasActiveFilters && '(Resultados filtrados)'}
                         </span>
                     </div>
 
@@ -647,35 +703,33 @@ const AdminBalcaoAgendamentos = () => {
                     </ul>
 
                     {/* Paginação */}
-                    {totalPages > 1 && (
+                    {!loading && agendamentos.length > 0 && !hasActiveFilters && (
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
                             <button
-                                onClick={() => handlePageChange(currentPage - 1)}
+                                onClick={handleResetPagination}
                                 disabled={currentPage === 1}
                                 className="btn-secondary"
                                 style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
                             >
-                                ‹ Anterior
+                                ⇤ Início
+                            </button>
+                            
+                            <button
+                                onClick={handlePrevPage}
+                                disabled={currentPage === 1}
+                                className="btn-secondary"
+                                style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
+                            >
+                                Anterior
                             </button>
 
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                                <button
-                                    key={page}
-                                    onClick={() => handlePageChange(page)}
-                                    className={currentPage === page ? 'btn-primary' : 'btn-secondary'}
-                                    style={{ padding: '6px 12px', minWidth: '38px' }}
-                                >
-                                    {page}
-                                </button>
-                            ))}
-
                             <button
-                                onClick={() => handlePageChange(currentPage + 1)}
-                                disabled={currentPage === totalPages}
-                                className="btn-secondary"
-                                style={{ padding: '6px 14px', opacity: currentPage === totalPages ? 0.4 : 1 }}
+                                onClick={handleNextPage}
+                                disabled={isLastPage}
+                                className="btn-primary"
+                                style={{ padding: '6px 20px', opacity: isLastPage ? 0.4 : 1 }}
                             >
-                                Próxima ›
+                                Próxima Página ➔
                             </button>
                         </div>
                     )}

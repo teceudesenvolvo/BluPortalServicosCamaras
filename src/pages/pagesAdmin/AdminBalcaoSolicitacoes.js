@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     collection, doc, getDocs, query, orderBy, limit, startAfter, 
-    updateDoc, addDoc, where, onSnapshot, getDoc, setDoc, deleteDoc 
+    updateDoc, addDoc, where, getDoc, deleteDoc
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, firestore, auth } from '../../firebase';
+import { firestore, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import {
@@ -282,8 +282,8 @@ const AdminBalcaoSolicitacoes = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [cursors, setCursors] = useState([null]); // Histórico de cursores para navegação
     const itemsPerPage = 15;
+    const maxItemsWithFilters = 500; 
     const [isLastPage, setIsLastPage] = useState(false);
-    const [filteredPage, setFilteredPage] = useState(1); // Página atual para filtros
     const hasActiveFilters = !!(searchTerm || filterStatus !== 'Todas' || filterAssunto !== 'Todos' || filterDateFrom || filterDateTo);
 
     // Cache para perfis de usuários
@@ -297,60 +297,59 @@ const AdminBalcaoSolicitacoes = () => {
         return () => unsubscribe();
     }, [navigate]);
 
-    const fetchSolicitacoes = useCallback(async (cursor = null, direction = 'next', filtering = false) => {
+    const fetchSolicitacoes = useCallback(async (cursor = null, filtering = false) => {
         setLoading(true);
         try {
             const solicitacoesRef = collection(firestore, 'balcao-cidadao');
-            let q;
-
-            if (filtering) {
-                // Com filtros, carregar apenas 15 por página do banco
-                if (!cursor) {
-                    q = query(solicitacoesRef, orderBy('dataSolicitacao', 'desc'), limit(itemsPerPage));
-                } else if (direction === 'next') {
-                    q = query(solicitacoesRef, orderBy('dataSolicitacao', 'desc'), startAfter(cursor), limit(itemsPerPage));
-                }
-            } else if (!cursor) {
-                // Carga inicial normal: apenas 15
-                q = query(solicitacoesRef, orderBy('dataSolicitacao', 'desc'), limit(itemsPerPage));
-            } else if (direction === 'next') {
-                q = query(solicitacoesRef, orderBy('dataSolicitacao', 'desc'), startAfter(cursor), limit(itemsPerPage));
+            
+            // Para evitar erros de índice composto no Firestore ao combinar filtros e ordenação,
+            // só aplicamos orderBy no servidor quando não há filtros ativos.
+            let q = query(solicitacoesRef);
+            if (!filtering) {
+                q = query(q, orderBy('dataSolicitacao', 'desc'));
             }
+
+            // Aplicar filtros diretamente na query do Firestore para consultar em todo o banco
+            if (filterStatus !== 'Todas') {
+                q = query(q, where('status', '==', filterStatus));
+            }
+            if (filterAssunto !== 'Todos') {
+                q = query(q, where('dadosSolicitacao.assunto', '==', filterAssunto));
+            }
+
+            if (cursor) {
+                q = query(q, startAfter(cursor));
+            }
+            
+            q = query(q, limit(filtering ? maxItemsWithFilters : itemsPerPage));
 
             const snapshot = await getDocs(q);
             const fetchedData = snapshot.docs.map(doc => ({ 
                 id: doc.id, 
                 ...doc.data(),
-                // Normalizar a data para exibição
                 timestamp: doc.data().dataSolicitacao?.toMillis 
                     ? doc.data().dataSolicitacao.toMillis() 
-                    : (typeof doc.data().dataSolicitacao === 'string' 
-                        ? new Date(doc.data().dataSolicitacao).getTime() 
-                        : doc.data().dataSolicitacao)
-            }));
+                    : (doc.data().dataSolicitacao instanceof Date 
+                        ? doc.data().dataSolicitacao.getTime() 
+                        : new Date(doc.data().dataSolicitacao).getTime())
+            })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); // Ordenação local garantida
 
             setSolicitacoes(fetchedData);
-            setFirstKey(snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : null);
-            setIsLastPage(filtering ? snapshot.docs.length < itemsPerPage : snapshot.docs.length < itemsPerPage);
+            setFirstKey(snapshot.docs[snapshot.docs.length - 1] || null);
+            setIsLastPage(filtering ? true : snapshot.docs.length < itemsPerPage);
         } catch (error) {
             console.error('Erro ao buscar solicitações:', error);
         } finally {
             setLoading(false);
         }
-    }, [itemsPerPage]);
+    }, [itemsPerPage, filterStatus, filterAssunto, maxItemsWithFilters]);
 
     useEffect(() => {
         if (!isAuthReady) return;
         
         setCurrentPage(1);
         setCursors([null]);
-        setFilteredPage(1);
-
-        if (hasActiveFilters) {
-            fetchSolicitacoes(null, 'next', true);
-        } else {
-            fetchSolicitacoes();
-        }
+        fetchSolicitacoes(null, hasActiveFilters);
 
         // Limpeza automática de solicitações antigas (com deletionTimestamp expirado)
         const cleanupOldSolicitacoes = async () => {
@@ -369,13 +368,13 @@ const AdminBalcaoSolicitacoes = () => {
                 console.error('Erro na limpeza automática:', error);
             }
         };
-        cleanupOldSolicitacoes();
-    }, [isAuthReady, searchTerm, filterStatus, filterAssunto, filterDateFrom, filterDateTo, hasActiveFilters, fetchSolicitacoes]);
+        cleanupOldSolicitacoes(); // Run cleanup once on mount
+    }, [isAuthReady, filterStatus, filterAssunto, filterDateFrom, filterDateTo, searchTerm, hasActiveFilters, fetchSolicitacoes]);
 
     const handleNextPage = () => {
         const nextCursor = firstKey;
         setCursors(prev => [...prev, nextCursor]);
-        fetchSolicitacoes(nextCursor, 'next');
+        fetchSolicitacoes(nextCursor);
         setCurrentPage(prev => prev + 1);
     };
 
@@ -383,7 +382,7 @@ const AdminBalcaoSolicitacoes = () => {
         if (currentPage <= 1) return;
         const newHistory = cursors.slice(0, -1);
         const targetCursor = newHistory[newHistory.length - 1];
-        fetchSolicitacoes(targetCursor, 'next');
+        fetchSolicitacoes(targetCursor); // Fetch the page after the target cursor
         setCursors(newHistory);
         setCurrentPage(prev => prev - 1);
     };
@@ -391,52 +390,38 @@ const AdminBalcaoSolicitacoes = () => {
     const handleResetPagination = () => {
         setCurrentPage(1);
         setCursors([null]);
-        fetchSolicitacoes();
+        setSearchTerm('');
+        setFilterStatus('Todas');
+        setFilterAssunto('Todos');
+        fetchSolicitacoes(null);
     };
 
     /* ── Filtragem ── */
-    const assuntos = ['Todos', ...new Set(solicitacoes.map(s => s.dadosSolicitacao?.assunto).filter(Boolean))];
+    const assuntosList = ['Todos', 'Informações Gerais', 'Emissão de Documentos', 'Agendamento', 'Outros'];
     const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Concluído', 'Não Classificado'];
 
     const filteredSolicitacoes = solicitacoes.filter(item => {
         const searchLower = searchTerm.toLowerCase();
+        
+        // Filtro de Busca
         const matchesSearch =
             (item.dadosSolicitacao?.assunto?.toLowerCase() || '').includes(searchLower) ||
             (item.dadosUsuario?.name?.toLowerCase() || '').includes(searchLower) ||
             (item.id?.toLowerCase() || '').includes(searchLower);
 
+        // Filtros de Status e Assunto (Garante funcionamento mesmo sem índice no Firestore)
         const matchesStatus = filterStatus === 'Todas' || item.status === filterStatus;
         const matchesAssunto = filterAssunto === 'Todos' || item.dadosSolicitacao?.assunto === filterAssunto;
 
-        let matchesDate = true;
-        if (filterDateFrom || filterDateTo) {
-            const ts = item.timestamp ? new Date(item.timestamp) : null;
-            if (ts) {
-                if (filterDateFrom && ts < new Date(filterDateFrom)) matchesDate = false;
-                if (filterDateTo) {
-                    const toDate = new Date(filterDateTo);
-                    toDate.setHours(23, 59, 59, 999);
-                    if (ts > toDate) matchesDate = false;
-                }
-            }
-        }
+        // Filtro de Data Local (para evitar erros de índice composto no Firestore)
+        const itemTime = item.timestamp;
+        const matchesDateFrom = !filterDateFrom || itemTime >= new Date(filterDateFrom + "T00:00:00").getTime();
+        const matchesDateTo = !filterDateTo || itemTime <= new Date(filterDateTo + "T23:59:59").getTime();
 
-        return matchesSearch && matchesStatus && matchesAssunto && matchesDate;
+        return matchesSearch && matchesStatus && matchesAssunto && matchesDateFrom && matchesDateTo;
     });
 
-    // Paginação para filtros: dividir filteredSolicitacoes em páginas de 15
-    const paginatedFilteredSolicitacoes = hasActiveFilters
-        ? filteredSolicitacoes.slice((filteredPage - 1) * itemsPerPage, filteredPage * itemsPerPage)
-        : filteredSolicitacoes;
-
-    const totalFilteredPages = hasActiveFilters ? Math.ceil(filteredSolicitacoes.length / itemsPerPage) : 1;
-
-    const handleFilterChange = () => {
-        setCurrentPage(1);
-        setFilteredPage(1);
-    };
-
-    /* ── Ações ── */
+    const paginatedFilteredSolicitacoes = filteredSolicitacoes;
     const sendNotification = async (solicitacao, customMessage) => {
         if (!solicitacao.userId || solicitacao.userId === "anonimo" || !solicitacao.dadosUsuario?.email) {
             console.log("Usuário anônimo ou sem e-mail, notificação não enviada.");
@@ -608,7 +593,6 @@ const AdminBalcaoSolicitacoes = () => {
         setFilterDateFrom('');
         setFilterDateTo('');
         setCurrentPage(1);
-        setFilteredPage(1);
     };
 
     if (!isAuthReady) return <div className="loading-screen">Carregando...</div>;
@@ -652,7 +636,7 @@ const AdminBalcaoSolicitacoes = () => {
                                 type="text"
                                 placeholder="Buscar por assunto, nome ou protocolo..."
                                 value={searchTerm}
-                                onChange={(e) => { setSearchTerm(e.target.value); handleFilterChange(); }}
+                                onChange={(e) => { setSearchTerm(e.target.value); }}
                                 className="form-input"
                                 style={{ paddingLeft: '42px', margin: 0 }}
                             />
@@ -681,8 +665,8 @@ const AdminBalcaoSolicitacoes = () => {
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label>Status</label>
                                 <select
-                                    value={filterStatus}
-                                    onChange={(e) => { setFilterStatus(e.target.value); handleFilterChange(); }}
+                                    value={filterStatus} // This will trigger useEffect to refetch
+                                    onChange={(e) => { setFilterStatus(e.target.value); }}
                                     className="form-input"
                                     style={{ margin: 0 }}
                                 >
@@ -693,21 +677,21 @@ const AdminBalcaoSolicitacoes = () => {
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label>Assunto</label>
                                 <select
-                                    value={filterAssunto}
-                                    onChange={(e) => { setFilterAssunto(e.target.value); handleFilterChange(); }}
+                                    value={filterAssunto} // This will trigger useEffect to refetch
+                                    onChange={(e) => { setFilterAssunto(e.target.value); }}
                                     className="form-input"
                                     style={{ margin: 0 }}
                                 >
-                                    {assuntos.map(a => <option key={a} value={a}>{a}</option>)}
+                                    {assuntosList.map(a => <option key={a} value={a}>{a}</option>)}
                                 </select>
                             </div>
 
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label>Data de (início)</label>
                                 <input
-                                    type="date"
+                                    type="date" // This will trigger useEffect to refetch
                                     value={filterDateFrom}
-                                    onChange={(e) => { setFilterDateFrom(e.target.value); handleFilterChange(); }}
+                                    onChange={(e) => { setFilterDateFrom(e.target.value); }}
                                     className="form-input"
                                     style={{ margin: 0 }}
                                 />
@@ -716,9 +700,9 @@ const AdminBalcaoSolicitacoes = () => {
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label>Data até (fim)</label>
                                 <input
-                                    type="date"
+                                    type="date" // This will trigger useEffect to refetch
                                     value={filterDateTo}
-                                    onChange={(e) => { setFilterDateTo(e.target.value); handleFilterChange(); }}
+                                    onChange={(e) => { setFilterDateTo(e.target.value); }}
                                     className="form-input"
                                     style={{ margin: 0 }}
                                 />
@@ -761,7 +745,7 @@ const AdminBalcaoSolicitacoes = () => {
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         fontSize: '0.8rem', fontWeight: '600', flexShrink: 0
                                     }}>
-                                        {hasActiveFilters ? ((filteredPage - 1) * itemsPerPage + index + 1) : ((currentPage - 1) * itemsPerPage + index + 1)}
+                                        {((currentPage - 1) * itemsPerPage + index + 1)}
                                     </span>
                                     <div className="item-main-info">
                                         <strong>{item.dadosSolicitacao?.assunto || 'Sem assunto'}</strong>
@@ -785,60 +769,36 @@ const AdminBalcaoSolicitacoes = () => {
                         ))}
                     </ul>
 
-                    {/* Paginação */}
-                    {hasActiveFilters ? (
+                    {/* Paginação Unificada (Server-side via Firestore) */}
+                    {!loading && solicitacoes.length > 0 && !hasActiveFilters && (
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
                             <button
-                                onClick={() => setFilteredPage(prev => Math.max(1, prev - 1))}
-                                disabled={filteredPage === 1}
+                                onClick={handleResetPagination}
+                                disabled={currentPage === 1}
                                 className="btn-secondary"
-                                style={{ padding: '6px 14px', opacity: filteredPage === 1 ? 0.4 : 1 }}
+                                style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
+                            >
+                                ⇤ Primeira Página
+                            </button>
+
+                            <button
+                                onClick={handlePrevPage}
+                                disabled={currentPage === 1}
+                                className="btn-secondary"
+                                style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
                             >
                                 Anterior
                             </button>
-                            <span style={{ alignSelf: 'center', fontSize: '0.9rem' }}>
-                                Página {filteredPage} de {totalFilteredPages}
-                            </span>
+
                             <button
-                                onClick={() => setFilteredPage(prev => Math.min(totalFilteredPages, prev + 1))}
-                                disabled={filteredPage === totalFilteredPages}
+                                onClick={handleNextPage}
+                                disabled={isLastPage}
                                 className="btn-primary"
-                                style={{ padding: '6px 20px', opacity: filteredPage === totalFilteredPages ? 0.4 : 1 }}
+                                style={{ padding: '6px 20px', opacity: isLastPage ? 0.4 : 1 }}
                             >
                                 Próxima Página ➔
                             </button>
                         </div>
-                    ) : (
-                        !loading && solicitacoes.length > 0 && (
-                            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
-                                <button
-                                    onClick={handleResetPagination}
-                                    disabled={currentPage === 1}
-                                    className="btn-secondary"
-                                    style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
-                                >
-                                    ⇤ Primeira Página
-                                </button>
-
-                                <button
-                                    onClick={handlePrevPage}
-                                    disabled={currentPage === 1}
-                                    className="btn-secondary"
-                                    style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
-                                >
-                                    Anterior
-                                </button>
-
-                                <button
-                                    onClick={handleNextPage}
-                                    disabled={isLastPage}
-                                    className="btn-primary"
-                                    style={{ padding: '6px 20px', opacity: isLastPage ? 0.4 : 1 }}
-                                >
-                                    Próxima Página ➔
-                                </button>
-                            </div>
-                        )
                     )}
                 </div>
 

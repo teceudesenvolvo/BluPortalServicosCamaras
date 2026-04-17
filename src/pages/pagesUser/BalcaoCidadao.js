@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { db } from '../../firebase';
-import { ref, get, query, orderByChild, equalTo, onValue, push, set, serverTimestamp, update } from 'firebase/database';
+import { firestore } from '../../firebase';
+import { 
+    collection, query, where, doc, getDoc, 
+    updateDoc, setDoc, serverTimestamp, orderBy, onSnapshot 
+} from 'firebase/firestore';
 import Sidebar from '../../components/Sidebar';
 import config from '../../config';
 import { uploadFileToStorage, deleteFileFromStorage } from '../../utils/firebaseStorageUtils';
@@ -23,18 +26,19 @@ const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
     useEffect(() => {
         const fetchConfig = async () => {
             setLoading(true);
-            const availabilityRef = ref(db, `${config.cityCollection}/balcao-config/availability`);
-            const bookedSlotsRef = ref(db, `${config.cityCollection}/balcao-config/bookedSlots`);
-            const blockedDatesRef = ref(db, `${config.cityCollection}/balcao-config/blockedDates`);
+            const availabilityRef = doc(firestore, 'balcao-config', 'availability');
+            const bookedSlotsRef = doc(firestore, 'balcao-config', 'bookedSlots');
+            const blockedDatesRef = doc(firestore, 'balcao-config', 'blockedDates');
+            
             try {
                 const [availSnap, bookedSnap, blockedSnap] = await Promise.all([
-                    get(availabilityRef), get(bookedSlotsRef), get(blockedDatesRef)
+                    getDoc(availabilityRef), getDoc(bookedSlotsRef), getDoc(blockedDatesRef)
                 ]);
-                if (availSnap.exists()) setAvailability(availSnap.val());
-                if (bookedSnap.exists()) setBookedSlots(bookedSnap.val());
+                if (availSnap.exists()) setAvailability(availSnap.data());
+                if (bookedSnap.exists()) setBookedSlots(bookedSnap.data());
                 
                 let manualBlocked = [];
-                if (blockedSnap.exists()) manualBlocked = blockedSnap.val() || [];
+                if (blockedSnap.exists()) manualBlocked = blockedSnap.data().dates || [];
 
                 // Integração com BrasilAPI para bloquear feriados nacionais
                 const currentYear = new Date().getFullYear();
@@ -317,32 +321,28 @@ const BalcaoCidadao = () => {
             }
 
             setLoading(true);
-            try {
-                const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
-                const q = query(solicitacoesRef, orderByChild('userId'), equalTo(currentUser.uid));
+            const solicitacoesRef = collection(firestore, 'balcao-cidadao');
+            const q = query(solicitacoesRef, where('userId', '==', currentUser.uid), orderBy('dataSolicitacao', 'desc'));
 
-                onValue(q, (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        const solicitacoesList = Object.keys(data).map(key => ({
-                            id: key,
-                            ...data[key]
-                        })).sort((a, b) => b.dataSolicitacao - a.dataSolicitacao);
-                        setSolicitacoes(solicitacoesList);
-                    } else {
-                        setSolicitacoes([]);
-                    }
-                    setLoading(false);
-                });
-
-            } catch (err) {
-                console.error("Erro ao buscar solicitações:", err);
-                setError("Não foi possível carregar suas solicitações. Tente novamente mais tarde.");
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                const solicitacoesList = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    dataSolicitacao: doc.data().dataSolicitacao?.toMillis ? doc.data().dataSolicitacao.toMillis() : doc.data().dataSolicitacao
+                }));
+                setSolicitacoes(solicitacoesList);
                 setLoading(false);
-            }
-        };
+            }, (err) => {
+                console.error("Erro no stream de solicitações:", err);
+                setError("Falha ao carregar dados.");
+                setLoading(false);
+            });
 
-        fetchSolicitacoes();
+            return unsubscribe;
+        };
+        
+        const unsubscribe = fetchSolicitacoes();
+        return () => unsubscribe && unsubscribe();
     }, [currentUser, navigate]);
 
     const fetchUserProfile = useCallback(async () => {
@@ -352,11 +352,11 @@ const BalcaoCidadao = () => {
         }
 
         const userId = currentUser.uid;
-        const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
+        const userRef = doc(firestore, 'users', userId);
         try {
-            const snapshot = await get(userRef);
+            const snapshot = await getDoc(userRef);
             if (snapshot.exists()) {
-                const userData = snapshot.val();
+                const userData = snapshot.data();
                 setLoggedInUserData({
                     nome: userData.name || currentUser.email,
                     tipo: userData.tipo || 'Cidadão',
@@ -378,14 +378,14 @@ const BalcaoCidadao = () => {
 
     const handleSendMessage = async (solicitacaoId, text) => {
         if (!currentUser) return;
-        const messagesRef = ref(db, `${config.cityCollection}/balcao-cidadao/${solicitacaoId}/messages`);
-        const newMessageRef = push(messagesRef);
+        const docRef = doc(firestore, 'balcao-cidadao', solicitacaoId);
+        const msgId = Date.now().toString();
+        
         try {
-            await set(newMessageRef, {
-                text: text,
-                sender: 'user',
-                timestamp: serverTimestamp(),
-                userId: currentUser.uid,
+            await updateDoc(docRef, {
+                [`messages.${msgId}`]: {
+                    text, sender: 'user', timestamp: new Date().toISOString(), userId: currentUser.uid
+                }
             });
         } catch (error) {
             console.error("Erro ao enviar mensagem:", error);
@@ -397,9 +397,9 @@ const BalcaoCidadao = () => {
         if (!currentUser) return;
         
         try {
-            const solicitacaoRef = ref(db, `${config.cityCollection}/balcao-cidadao/${solicitacaoId}`);
-            const snapshot = await get(solicitacaoRef);
-            const currentData = snapshot.val();
+            const solicitacaoRef = doc(firestore, 'balcao-cidadao', solicitacaoId);
+            const snapshot = await getDoc(solicitacaoRef);
+            const currentData = snapshot.data();
             const currentAnexos = currentData.dadosSolicitacao?.anexos || {};
 
             // Se estivermos atualizando um campo específico (não os adicionais), removemos os arquivos antigos do Storage
@@ -430,8 +430,8 @@ const BalcaoCidadao = () => {
                 updatedFieldFiles = [...(currentAnexos.arquivos_adicionais || []), ...uploadedFiles];
             }
 
-            await update(solicitacaoRef, { 
-                [`dadosSolicitacao/anexos/${fieldKey}`]: updatedFieldFiles, 
+            await updateDoc(solicitacaoRef, { 
+                [`dadosSolicitacao.anexos.${fieldKey}`]: updatedFieldFiles, 
                 ultimaAtualizacao: serverTimestamp(),
                 status: 'Documentação Reenviada',
                 deletionTimestamp: null
@@ -443,20 +443,20 @@ const BalcaoCidadao = () => {
     };
 
     const handleScheduleSubmit = async (solicitacaoId, date, time) => {
-        const solicitacaoRef = ref(db, `${config.cityCollection}/balcao-cidadao/${solicitacaoId}`);
-        const bookedSlotRef = ref(db, `${config.cityCollection}/balcao-config/bookedSlots/${date}`);
+        const solicitacaoRef = doc(firestore, 'balcao-cidadao', solicitacaoId);
+        const bookedSlotRef = doc(firestore, 'balcao-config', 'bookedSlots');
 
         try {
-            // Check again to prevent race conditions
-            const snapshot = await get(bookedSlotRef);
-            const existingBookings = snapshot.val() || [];
-            if (existingBookings.includes(time)) {
+            const snapshot = await getDoc(bookedSlotRef);
+            const currentBookings = snapshot.exists() ? (snapshot.data()[date] || []) : [];
+            
+            if (currentBookings.includes(time)) {
                 alert('Este horário foi agendado por outra pessoa. Por favor, escolha outro.');
                 return;
             }
 
-            await update(solicitacaoRef, { status: 'Agendado', appointmentDate: date, appointmentTime: time });
-            await set(bookedSlotRef, [...existingBookings, time]);
+            await updateDoc(solicitacaoRef, { status: 'Agendado', appointmentDate: date, appointmentTime: time });
+            await setDoc(bookedSlotRef, { [date]: [...currentBookings, time] }, { merge: true });
 
             alert('Agendamento confirmado com sucesso!');
             setSelectedSolicitacao(null); // Fecha o modal

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     collection, doc, getDocs, query, orderBy, limit, getDoc, 
-    updateDoc, addDoc, setDoc, where, deleteDoc 
+    updateDoc, setDoc, addDoc
 } from 'firebase/firestore';
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
