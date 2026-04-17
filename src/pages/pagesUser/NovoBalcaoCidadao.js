@@ -2,10 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
-import { db, firestore } from '../../firebase'; 
-import config from '../../config'; // Importa a configuração
-import { ref, get, push, set, serverTimestamp } from 'firebase/database';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { firestore } from '../../firebase';
+import config from '../../config';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
 // Ícones
@@ -48,11 +47,11 @@ const NovoBalcaoCidadao = () => {
     useEffect(() => {
         if (editId && currentUser) {
             const fetchExistingData = async () => {
-                const docRef = ref(db, `${config.cityCollection}/balcao-cidadao/${editId}`);
+                const docRef = doc(firestore, 'balcao-cidadao', editId);
                 try {
-                    const snap = await get(docRef);
-                    if (snap.exists()) {
-                        const data = snap.val();
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
                         // Segurança: impede que usuários editem solicitações de outros
                         if (data.userId !== currentUser.uid) {
                             navigate('/balcao');
@@ -100,11 +99,11 @@ const NovoBalcaoCidadao = () => {
             return;
         }
         const userId = currentUser.uid;
-    const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
+        const userRef = doc(firestore, 'users', userId);
         try {
-            const snapshot = await get(userRef);
-            if (snapshot.exists()) {
-                const userData = snapshot.val();
+            const docSnap = await getDoc(userRef);
+            if (docSnap.exists()) {
+                const userData = docSnap.data();
                 setLoggedInUserData({ ...userData, avatar: userData.avatarBase64 || null });
             } else {
                 setError("Seu perfil de usuário não foi encontrado. Por favor, complete seu cadastro.");
@@ -180,22 +179,11 @@ const NovoBalcaoCidadao = () => {
         }
     };
 
-    // Função para salvar em RTDB e Firestore simultaneamente (dual-write)
-    const saveSolicitacaoDualWrite = async (docId, payload) => {
-        const errors = [];
+    // Função para salvar apenas no Firestore
+    const saveSolicitacaoToFirestore = async (docId, payload) => {
+        console.log('🔥 Salvando solicitação no Firestore:', docId);
+        console.log('👤 Usuário autenticado:', currentUser?.email);
 
-        // Salvar no RTDB
-        try {
-            const solicitacaoRef = ref(db, `${config.cityCollection}/balcao-cidadao/${docId}`);
-            await set(solicitacaoRef, payload);
-            console.log('✅ Solicitação salva no Realtime Database');
-        } catch (err) {
-            const errorMsg = `Erro ao salvar no RTDB: ${err.message}`;
-            console.error(errorMsg);
-            errors.push(errorMsg);
-        }
-
-        // Salvar no Firestore (novo)
         try {
             const firestoreRef = doc(firestore, 'balcao-cidadao', docId);
             const firestorePayload = {
@@ -205,17 +193,21 @@ const NovoBalcaoCidadao = () => {
                 migratedAt: new Date().toISOString(),
                 source: 'web'
             };
+            console.log('📄 Payload Firestore preparado:', firestorePayload);
             await setDoc(firestoreRef, firestorePayload);
             console.log('✅ Solicitação salva no Firestore');
         } catch (err) {
             const errorMsg = `Erro ao salvar no Firestore: ${err.message}`;
-            console.error(errorMsg);
-            errors.push(errorMsg);
+            console.error('❌', errorMsg, err);
+            console.error('🔍 Detalhes do erro Firestore:', {
+                code: err.code,
+                message: err.message,
+                stack: err.stack
+            });
+            throw new Error(errorMsg);
         }
 
-        if (errors.length > 0) {
-            throw new Error(errors.join(' | '));
-        }
+        console.log('🎉 Solicitação salva com sucesso!');
     };
 
     // Form submission
@@ -240,15 +232,20 @@ const NovoBalcaoCidadao = () => {
                 const beneficiaryName = destino === 'voce' ? (loggedInUserData?.name) : otherPerson.name;
                 const beneficiaryCpf = destino === 'voce' ? (loggedInUserData?.cpf) : otherPerson.cpf;
 
-                const checkRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
-                const snapshot = await get(checkRef);
+                // Buscar solicitações similares no Firestore
+                const solicitacoesRef = collection(firestore, 'balcao-cidadao');
+                const q = query(
+                    solicitacoesRef, 
+                    where('userId', '==', currentUser.uid),
+                    where('dadosBeneficiario.cpf', '==', beneficiaryCpf),
+                    where('dadosSolicitacao.assunto', '==', assunto)
+                );
+                const querySnapshot = await getDocs(q);
                 
-                if (snapshot.exists()) {
-                    const existingRequests = Object.values(snapshot.val());
+                if (!querySnapshot.empty) {
+                    const existingRequests = querySnapshot.docs.map(doc => doc.data());
                     const isDuplicate = existingRequests.some(item => 
-                        item.dadosBeneficiario?.cpf === beneficiaryCpf &&
                         item.dadosBeneficiario?.name?.toLowerCase() === beneficiaryName?.toLowerCase() &&
-                        item.dadosSolicitacao?.assunto === assunto &&
                         item.status !== 'Concluído' && item.status !== 'Cancelado'
                     );
 
@@ -355,9 +352,18 @@ const NovoBalcaoCidadao = () => {
                 };
             }
 
-            const solicitacaoRef = editId 
-                ? ref(db, `${config.cityCollection}/balcao-cidadao/${editId}`)
-                : push(ref(db, `${config.cityCollection}/balcao-cidadao`));
+            let docId;
+            let docRef;
+
+            if (editId) {
+                // Edição: usar ID existente
+                docId = editId;
+                docRef = doc(firestore, 'balcao-cidadao', editId);
+            } else {
+                // Nova solicitação: gerar novo documento
+                docRef = doc(collection(firestore, 'balcao-cidadao'));
+                docId = docRef.id;
+            }
 
             const payload = {
                 dadosSolicitacao: dadosDaSolicitacao,
@@ -366,15 +372,12 @@ const NovoBalcaoCidadao = () => {
                 userId: currentUser.uid,
                 status: editId ? 'Documentação Reenviada' : 'Aguardando Atendimento',
                 deletionTimestamp: null,
-                dataSolicitacao: editId ? existingSolicitacao.dataSolicitacao : serverTimestamp(),
-                ultimaAtualizacao: serverTimestamp()
+                dataSolicitacao: editId ? existingSolicitacao.dataSolicitacao : new Date(),
+                ultimaAtualizacao: new Date()
             };
 
-            // Obter o ID do documento
-            const docId = editId || solicitacaoRef.key;
-            
-            // Salvar em ambos RTDB e Firestore
-            await saveSolicitacaoDualWrite(docId, payload);
+            // Salvar apenas no Firestore
+            await saveSolicitacaoToFirestore(docId, payload);
 
             setSuccess(`Sua solicitação foi ${editId ? 'atualizada' : 'enviada'} com sucesso!`);
             setTimeout(() => navigate('/balcao'), 3000);

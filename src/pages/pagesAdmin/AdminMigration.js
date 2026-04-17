@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ref, get } from 'firebase/database';
-import { collection, doc, setDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, writeBatch } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, firestore, auth } from '../../firebase';
 import config from '../../config';
@@ -31,44 +31,27 @@ const AdminMigration = () => {
 
     const checkFirestoreHealth = async () => {
         try {
-            const projId = firestore._databaseId?.projectId || process.env.REACT_APP_FIREBASE_PROJECT_ID;
-            addLog(`🩺 Verificando conexão (Projeto: ${projId})...`, 'info');
-            
-            if (!projId) {
-                addLog('❌ ID do Projeto não encontrado. Verifique se o arquivo .env.local foi carregado.', 'error');
-                return false;
-            }
+            addLog('🩺 Verificando conexão com Firestore...', 'info');
 
             if (!auth.currentUser) {
-                addLog('❌ Usuário não autenticado. O Firestore exige login ativo para escrita.', 'error');
+                addLog('❌ Usuário não autenticado. Faça login primeiro.', 'error');
                 return false;
             }
             addLog(`👤 Autenticado como: ${auth.currentUser.email}`, 'info');
 
-            if (!navigator.onLine) {
-                addLog('❌ Navegador detectado como Offline.', 'error');
-                return false;
-            }
-
+            // Teste simples de escrita
             const healthRef = doc(firestore, '_system', 'migration_test');
-            
-            // Tenta uma escrita simples com timeout de 15s para conexões lentas
-            const testPromise = setDoc(healthRef, { 
+            await setDoc(healthRef, { 
                 lastCheck: new Date().toISOString(),
-                city: config.cityCollection 
-            }, { merge: true });
+                user: auth.currentUser.email
+            });
 
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Timeout de 20s. A conexão foi iniciada mas não houve resposta do servidor.')), 20000)
-            );
-
-            await Promise.race([testPromise, timeoutPromise]);
             addLog('✅ Conexão Firestore: OK', 'success');
             return true;
         } catch (error) {
-            console.error("Erro detalhado de conexão:", error);
-            addLog(`❌ Falha: ${error.code || error.message}`, 'error');
-            addLog('Dica: Teste em Aba Anônima ou use a rede 4G do celular. Redes Wi-Fi corporativas costumam bloquear o Firestore.', 'warning');
+            console.error("Erro de conexão Firestore:", error);
+            addLog(`❌ Erro de conexão: ${error.message}`, 'error');
+            addLog('💡 Dica: Verifique regras de segurança e conectividade de rede.', 'warning');
             return false;
         }
     };
@@ -80,12 +63,6 @@ const AdminMigration = () => {
         setProgress(0);
 
         try {
-            if (!(await checkFirestoreHealth())) {
-                setMigrationStatus('error');
-                setMigrating(false);
-                return;
-            }
-
             addLog('🔄 Iniciando migração dos dados...', 'info');
 
             // Buscar dados do RTDB
@@ -115,13 +92,18 @@ const AdminMigration = () => {
                 const [key, value] = entries[i];
 
                 try {
+                    console.log(`[DEBUG] Iniciando processamento do documento ${i + 1}/${entries.length}: ${key}`);
+                    addLog(`⏳ Migrando documento ${i + 1}/${entries.length}: ${key}`, 'info');
+
                     // Validar documento
                     if (!key || typeof value !== 'object') {
                         console.warn(`Documento ${key} inválido, ignorando...`);
+                        addLog(`⚠️ Documento ${key} inválido`, 'warning');
                         errorCount++;
                         continue;
                     }
 
+                    console.log(`[DEBUG] Documento válido, verificando tamanho...`);
                     // Estimar tamanho do documento
                     const docSize = JSON.stringify(value).length;
                     if (docSize > 1000000) {
@@ -131,17 +113,29 @@ const AdminMigration = () => {
                         continue;
                     }
 
-                    console.log(`[Documento ${i + 1}/${entries.length}] Migrando ${key} (${Math.round(docSize / 1024)}KB)...`);
-                    addLog(`⏳ Migrando documento ${i + 1}/${entries.length}: ${key}`, 'info');
+                    console.log(`[DEBUG] Tamanho OK (${Math.round(docSize / 1024)}KB), preparando dados para Firestore...`);
 
-                    // Salvar documento individualmente
-                    const docRef = doc(firestore, 'balcao-cidadao', key);
-                    await setDoc(docRef, {
+                    // Preparar dados para Firestore
+                    const firestoreData = {
                         ...value,
                         migratedAt: new Date().toISOString(),
                         source: 'RTDB'
-                    });
+                    };
 
+                    console.log(`[DEBUG] Dados preparados, tentando salvar no Firestore...`);
+
+                    // Salvar documento individualmente com timeout
+                    const docRef = doc(firestore, 'balcao-cidadao', key);
+
+                    // Criar uma promise com timeout
+                    const savePromise = setDoc(docRef, firestoreData);
+                    const timeoutPromise = new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Timeout ao salvar documento')), 30000)
+                    );
+
+                    await Promise.race([savePromise, timeoutPromise]);
+
+                    console.log(`[DEBUG] Documento salvo com sucesso!`);
                     successCount++;
                     const progress = Math.round((successCount / entries.length) * 100);
                     setProgress(progress);
@@ -151,11 +145,12 @@ const AdminMigration = () => {
 
                     // Pequeno delay entre documentos para não sobrecarregar
                     if (i < entries.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 200));
+                        console.log(`[DEBUG] Aguardando 50ms antes do próximo documento...`);
+                        await new Promise(resolve => setTimeout(resolve, 50));
                     }
 
                 } catch (error) {
-                    console.error(`Erro ao migrar documento ${key}:`, error);
+                    console.error(`[ERROR] Erro ao migrar documento ${key}:`, error);
                     addLog(`❌ Erro ao migrar ${key}: ${error.message}`, 'error');
                     errorCount++;
                 }
@@ -167,6 +162,108 @@ const AdminMigration = () => {
             addLog(summary + errorMsg, 'success');
             console.log(`Migração finalizada: ${successCount} sucesso, ${errorCount} erros`);
             setMigrationStatus('completed');
+        } catch (error) {
+            addLog(`❌ Erro durante a migração: ${error.message}`, 'error');
+            setMigrationStatus('error');
+        } finally {
+            setMigrating(false);
+        }
+    };
+
+    const migrateToFirestoreBatch = async () => {
+        setMigrating(true);
+        setMigrationStatus('in-progress');
+        setMigrationLog([]);
+        setProgress(0);
+
+        try {
+            addLog('🔄 Iniciando migração em lote (batch)...', 'info');
+
+            // Buscar dados do RTDB
+            const rtdbRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
+            const snapshot = await get(rtdbRef);
+
+            if (!snapshot.exists()) {
+                addLog('Nenhum dado encontrado no Realtime Database.', 'warning');
+                setMigrationStatus('completed');
+                setMigrating(false);
+                return;
+            }
+
+            const data = snapshot.val();
+            const entries = Object.entries(data);
+            setTotalCount(entries.length);
+
+            addLog(`${entries.length} documentos encontrados no RTDB. Iniciando transferência em lote...`, 'info');
+
+            // Migrar em lotes de 10 documentos
+            const batchSize = 10;
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let batchIndex = 0; batchIndex < entries.length; batchIndex += batchSize) {
+                const batchEntries = entries.slice(batchIndex, batchIndex + batchSize);
+                const currentBatch = Math.floor(batchIndex / batchSize) + 1;
+                const totalBatches = Math.ceil(entries.length / batchSize);
+
+                addLog(`📦 Processando lote ${currentBatch}/${totalBatches} (${batchEntries.length} documentos)...`, 'info');
+
+                try {
+                    const batch = writeBatch(firestore);
+
+                    for (const [key, value] of batchEntries) {
+                        // Validar documento
+                        if (!key || typeof value !== 'object') {
+                            console.warn(`Documento ${key} inválido, ignorando...`);
+                            errorCount++;
+                            continue;
+                        }
+
+                        // Estimar tamanho do documento
+                        const docSize = JSON.stringify(value).length;
+                        if (docSize > 1000000) {
+                            console.warn(`Documento ${key} muito grande (${docSize} bytes), ignorando...`);
+                            addLog(`⚠️ Documento ${key} muito grande (${docSize} bytes)`, 'warning');
+                            errorCount++;
+                            continue;
+                        }
+
+                        // Adicionar ao batch
+                        const docRef = doc(firestore, 'balcao-cidadao', key);
+                        batch.set(docRef, {
+                            ...value,
+                            migratedAt: new Date().toISOString(),
+                            source: 'RTDB'
+                        });
+                    }
+
+                    // Executar batch
+                    await batch.commit();
+
+                    successCount += batchEntries.length - (batchEntries.length - (batchEntries.length - errorCount)); // Ajustar contagem
+                    const progress = Math.round((successCount / entries.length) * 100);
+                    setProgress(progress);
+
+                    addLog(`✅ Lote ${currentBatch}/${totalBatches} migrado com sucesso (${progress}%)`, 'success');
+
+                    // Delay entre lotes
+                    if (batchIndex + batchSize < entries.length) {
+                        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 segundo entre lotes
+                    }
+
+                } catch (error) {
+                    console.error(`Erro no lote ${currentBatch}:`, error);
+                    addLog(`❌ Erro no lote ${currentBatch}: ${error.message}`, 'error');
+                    errorCount += batchEntries.length;
+                }
+            }
+
+            setProgress(100);
+            const summary = `✅ Migração em lote concluída! ${successCount} documentos transferidos`;
+            const errorMsg = errorCount > 0 ? ` (${errorCount} erros).` : '.';
+            addLog(summary + errorMsg, 'success');
+            setMigrationStatus('completed');
+
         } catch (error) {
             addLog(`❌ Erro durante a migração: ${error.message}`, 'error');
             setMigrationStatus('error');
@@ -295,6 +392,20 @@ const AdminMigration = () => {
                                 }}
                             >
                                 {migrating ? '⏳ Migrando...' : '🚀 Iniciar Migração'}
+                            </button>
+                            <button
+                                onClick={migrateToFirestoreBatch}
+                                disabled={migrating || migrationStatus === 'completed'}
+                                className="btn-primary"
+                                style={{
+                                    padding: '12px 24px',
+                                    fontSize: '1rem',
+                                    backgroundColor: '#059669',
+                                    opacity: (migrating || migrationStatus === 'completed') ? 0.5 : 1,
+                                    cursor: (migrating || migrationStatus === 'completed') ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                {migrating ? '⏳ Migrando...' : '📦 Migração em Lote'}
                             </button>
                             <button
                                 onClick={verifyMigration}

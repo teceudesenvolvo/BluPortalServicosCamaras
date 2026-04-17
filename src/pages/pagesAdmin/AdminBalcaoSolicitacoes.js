@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get, endBefore } from 'firebase/database';
+import { 
+    collection, doc, getDocs, query, orderBy, limit, startAfter, 
+    updateDoc, addDoc, where, onSnapshot, getDoc, setDoc, deleteDoc 
+} from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '../../firebase';
+import { db, firestore, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import {
@@ -77,10 +80,10 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                 }
 
                 setLoadingProfile(true);
-                const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
+                const userRef = doc(firestore, 'users', userId);
                 try {
-                    const snapshot = await get(userRef); // Usar get para consistência, mas poderia ser once se não precisar realtime
-                    const profile = snapshot.exists() ? snapshot.val() : solicitacao.dadosUsuario;
+                    const docSnap = await getDoc(userRef);
+                    const profile = docSnap.exists() ? docSnap.data() : solicitacao.dadosUsuario;
                     setConsumerProfile(profile);
                     // Atualizar cache
                     setUserProfilesCache(prev => ({ ...prev, [userId]: profile }));
@@ -110,11 +113,13 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
             const folderPath = `balcao-cidadao/migrated/${solicitacao.id}`;
             const uploadResult = await uploadFileToStorage(convertedFile, folderPath);
             
-            const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${solicitacao.id}/dadosSolicitacao/anexos/${category}/${index}`);
+            const itemRef = doc(firestore, 'balcao-cidadao', solicitacao.id);
             
-            await update(itemRef, {
-                url: uploadResult.url,
-                data: uploadResult.url 
+            await updateDoc(itemRef, {
+                [`dadosSolicitacao.anexos.${category}.${index}`]: {
+                    url: uploadResult.url,
+                    data: uploadResult.url 
+                }
             });
             
             file.url = uploadResult.url;
@@ -295,39 +300,38 @@ const AdminBalcaoSolicitacoes = () => {
     const fetchSolicitacoes = useCallback(async (cursor = null, direction = 'next', filtering = false) => {
         setLoading(true);
         try {
-            const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
+            const solicitacoesRef = collection(firestore, 'balcao-cidadao');
             let q;
 
             if (filtering) {
                 // Com filtros, carregar apenas 15 por página do banco
                 if (!cursor) {
-                    q = query(solicitacoesRef, orderByKey(), limitToLast(itemsPerPage));
+                    q = query(solicitacoesRef, orderBy('dataSolicitacao', 'desc'), limit(itemsPerPage));
                 } else if (direction === 'next') {
-                    q = query(solicitacoesRef, orderByKey(), endBefore(cursor), limitToLast(itemsPerPage));
+                    q = query(solicitacoesRef, orderBy('dataSolicitacao', 'desc'), startAfter(cursor), limit(itemsPerPage));
                 }
             } else if (!cursor) {
                 // Carga inicial normal: apenas 15
-                q = query(solicitacoesRef, orderByKey(), limitToLast(itemsPerPage));
+                q = query(solicitacoesRef, orderBy('dataSolicitacao', 'desc'), limit(itemsPerPage));
             } else if (direction === 'next') {
-                q = query(solicitacoesRef, orderByKey(), endBefore(cursor), limitToLast(itemsPerPage));
+                q = query(solicitacoesRef, orderBy('dataSolicitacao', 'desc'), startAfter(cursor), limit(itemsPerPage));
             }
 
-            const snapshot = await get(q);
-            const data = snapshot.val();
-            
-            if (data) {
-                const keys = Object.keys(data);
-                const fetchedData = keys
-                    .map(key => ({ id: key, ...data[key] }))
-                    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            const snapshot = await getDocs(q);
+            const fetchedData = snapshot.docs.map(doc => ({ 
+                id: doc.id, 
+                ...doc.data(),
+                // Normalizar a data para exibição
+                timestamp: doc.data().dataSolicitacao?.toMillis 
+                    ? doc.data().dataSolicitacao.toMillis() 
+                    : (typeof doc.data().dataSolicitacao === 'string' 
+                        ? new Date(doc.data().dataSolicitacao).getTime() 
+                        : doc.data().dataSolicitacao)
+            }));
 
-                setSolicitacoes(fetchedData);
-                setFirstKey(keys[0]);
-                setIsLastPage(filtering ? keys.length < itemsPerPage : keys.length < itemsPerPage);
-            } else {
-                if (!cursor) setSolicitacoes([]);
-                setIsLastPage(true);
-            }
+            setSolicitacoes(fetchedData);
+            setFirstKey(snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : null);
+            setIsLastPage(filtering ? snapshot.docs.length < itemsPerPage : snapshot.docs.length < itemsPerPage);
         } catch (error) {
             console.error('Erro ao buscar solicitações:', error);
         } finally {
@@ -351,23 +355,15 @@ const AdminBalcaoSolicitacoes = () => {
         // Limpeza automática de solicitações antigas (com deletionTimestamp expirado)
         const cleanupOldSolicitacoes = async () => {
             try {
-                const solicitacoesRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
-                const snapshot = await get(solicitacoesRef);
-                const data = snapshot.val();
-                if (data) {
-                    const now = Date.now();
-                    const toDelete = Object.keys(data).filter(key => {
-                        const item = data[key];
-                        return item.deletionTimestamp && item.deletionTimestamp <= now;
-                    });
-                    if (toDelete.length > 0) {
-                        const updates = {};
-                        toDelete.forEach(key => {
-                            updates[key] = null; // Remove do DB
-                        });
-                        await update(solicitacoesRef, updates);
-                        console.log(`Limpeza automática: ${toDelete.length} solicitações removidas.`);
-                    }
+                const solicitacoesRef = collection(firestore, 'balcao-cidadao');
+                const now = Date.now();
+                const q = query(solicitacoesRef, where('deletionTimestamp', '<=', now), where('deletionTimestamp', '!=', null));
+                const snapshot = await getDocs(q);
+                
+                if (!snapshot.empty) {
+                    const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+                    await Promise.all(deletePromises);
+                    console.log(`Limpeza automática: ${snapshot.docs.length} solicitações removidas.`);
                 }
             } catch (error) {
                 console.error('Erro na limpeza automática:', error);
@@ -451,57 +447,88 @@ const AdminBalcaoSolicitacoes = () => {
         const notificationTitle = customMessage?.title || "Sua solicitação para o Balcão do cidadão teve movimentação.";
         const notificationDescription = customMessage?.body || `Abra agora mesmo o aplicativo da Câmara Municipal de ${cityName} para acompanhar. Protocolo: ${solicitacao.id}.`;
 
-        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
-        const newNotificationRef = push(notificacoesRef);
-        await set(newNotificationRef, {
-            isRead: false,
-            protocolo: solicitacao.id,
-            targetUserId: solicitacao.userId,
-            timestamp: serverTimestamp(),
-            tituloNotification: notificationTitle,
-            descricaoNotification: notificationDescription,
-            userEmail: solicitacao.dadosUsuario.email,
-            userId: solicitacao.userId
-        });
+        try {
+            // Adicionar notificação no Firestore
+            const notificacoesRef = collection(firestore, 'notifications');
+            await addDoc(notificacoesRef, {
+                isRead: false,
+                protocolo: solicitacao.id,
+                targetUserId: solicitacao.userId,
+                timestamp: new Date(),
+                tituloNotification: notificationTitle,
+                descricaoNotification: notificationDescription,
+                userEmail: solicitacao.dadosUsuario.email,
+                userId: solicitacao.userId
+            });
 
-        const mailRef = ref(db, `${config.cityCollection}/mail`);
-        const newMailRef = push(mailRef);
-        await set(newMailRef, {
-            to: solicitacao.dadosUsuario.email,
-            message: {
-                subject: notificationTitle,
-                html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
-            },
-        });
+            // Adicionar email no Firestore
+            const mailRef = collection(firestore, 'mail');
+            await addDoc(mailRef, {
+                to: solicitacao.dadosUsuario.email,
+                message: {
+                    subject: notificationTitle,
+                    html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
+                },
+                timestamp: new Date()
+            });
+        } catch (error) {
+            console.error('Erro ao enviar notificação:', error);
+        }
     };
 
     const handleStatusChange = async (id, newStatus) => {
-        const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
-        let updateData = { status: newStatus };
-        if (newStatus === 'Concluído' || newStatus === 'Cancelado') {
-            updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
-        } else {
-            updateData.deletionTimestamp = null; // Clear if status is changed from Cancelado
+        try {
+            const itemRef = doc(firestore, 'balcao-cidadao', id);
+            let updateData = { status: newStatus };
+            if (newStatus === 'Concluído' || newStatus === 'Cancelado') {
+                updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
+            } else {
+                updateData.deletionTimestamp = null; // Clear if status is changed from Cancelado
+            }
+            await updateDoc(itemRef, updateData);
+            await sendNotification(
+                { ...selectedSolicitacao, id, status: newStatus },
+                { title: "Status de Solicitação Atualizado", body: `O status da sua solicitação (Protocolo: ${id}) foi alterado para: ${newStatus}.` }
+            );
+            alert('Status atualizado!');
+            setSelectedSolicitacao(null);
+            fetchSolicitacoes(); // Atualiza a lista
+        } catch (error) {
+            console.error('Erro ao atualizar status:', error);
+            alert('Erro ao atualizar status.');
         }
-        await update(itemRef, updateData);
-        await sendNotification(
-            { ...selectedSolicitacao, id, status: newStatus },
-            { title: "Status de Solicitação Atualizado", body: `O status da sua solicitação (Protocolo: ${id}) foi alterado para: ${newStatus}.` }
-        );
-        alert('Status atualizado!');
-        setSelectedSolicitacao(null);
-        fetchSolicitacoes(); // Atualiza a lista
     };
 
     const handleSendMessage = async (id, text) => {
-        const messagesRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}/messages`);
-        const newMessageRef = push(messagesRef);
-        await set(newMessageRef, { text, sender: 'admin', timestamp: serverTimestamp() });
-        await sendNotification(
-            { ...selectedSolicitacao, id },
-            { title: "Nova Mensagem da Câmara", body: `Você recebeu uma nova resposta administrativa sobre sua solicitação (Protocolo: ${id}): "${text}"` }
-        );
-        alert('Mensagem enviada!');
+        try {
+            const itemRef = doc(firestore, 'balcao-cidadao', id);
+            const docSnap = await getDoc(itemRef);
+            
+            if (docSnap.exists()) {
+                const currentData = docSnap.data();
+                const currentMessages = currentData.messages || {};
+                
+                // Gerar novo ID para a mensagem
+                const newMessageId = Date.now().toString();
+                const newMessage = { text, sender: 'admin', timestamp: new Date() };
+                
+                const updatedMessages = {
+                    ...currentMessages,
+                    [newMessageId]: newMessage
+                };
+                
+                await updateDoc(itemRef, { messages: updatedMessages });
+                
+                await sendNotification(
+                    { ...selectedSolicitacao, id },
+                    { title: "Nova Mensagem da Câmara", body: `Você recebeu uma nova resposta administrativa sobre sua solicitação (Protocolo: ${id}): "${text}"` }
+                );
+                alert('Mensagem enviada!');
+            }
+        } catch (error) {
+            console.error('Erro ao enviar mensagem:', error);
+            alert('Erro ao enviar mensagem.');
+        }
     };
 
     const handleNotifyUser = async (solicitacao) => {
@@ -512,26 +539,34 @@ const AdminBalcaoSolicitacoes = () => {
         const notificationTitle = "Notificação de Atualização";
         const notificationMessage = `Sua solicitação no Balcão do Cidadão sobre "${solicitacao.dadosSolicitacao?.assunto}" foi atualizada.`;
 
-        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
-        const newNotificationRef = push(notificacoesRef);
-        await set(newNotificationRef, {
-            userId: userData.id,
-            userEmail: userData.email,
-            message: notificationMessage,
-            timestamp: serverTimestamp(),
-            read: false,
-        });
+        try {
+            // Adicionar notificação no Firestore
+            const notificacoesRef = collection(firestore, 'notifications');
+            await addDoc(notificacoesRef, {
+                userId: userData.id,
+                userEmail: userData.email,
+                message: notificationMessage,
+                timestamp: new Date(),
+                read: false,
+                protocolo: solicitacao.id
+            });
 
-        const mailRef = ref(db, `${config.cityCollection}/mail`);
-        const newMailRef = push(mailRef);
-        await set(newMailRef, {
-            to: userData.email,
-            message: {
-                subject: notificationTitle,
-                html: `<p>${notificationMessage}</p>`,
-            },
-        });
-        alert(`Usuário ${userData.email} notificado!`);
+            // Adicionar email no Firestore
+            const mailRef = collection(firestore, 'mail');
+            await addDoc(mailRef, {
+                to: userData.email,
+                message: {
+                    subject: notificationTitle,
+                    html: `<p>${notificationMessage}</p>`,
+                },
+                timestamp: new Date()
+            });
+            
+            alert(`Usuário ${userData.email} notificado!`);
+        } catch (error) {
+            console.error('Erro ao notificar usuário:', error);
+            alert('Erro ao notificar usuário.');
+        }
     };
 
     const handleAdminFileUpload = async (id, file) => {
@@ -548,15 +583,18 @@ const AdminBalcaoSolicitacoes = () => {
                 url: uploadResult.url,
                 data: uploadResult.url, // Fallback
                 sender: 'admin', 
-                timestamp: serverTimestamp() 
+                timestamp: new Date() 
             };
 
-            const itemRef = ref(db, `${config.cityCollection}/balcao-cidadao/${id}`);
-            const snapshot = await get(itemRef);
-            const currentData = snapshot.val();
-            const currentFiles = currentData.arquivos || [];
-            await update(itemRef, { arquivos: [...currentFiles, fileData] });
-            alert("Arquivo enviado!");
+            const itemRef = doc(firestore, 'balcao-cidadao', id);
+            const docSnap = await getDoc(itemRef);
+            
+            if (docSnap.exists()) {
+                const currentData = docSnap.data();
+                const currentFiles = currentData.arquivos || [];
+                await updateDoc(itemRef, { arquivos: [...currentFiles, fileData] });
+                alert("Arquivo enviado!");
+            }
         } catch (error) {
             console.error("Erro no upload admin:", error);
             alert("Erro ao enviar arquivo.");
