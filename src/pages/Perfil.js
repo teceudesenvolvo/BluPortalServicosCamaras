@@ -2,10 +2,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Importações do Firebase
-import { ref, get, update } from 'firebase/database';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { useAuth } from '../contexts/FirebaseAuthContext';
-import { auth, db } from '../firebase';
+import { auth, firestore } from '../firebase';
 import Sidebar from '../components/Sidebar'; // Sidebar do Cidadão
 import config from '../config'; // Importa a configuração
 import AdminSidebar from '../components/AdminSidebar'; // Sidebar do Admin
@@ -42,14 +42,14 @@ const Perfil = () => {
         setError(null);
         
         const userId = userAuth.uid;
-        const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
+        const userRef = doc(firestore, 'users', userId);
         
         try {
-            const snapshot = await get(userRef);
+            const snapshot = await getDoc(userRef);
             
             if (snapshot.exists()) {
                 // Se os dados existirem, carregue-os
-                const userData = snapshot.val();
+                const userData = snapshot.data();
                 setProfileData({
                     uid: userId,
                     name: userData.name || userAuth.displayName || 'Usuário',
@@ -60,7 +60,7 @@ const Perfil = () => {
             } else {
                 // Caso contrário, use dados básicos do Auth
                 setProfileData({ uid: userId, name: userAuth.displayName || 'Usuário', email: userAuth.email, tipo: 'Cidadão' });
-                console.warn("Documento de perfil não encontrado no Realtime Database.");
+                console.warn("Documento de perfil não encontrado no Firestore.");
             }
         } catch (error) {
             console.error("Erro ao buscar/criar dados do perfil:", error);
@@ -110,7 +110,7 @@ const Perfil = () => {
     const handleSave = async () => {
         if (!userAuth) return;
         setLoadingProfile(true);
-        const userRef = ref(db, `${config.cityCollection}/users/${userAuth.uid}`);
+        const userRef = doc(firestore, 'users', userAuth.uid);
         
         try {
             let dataToSave = { ...editableProfileData };
@@ -122,7 +122,7 @@ const Perfil = () => {
                 dataToSave.avatarBase64 = uploadResult.url; 
             }
 
-            await update(userRef, dataToSave);
+            await updateDoc(userRef, dataToSave);
             setProfileData(dataToSave); // Atualiza o estado principal
             setIsEditing(false);
             setSelectedAvatarFile(null);

@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
-import { db } from '../../firebase';
+import { firestore } from '../../firebase';
 import config from '../../config';
-import { ref, get, push, set, serverTimestamp } from 'firebase/database';
+import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
 // Ícones
@@ -31,11 +31,11 @@ const NovaOuvidoria = () => {
 
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) return;
-        const userRef = ref(db, `${config.cityCollection}/users/${currentUser.uid}`);
+        const userRef = doc(firestore, 'users', currentUser.uid);
         try {
-            const snapshot = await get(userRef);
+            const snapshot = await getDoc(userRef);
             if (snapshot.exists()) {
-                setLoggedInUserData(snapshot.val());
+                setLoggedInUserData(snapshot.data());
             }
         } catch (error) {
             console.error("Erro ao buscar perfil do usuário:", error);
@@ -85,13 +85,11 @@ const NovaOuvidoria = () => {
                     phone: loggedInUserData?.phone || 'Não informado',
                 };
             }
-
-            const novaManifestacaoRef = push(ref(db, `${config.cityCollection}/ouvidoria`));
             
             // Faz o upload dos arquivos pro Storage
             const anexosProcessados = [];
             for (const file of anexos) {
-                const folderPath = `ouvidoria/${currentUser ? currentUser.uid : 'anonimo'}/anexos`;
+                const folderPath = `${config.cityCollection}/ouvidoria/${currentUser ? currentUser.uid : 'anonimo'}/anexos`;
                 const uploadResult = await uploadFileToStorage(file, folderPath);
                 anexosProcessados.push({
                     name: file.name,
@@ -100,7 +98,7 @@ const NovaOuvidoria = () => {
                 });
             }
 
-            await set(novaManifestacaoRef, {
+            await addDoc(collection(firestore, 'ouvidoria'), {
                 dadosManifestacao: { ...formData, anexos: anexosProcessados },
                 dadosUsuario: dadosUsuarioParaSalvar,
                 userId: formData.identificacao === 'identificado' ? currentUser.uid : 'anonimo',

@@ -4,9 +4,8 @@ import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/aut
 
 // Importa o hook de autenticação e a instância do auth
 import { useAuth } from '../contexts/FirebaseAuthContext';
-import { auth, db } from '../firebase';
-import { ref, get } from 'firebase/database';
-import config from '../config'; // Importa a configuração
+import { auth, firestore } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
  
 import Brasao from '../assets/logo-paraipaba.png'; // Logo redonda/brasão
 import Logo from '../assets/logo-paraipaba-azul.png'; // Logo horizontal
@@ -24,7 +23,7 @@ const LoginPage = () => {
     const redirectUser = useCallback((userType) => {
         switch (userType) {
             case 'Admin':
-                navigate('/admin-users', { replace: true });
+                navigate('/perfil', { replace: true });
                 break;
             case 'Vereador':
                 navigate('/admin-vereadores', { replace: true });
@@ -53,9 +52,9 @@ const LoginPage = () => {
     useEffect(() => {
         if (currentUser) {
             const checkUserTypeAndRedirect = async (user) => {
-        const userRef = ref(db, `${config.cityCollection}/users/${user.uid}`);
-                const snapshot = await get(userRef);
-                const userType = snapshot.exists() ? snapshot.val().tipo : 'Cidadão';
+                const userRef = doc(firestore, 'users', user.uid);
+                const snapshot = await getDoc(userRef);
+                const userType = snapshot.exists() ? snapshot.data().tipo : 'Cidadão';
                 redirectUser(userType);
             };
 

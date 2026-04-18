@@ -11,11 +11,11 @@ import {
     LiaTimesSolid,
     LiaUsersSolid,
     LiaCloudDownloadAltSolid,
+    LiaBellSolid
 } from "react-icons/lia";
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '../firebase';
-import config from '../config'; // Importa a configuração
-import { ref, get } from 'firebase/database';
+import { auth, firestore } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 // --- Componente: Ítem do Menu Lateral (interno ao Sidebar) ---
 const AdminSidebarItem = ({ icon, title, path, isActive, onClick }) => (
@@ -34,16 +34,18 @@ const AdminSidebar = () => {
     const navigate = useNavigate();
     const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [userType, setUserType] = useState(null);
+    const [userEmail, setUserEmail] = useState(null);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
-                // Se o usuário estiver logado, busca o perfil no Realtime Database
-        const userRef = ref(db, `${config.cityCollection}/users/${user.uid}`);
+                setUserEmail(user.email);
+                // Se o usuário estiver logado, busca o perfil no Firestore
+                const userRef = doc(firestore, 'users', user.uid);
                 try {
-                    const snapshot = await get(userRef);
+                    const snapshot = await getDoc(userRef);
                     if (snapshot.exists()) {
-                        const userData = snapshot.val();
+                        const userData = snapshot.data();
                         setUserType(userData.tipo || 'Cidadão');
                     } else {
                         setUserType('Cidadão'); // Define um padrão caso não encontre o perfil
@@ -54,6 +56,7 @@ const AdminSidebar = () => {
                 }
             } else {
                 setUserType(null); // Limpa o tipo se o usuário deslogar
+                setUserEmail(null);
             }
         });
         return () => unsubscribe(); // Limpa o listener ao desmontar o componente
@@ -68,12 +71,19 @@ const AdminSidebar = () => {
         { title: 'Vereadores', icon: <LiaUserFriendsSolid />, path: '/admin-vereadores', roles: ['Admin', 'Vereador'] },
         { title: 'PIEL', icon: <LiaUsersSolid />, path: '/admin-piel', roles: ['Admin'] },
         { title: 'Gerenciar Usuários', icon: <LiaUsersCogSolid />, path: '/admin-users', roles: ['Admin'] },
+        { title: 'Histórico Notificações', icon: <LiaBellSolid />, path: '/admin-notifications', roles: ['Admin'] },
         { title: 'Migração Firestore', icon: <LiaCloudDownloadAltSolid />, path: '/admin-migration', roles: ['Admin'] },
         { title: 'Perfil', icon: <LiaUser />, path: '/perfil', roles: ['Admin', 'Vereador', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão'] },
     ];
 
     // Filtra os itens do menu com base no tipo de usuário
     const visibleMenuItems = allMenuItems.filter(item => {
+        // Restrição específica: Itens de sistema aparecem apenas para o email leo@gmail.com
+        const systemPaths = ['/admin-migration', '/admin-mail', '/admin-notifications'];
+        if (systemPaths.includes(item.path)) {
+            return userEmail === 'leo@gmail.com';
+        }
+
         if (userType === 'Admin') {
             return true; // Admin vê tudo
         }

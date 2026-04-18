@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { 
+    collection, query, where, getDocs, doc, updateDoc, 
+    getDoc, addDoc, serverTimestamp, limit, startAfter, orderBy 
+} from 'firebase/firestore';
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '../../firebase';
+import { firestore, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
-import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane } from "react-icons/lia";
+import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane, LiaSearchSolid, LiaFilterSolid, LiaArrowLeftSolid } from "react-icons/lia";
 
 // Modal Component
 const ManifestacaoModal = ({ manifestacao, onClose, onStatusChange, onSendMessage, onFileUpload }) => {
@@ -27,10 +30,10 @@ const ManifestacaoModal = ({ manifestacao, onClose, onStatusChange, onSendMessag
                     return;
                 }
                 setLoadingProfile(true);
-                const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
+                const userRef = doc(firestore, 'users', userId);
                 try {
-                    const snapshot = await get(userRef);
-                    setConsumerProfile(snapshot.exists() ? snapshot.val() : manifestacao.dadosUsuario);
+                    const snapshot = await getDoc(userRef);
+                    setConsumerProfile(snapshot.exists() ? snapshot.data() : manifestacao.dadosUsuario);
                 } catch (error) {
                     console.error("Erro ao buscar perfil:", error);
                     setConsumerProfile(manifestacao.dadosUsuario);
@@ -138,9 +141,24 @@ const AdminOuvidoriaDashboard = () => {
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [loading, setLoading] = useState(true);
     const [manifestacoes, setManifestacoes] = useState([]);
-    const [currentTab, setCurrentTab] = useState('Todas');
     const [statusCounts, setStatusCounts] = useState({});
     const [selectedManifestacao, setSelectedManifestacao] = useState(null);
+
+    // Filtros e Busca
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState('Todas');
+    const [filterTipo, setFilterTipo] = useState('Todos');
+    const [showFilters, setShowFilters] = useState(false);
+
+    // Paginação
+    const [currentPage, setCurrentPage] = useState(1);
+    const [cursors, setCursors] = useState([null]);
+    const [lastDoc, setLastDoc] = useState(null);
+    const [isLastPage, setIsLastPage] = useState(false);
+    const itemsPerPage = 15;
+    const maxItemsWithFilters = 500;
+
+    const hasActiveFilters = !!(searchTerm || filterStatus !== 'Todas' || filterTipo !== 'Todos');
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -151,17 +169,40 @@ const AdminOuvidoriaDashboard = () => {
         return () => unsubscribe();
     }, [navigate]);
 
-    // Leitura única com limite (economiza downloads)
-    const fetchManifestacoes = useCallback(async () => {
+    const fetchManifestacoes = useCallback(async (cursor = null, filtering = false) => {
         setLoading(true);
         try {
-            const manifestacoesRef = ref(db, `${config.cityCollection}/ouvidoria`);
-            const q = query(manifestacoesRef, orderByKey(), limitToLast(200));
-            const snapshot = await get(q);
-            const data = snapshot.val();
-            const fetchedData = data 
-                ? Object.keys(data).map(key => ({ id: key, ...data[key] })).sort((a, b) => (b.dataManifestacao || 0) - (a.dataManifestacao || 0))
-                : [];
+            const ref = collection(firestore, 'ouvidoria');
+            let q = query(ref);
+
+            if (!filtering) {
+                q = query(q, orderBy('dataManifestacao', 'desc'));
+            }
+
+            if (filterStatus !== 'Todas') {
+                q = query(q, where('status', '==', filterStatus));
+            }
+
+            if (filterTipo !== 'Todos') {
+                q = query(q, where('dadosManifestacao.tipoManifestacao', '==', filterTipo));
+            }
+
+            if (cursor) {
+                q = query(q, startAfter(cursor));
+            }
+
+            q = query(q, limit(filtering ? maxItemsWithFilters : itemsPerPage));
+
+            const snapshot = await getDocs(q);
+            const fetchedData = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    ...data,
+                    timestamp: data.dataManifestacao?.toMillis ? data.dataManifestacao.toMillis() : (data.dataManifestacao || 0)
+                };
+            }).sort((a, b) => b.timestamp - a.timestamp);
+
             setManifestacoes(fetchedData);
 
             const counts = fetchedData.reduce((acc, item) => {
@@ -176,17 +217,43 @@ const AdminOuvidoriaDashboard = () => {
                 orderedCounts[status] = counts[status] || 0;
             });
             setStatusCounts(orderedCounts);
+            setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+            setIsLastPage(filtering ? true : snapshot.docs.length < itemsPerPage);
         } catch (error) {
             console.error('Erro ao buscar manifestações:', error);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [filterStatus, filterTipo, itemsPerPage]);
 
     useEffect(() => {
         if (!isAuthReady) return;
-        fetchManifestacoes();
-    }, [isAuthReady, fetchManifestacoes]);
+        setCurrentPage(1);
+        setCursors([null]);
+        fetchManifestacoes(null, hasActiveFilters);
+    }, [isAuthReady, filterStatus, filterTipo, searchTerm, hasActiveFilters, fetchManifestacoes]);
+
+    const handleNextPage = () => {
+        if (!lastDoc || isLastPage) return;
+        setCursors(prev => [...prev, lastDoc]);
+        fetchManifestacoes(lastDoc);
+        setCurrentPage(prev => prev + 1);
+    };
+
+    const handlePrevPage = () => {
+        if (currentPage <= 1) return;
+        const newHistory = cursors.slice(0, -1);
+        const targetCursor = newHistory[newHistory.length - 1];
+        fetchManifestacoes(targetCursor);
+        setCursors(newHistory);
+        setCurrentPage(prev => prev - 1);
+    };
+
+    const handleResetPagination = () => {
+        setCurrentPage(1);
+        setCursors([null]);
+        fetchManifestacoes(null);
+    };
 
     useEffect(() => {
         if (!chartRef.current || Object.keys(statusCounts).length === 0) return;
@@ -217,9 +284,18 @@ const AdminOuvidoriaDashboard = () => {
         return () => { if (chartInstance.current) chartInstance.current.destroy(); };
     }, [statusCounts]);
 
-    const filteredManifestacoes = currentTab === 'Todas'
-        ? manifestacoes
-        : manifestacoes.filter(d => d.status === currentTab);
+    const filteredManifestacoes = manifestacoes.filter(item => {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch =
+            (item.dadosManifestacao?.assunto?.toLowerCase() || '').includes(searchLower) ||
+            (item.dadosUsuario?.name?.toLowerCase() || '').includes(searchLower) ||
+            (item.id?.toLowerCase() || '').includes(searchLower);
+        
+        const matchesStatus = filterStatus === 'Todas' || item.status === filterStatus;
+        const matchesTipo = filterTipo === 'Todos' || item.dadosManifestacao?.tipoManifestacao === filterTipo;
+
+        return matchesSearch && matchesStatus && matchesTipo;
+    });
 
     const handleOpenModal = (manifestacao) => setSelectedManifestacao(manifestacao);
     const handleCloseModal = () => setSelectedManifestacao(null);
@@ -234,10 +310,9 @@ const AdminOuvidoriaDashboard = () => {
         const notificationTitle = `Sua manifestação na Ouvidoria foi atualizada.`;
         const notificationDescription = `Abra o aplicativo da Câmara Municipal de ${cityName} para acompanhar os detalhes. Protocolo: ${manifestacao.id}.`;
 
-        // 1. Salva a notificação no app
-        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
-        const newNotificationRef = push(notificacoesRef);
-        await set(newNotificationRef, {
+        // 1. Salva a notificação no Firestore
+        const notificacoesRef = collection(firestore, 'notifications');
+        await addDoc(notificacoesRef, {
             isRead: false,
             protocolo: manifestacao.id,
             targetUserId: manifestacao.userId,
@@ -248,10 +323,9 @@ const AdminOuvidoriaDashboard = () => {
             userId: manifestacao.userId
         });
 
-        // 2. Adiciona a um nó 'mail' para ser processado por um serviço de e-mail
-        const mailRef = ref(db, `${config.cityCollection}/mail`);
-        const newMailRef = push(mailRef);
-        await set(newMailRef, {
+        // 2. Adiciona à coleção 'mail'
+        const mailRef = collection(firestore, 'mail');
+        await addDoc(mailRef, {
             to: manifestacao.dadosUsuario.email,
             message: {
                 subject: notificationTitle,
@@ -261,24 +335,25 @@ const AdminOuvidoriaDashboard = () => {
     };
 
     const handleStatusChange = async (id, newStatus) => {
-        const itemRef = ref(db, `${config.cityCollection}/ouvidoria/${id}`);
+        const itemRef = doc(firestore, 'ouvidoria', id);
         let updateData = { status: newStatus };
         if (newStatus === 'Respondida' || newStatus === 'Cancelada') {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
         } else {
             updateData.deletionTimestamp = null;
         }
-        await update(itemRef, updateData);
+        await updateDoc(itemRef, updateData);
         await sendNotification({ ...selectedManifestacao, id, status: newStatus });
         alert('Status atualizado!');
         handleCloseModal();
-        fetchManifestacoes(); // Atualiza a lista
+        fetchManifestacoes(null, hasActiveFilters);
     };
 
     const handleSendMessage = async (id, text) => {
-        const messagesRef = ref(db, `${config.cityCollection}/ouvidoria/${id}/messages`);
-        const newMessageRef = push(messagesRef);
-        await set(newMessageRef, { text, sender: 'admin', timestamp: serverTimestamp() });
+        const itemRef = doc(firestore, 'ouvidoria', id);
+        const newMessageId = Date.now().toString();
+        const newMessage = { text, sender: 'admin', timestamp: new Date().toISOString() };
+        await updateDoc(itemRef, { [`messages.${newMessageId}`]: newMessage });
         await sendNotification({ ...selectedManifestacao, id });
         alert('Mensagem enviada!');
     };
@@ -298,11 +373,11 @@ const AdminOuvidoriaDashboard = () => {
                 timestamp: serverTimestamp() 
             };
 
-            const itemRef = ref(db, `${config.cityCollection}/ouvidoria/${id}`);
-            const snapshot = await get(itemRef);
-            const currentData = snapshot.val();
+            const itemRef = doc(firestore, 'ouvidoria', id);
+            const snapshot = await getDoc(itemRef);
+            const currentData = snapshot.data();
             const currentFiles = currentData.arquivos || [];
-            await update(itemRef, { arquivos: [...currentFiles, fileData] });
+            await updateDoc(itemRef, { arquivos: [...currentFiles, fileData] });
             alert("Arquivo enviado!");
         } catch (error) {
             console.error("Erro no upload admin:", error);
@@ -310,7 +385,15 @@ const AdminOuvidoriaDashboard = () => {
         }
     };
 
+    const clearFilters = () => {
+        setSearchTerm('');
+        setFilterStatus('Todas');
+        setFilterTipo('Todos');
+        setCurrentPage(1);
+    };
+
     const statusTabs = ['Todas', 'Recebida', 'Em Análise', 'Respondida', 'Encaminhada'];
+    const tiposList = ['Todos', 'Reclamação', 'Sugestão', 'Denúncia', 'Elogio', 'Crítica'];
 
     if (!isAuthReady) return <div className="loading-screen">Carregando...</div>;
 
@@ -320,10 +403,13 @@ const AdminOuvidoriaDashboard = () => {
             <div className="dashboard-content" style={{ padding: '40px' }}>
                 <header className="page-header-container">
                     <div className="header-title-section">
+                        <button onClick={() => navigate('/admin-balcao')} className="btn-secondary" style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
+                            <LiaArrowLeftSolid size={18} /> Voltar ao Dashboard
+                        </button>
                         <h1>Admin Ouvidoria</h1>
-                        <p>Visão geral das manifestações</p>
-                        <button onClick={fetchManifestacoes} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
-                            ↻ Atualizar dados
+                        <p>Gerencie as manifestações do cidadão ({filteredManifestacoes.length} registros)</p>
+                        <button onClick={() => fetchManifestacoes(null, hasActiveFilters)} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
+                            ↻ Atualizar lista
                         </button>
                     </div>
                     <div className="user-profile">
@@ -335,16 +421,65 @@ const AdminOuvidoriaDashboard = () => {
                     </div>
                 </header>
 
+                <div className="data-card" style={{ marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
+                            <LiaSearchSolid style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888' }} size={20} />
+                            <input
+                                type="text"
+                                placeholder="Buscar por assunto, manifestante ou protocolo..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="form-input"
+                                style={{ paddingLeft: '42px', margin: 0 }}
+                            />
+                        </div>
+
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className={showFilters ? 'btn-primary' : 'btn-secondary'}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            <LiaFilterSolid size={18} />
+                            Filtros {hasActiveFilters && <span className="filter-badge">!</span>}
+                        </button>
+
+                        {hasActiveFilters && (
+                            <button onClick={clearFilters} className="btn-secondary">
+                                Limpar
+                            </button>
+                        )}
+                    </div>
+
+                    {showFilters && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Status</label>
+                                <select
+                                    value={filterStatus}
+                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                    className="form-input"
+                                >
+                                    {statusTabs.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Tipo</label>
+                                <select
+                                    value={filterTipo}
+                                    onChange={(e) => setFilterTipo(e.target.value)}
+                                    className="form-input"
+                                >
+                                    {tiposList.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 <div className="data-sections-grid">
                     <div className="data-card">
                         <div className="card-header"><h3>Atividades Recentes</h3></div>
-                        <div className="tabs-header" style={{ marginBottom: '20px' }}>
-                            {statusTabs.map(tab => (
-                                <button key={tab} className={`tab-button ${currentTab === tab ? 'active' : ''}`} onClick={() => setCurrentTab(tab)}>
-                                    {tab}
-                                </button>
-                            ))}
-                        </div>
                         <div className="chart-container">
                             <div style={{ height: '350px', width: '100%' }}>
                                 {loading ? <p>Carregando...</p> : <canvas ref={chartRef}></canvas>}
@@ -353,11 +488,11 @@ const AdminOuvidoriaDashboard = () => {
                     </div>
 
                     <div className="data-card">
-                        <div className="card-header"><h3>Últimas Manifestações ({currentTab})</h3></div>
+                        <div className="card-header"><h3>Lista de Manifestações ({filterStatus})</h3></div>
                         {loading && <p>Carregando...</p>}
-                        {!loading && filteredManifestacoes.length === 0 && <p>Nenhuma manifestação com o status "{currentTab}".</p>}
+                        {!loading && filteredManifestacoes.length === 0 && <p style={{ padding: '20px' }}>Nenhuma manifestação encontrada com o status "{filterStatus}".</p>}
                         <ul className="data-list">
-                            {filteredManifestacoes.slice(0, 5).map(item => (
+                            {filteredManifestacoes.map(item => (
                                 <li key={item.id} className="data-list-item" onClick={() => handleOpenModal(item)}>
                                     <div className="item-main-info">
                                         <strong>{item.dadosManifestacao?.assunto || 'Sem assunto'}</strong>
@@ -367,7 +502,38 @@ const AdminOuvidoriaDashboard = () => {
                                 </li>
                             ))}
                         </ul>
-                        {filteredManifestacoes.length > 5 && <p style={{ marginTop: '15px', fontSize: '0.9rem', color: '#6b7280', textAlign: 'center' }}>e mais {filteredManifestacoes.length - 5} manifestações...</p>}
+
+                        {/* Paginação */}
+                        {!loading && manifestacoes.length > 0 && !hasActiveFilters && (
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px', paddingBottom: '20px', flexWrap: 'wrap' }}>
+                                <button
+                                    onClick={handleResetPagination}
+                                    disabled={currentPage === 1}
+                                    className="btn-secondary"
+                                    style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
+                                >
+                                    ⇤ Início
+                                </button>
+                                
+                                <button
+                                    onClick={handlePrevPage}
+                                    disabled={currentPage === 1}
+                                    className="btn-secondary"
+                                    style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
+                                >
+                                    Anterior
+                                </button>
+
+                                <button
+                                    onClick={handleNextPage}
+                                    disabled={isLastPage}
+                                    className="btn-primary"
+                                    style={{ padding: '6px 20px', opacity: isLastPage ? 0.4 : 1 }}
+                                >
+                                    Próxima Página ➔
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 

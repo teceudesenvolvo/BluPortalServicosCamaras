@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { ref, set } from "firebase/database";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 // Importa o hook de autenticação e a instância do auth
 import { useAuth } from '../contexts/FirebaseAuthContext';
-import { auth, db } from '../firebase';
-import config from '../config'; // Importa a configuração
+import { auth, firestore } from '../firebase';
 
 import Brasao from '../assets/logo-paraipaba.png';
 import Logo from '../assets/logo-paraipaba-azul.png';
@@ -126,8 +125,8 @@ const CadastroPage = () => {
             const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
             const user = userCredential.user;
 
-            // Salva informações adicionais do usuário no Realtime Database
-      await set(ref(db, `${config.cityCollection}/users/${user.uid}`), {
+            // Salva informações adicionais do usuário no Firestore
+            await setDoc(doc(firestore, 'users', user.uid), {
                 name: `${formData.name} ${formData.surname}`,
                 email: user.email,
                 telefone: formData.telefone,
@@ -142,7 +141,7 @@ const CadastroPage = () => {
                 city: formData.city,
                 state: formData.state,
                 tipo: 'Cidadão', // Define o tipo padrão do usuário
-                createdAt: new Date().toISOString(),
+                createdAt: serverTimestamp(),
             });
 
             navigate('/dashboard', { replace: true });

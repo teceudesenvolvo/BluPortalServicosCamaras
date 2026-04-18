@@ -17,6 +17,22 @@ const AdminMigration = () => {
     const [progress, setProgress] = useState(0);
     const [totalCount, setTotalCount] = useState(0);
 
+    // Nova funcionalidade: Seleção de Coleção
+    const [selectedCollection, setSelectedCollection] = useState('balcao-cidadao');
+
+    const collectionsToMigrate = [
+        { id: 'balcao-cidadao', name: 'Balcão do Cidadão' },
+        { id: 'users', name: 'Usuários' },
+        { id: 'notifications', name: 'Notificações' },
+        { id: 'mail', name: 'E-mails (Fila)' },
+        { id: 'ouvidoria', name: 'Ouvidoria' },
+        { id: 'atendimento-juridico', name: 'Atendimento Jurídico' },
+        { id: 'procuradoria-mulher', name: 'Procuradoria da Mulher' },
+        { id: 'vereadores', name: 'Vereadores' },
+        { id: 'piel', name: 'Informativos PIEL' },
+        { id: 'denuncias-procon', name: 'Procon (Denúncias)' },
+    ];
+
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) setIsAuthReady(true);
@@ -109,12 +125,15 @@ const AdminMigration = () => {
                 return;
             }
 
-            await migrateConfig();
+            // Migra as configurações de agendamento apenas se a coleção for balcao-cidadao
+            if (selectedCollection === 'balcao-cidadao') {
+                await migrateConfig();
+            }
 
-            addLog('🔄 Iniciando migração dos dados...', 'info');
+            addLog(`🔄 Iniciando migração da coleção [${selectedCollection}]...`, 'info');
 
             // Buscar dados do RTDB
-            const rtdbRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
+            const rtdbRef = ref(db, `${config.cityCollection}/${selectedCollection}`);
             const snapshot = await get(rtdbRef);
 
             if (!snapshot.exists()) {
@@ -163,7 +182,7 @@ const AdminMigration = () => {
                         }
                         totalBatchSize += docSize;
 
-                        const docRef = doc(firestore, 'balcao-cidadao', key);
+                        const docRef = doc(firestore, selectedCollection, key);
                         batch.set(docRef, {
                             ...value,
                             migratedAt: new Date().toISOString(),
@@ -212,7 +231,7 @@ const AdminMigration = () => {
             }
 
             setProgress(100);
-            const summary = `✅ Migração concluída! ${successCount} documentos transferidos`;
+            const summary = `✅ Migração de [${selectedCollection}] concluída! ${successCount} documentos transferidos`;
             const errorMsg = errorCount > 0 ? ` (${errorCount} erros).` : '.';
             addLog(summary + errorMsg, 'success');
             console.log(`Migração finalizada: ${successCount} sucesso, ${errorCount} erros`);
@@ -230,18 +249,18 @@ const AdminMigration = () => {
             addLog('Iniciando verificação...', 'info');
 
             // Contar documentos no RTDB
-            const rtdbRef = ref(db, `${config.cityCollection}/balcao-cidadao`);
+            const rtdbRef = ref(db, `${config.cityCollection}/${selectedCollection}`);
             const rtdbSnapshot = await get(rtdbRef);
             const rtdbCount = rtdbSnapshot.exists() ? Object.keys(rtdbSnapshot.val()).length : 0;
 
             // Contar documentos no Firestore
-            const firestoreRef = collection(firestore, 'balcao-cidadao');
+            const firestoreRef = collection(firestore, selectedCollection);
             // Para contar, vamos tentar um getDocs com limit
             const { getDocs } = await import('firebase/firestore');
             const fsSnapshot = await getDocs(firestoreRef);
             const firestoreCount = fsSnapshot.size;
 
-            addLog(`📊 RTDB: ${rtdbCount} documentos | Firestore: ${firestoreCount} documentos`, 'info');
+            addLog(`📊 [${selectedCollection}] RTDB: ${rtdbCount} documentos | Firestore: ${firestoreCount} documentos`, 'info');
 
             if (rtdbCount === firestoreCount) {
                 addLog(`✅ Verificação bem-sucedida! Contagens coincidem.`, 'success');
@@ -280,6 +299,34 @@ const AdminMigration = () => {
                         <div className="user-avatar"></div>
                     </div>
                 </header>
+
+                {/* Seleção de Coleção */}
+                <div className="data-card" style={{ marginBottom: '24px' }}>
+                    <div className="card-header">
+                        <h3>Configuração da Migração</h3>
+                    </div>
+                    <div style={{ padding: '20px' }}>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label>Selecione a Coleção para Migrar</label>
+                            <select 
+                                value={selectedCollection} 
+                                onChange={(e) => {
+                                    setSelectedCollection(e.target.value);
+                                    setMigrationStatus('idle');
+                                    setMigrationLog([]);
+                                    setProgress(0);
+                                    setTotalCount(0);
+                                }}
+                                className="form-input"
+                                disabled={migrating}
+                            >
+                                {collectionsToMigrate.map(col => (
+                                    <option key={col.id} value={col.id}>{col.name} ({col.id})</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Main Content */}
                 <div className="data-card" style={{ marginBottom: '24px' }}>

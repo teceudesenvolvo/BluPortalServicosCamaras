@@ -42,6 +42,8 @@ import AdminProcuradoria from './pages/pagesAdmin/AdminProcuradoria';
 import AdminVereadores from './pages/pagesAdmin/AdminVereadores';
 import AdminUsers from './pages/pagesAdmin/AdminUsers';
 import AdminMigration from './pages/pagesAdmin/AdminMigration';
+import AdminMail from './pages/pagesAdmin/AdminMail';
+import AdminNotifications from './pages/pagesAdmin/AdminNotifications';
 
 
 function App() {
@@ -85,6 +87,8 @@ function App() {
           <Route path="/admin-users" element={<AdminUsers />} />
           <Route path="/admin-piel" element={<AdminPiel />} />
           <Route path="/admin-balcao/agendamentos" element={<AdminBalcaoAgendamentos />} />
+          <Route path="/admin-mail" element={<AdminMail />} />
+          <Route path="/admin-notifications" element={<AdminNotifications />} />
           <Route path="/admin-migration" element={<AdminMigration />} />
 
         </Routes>

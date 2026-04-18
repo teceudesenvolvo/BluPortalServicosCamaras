@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, get, update, push, set, serverTimestamp } from 'firebase/database';
+import { 
+    collection, query, where, getDocs, doc, updateDoc, 
+    limit, startAfter, addDoc, serverTimestamp 
+} from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '../../firebase';
+import { firestore, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
-import { LiaTimesSolid, LiaSaveSolid, LiaUserEditSolid, LiaEnvelopeSolid } from "react-icons/lia";
+import { LiaTimesSolid, LiaSaveSolid, LiaUserEditSolid, LiaEnvelopeSolid, LiaSearchSolid, LiaFilterSolid } from "react-icons/lia";
 
 // Modal para Edição de Usuário
 const UserEditModal = ({ user, onClose, onSave }) => {
@@ -157,8 +160,20 @@ const AdminUsersDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [users, setUsers] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterTipo, setFilterTipo] = useState('Todos');
+    const [showFilters, setShowFilters] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
     
+    // Paginação
+    const [currentPage, setCurrentPage] = useState(1);
+    const [cursors, setCursors] = useState([null]);
+    const [lastDoc, setLastDoc] = useState(null);
+    const [isLastPage, setIsLastPage] = useState(false);
+    const itemsPerPage = 15;
+    const maxItemsWithFilters = 60; 
+
+    const hasActiveFilters = !!(searchTerm || filterTipo !== 'Todos');
+
     const BATCH_SIZE = 20; // Define o tamanho do lote
     const [currentBatchStartIndex, setCurrentBatchStartIndex] = useState(200); // Começa em 20, pois os primeiros 20 já foram enviados
     const [showEmailModal, setShowEmailModal] = useState(false);
@@ -175,25 +190,63 @@ const AdminUsersDashboard = () => {
     }, [navigate]);
 
     // Leitura única (economiza downloads)
-    const fetchUsers = useCallback(async () => {
+    const fetchUsers = useCallback(async (cursor = null, filtering = false) => {
         setLoading(true);
         try {
-            const usersRef = ref(db, `${config.cityCollection}/users`);
-            const snapshot = await get(usersRef);
-            const data = snapshot.val();
-            const fetchedUsers = data ? Object.keys(data).map(key => ({ uid: key, ...data[key] })) : [];
-            setUsers(fetchedUsers);
+            const usersRef = collection(firestore, 'users');
+            
+            // Removendo orderBy da query para evitar erro de índice composto no Firestore.
+            // A ordenação agora é feita localmente no .sort() abaixo.
+            let q = query(usersRef);
+
+            if (filterTipo !== 'Todos') {
+                q = query(q, where('tipo', '==', filterTipo));
+            }
+
+            if (cursor) {
+                q = query(q, startAfter(cursor));
+            }
+
+            q = query(q, limit(filtering ? maxItemsWithFilters : itemsPerPage));
+
+            const snapshot = await getDocs(q);
+            const fetchedData = snapshot.docs.map(doc => ({
+                uid: doc.id,
+                ...doc.data()
+            })).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+            setUsers(fetchedData);
+            setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+            setIsLastPage(filtering ? true : snapshot.docs.length < itemsPerPage);
         } catch (error) {
             console.error('Erro ao buscar usuários:', error);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [filterTipo, itemsPerPage]);
 
     useEffect(() => {
         if (!isAuthReady) return;
-        fetchUsers();
-    }, [isAuthReady, fetchUsers]);
+        setCurrentPage(1);
+        setCursors([null]);
+        fetchUsers(null, hasActiveFilters);
+    }, [isAuthReady, filterTipo, searchTerm, hasActiveFilters, fetchUsers]);
+
+    const handleNextPage = () => {
+        if (!lastDoc || isLastPage) return;
+        setCursors(prev => [...prev, lastDoc]);
+        fetchUsers(lastDoc);
+        setCurrentPage(prev => prev + 1);
+    };
+
+    const handlePrevPage = () => {
+        if (currentPage <= 1) return;
+        const newHistory = cursors.slice(0, -1);
+        const targetCursor = newHistory[newHistory.length - 1];
+        fetchUsers(targetCursor);
+        setCursors(newHistory);
+        setCurrentPage(prev => prev - 1);
+    };
 
     const handleOpenModal = (user) => setSelectedUser(user);
     const handleCloseModal = () => setSelectedUser(null);
@@ -210,9 +263,8 @@ const AdminUsersDashboard = () => {
         const notificationDescription = `Suas permissões ou dados foram atualizados no Portal de Serviços da Câmara Municipal de ${cityName}.`;
 
         // 1. Salva a notificação no app
-        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
-        const newNotificationRef = push(notificacoesRef);
-        await set(newNotificationRef, {
+        const notificacoesRef = collection(firestore, 'notifications');
+        await addDoc(notificacoesRef, {
             isRead: false,
             protocolo: userData.uid,
             targetUserId: userData.uid,
@@ -224,9 +276,8 @@ const AdminUsersDashboard = () => {
         });
 
         // 2. Adiciona a um nó 'mail' para ser processado por um serviço de e-mail
-        const mailRef = ref(db, `${config.cityCollection}/mail`);
-        const newMailRef = push(mailRef);
-        await set(newMailRef, {
+        const mailRef = collection(firestore, 'mail');
+        await addDoc(mailRef, {
             to: userData.email,
             message: {
                 subject: notificationTitle,
@@ -236,13 +287,13 @@ const AdminUsersDashboard = () => {
     }, []);
 
     const handleSaveUser = async (userId, updatedData) => {
-        const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
+        const userRef = doc(firestore, 'users', userId);
         try {
-            await update(userRef, updatedData);
+            await updateDoc(userRef, updatedData);
             await sendNotification({ uid: userId, email: updatedData.email });
             alert('Usuário atualizado com sucesso!');
             handleCloseModal();
-            fetchUsers(); // Atualiza a lista
+            fetchUsers(null, hasActiveFilters); // Atualiza a lista
         } catch (error) {
             alert('Falha ao atualizar o usuário.');
             console.error("Erro ao salvar usuário:", error);
@@ -269,10 +320,10 @@ const AdminUsersDashboard = () => {
 
         setLoading(true); // Usar o loading principal para desabilitar o botão de abrir o modal
         try {
-            const mailRef = ref(db, `${config.cityCollection}/mail`);
+            const mailRef = collection(firestore, 'mail');
             const sendPromises = usersToSend.map(user => {
                 if (user.email) {
-                    return set(push(mailRef), {
+                    return addDoc(mailRef, {
                         to: user.email,
                         message: {
                             subject: subject,
@@ -302,10 +353,22 @@ const AdminUsersDashboard = () => {
         }
     };
 
+    const clearFilters = () => {
+        setSearchTerm('');
+        setFilterTipo('Todos');
+        setCurrentPage(1);
+        setCursors([null]);
+    };
+
     const filteredUsers = users.filter(user =>
-        (user.name && user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()))
+    {
+        const searchLower = searchTerm.toLowerCase();
+        return (user.name && user.name.toLowerCase().includes(searchLower)) ||
+               (user.email && user.email.toLowerCase().includes(searchLower));
+    }
     );
+
+    const tiposList = ['Todos', 'Admin', 'Vereador', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Cidadão'];
 
     if (!isAuthReady) {
         return <div className="loading-screen">Carregando...</div>;
@@ -318,10 +381,12 @@ const AdminUsersDashboard = () => {
                 <header className="page-header-container">
                     <div className="header-title-section">
                         <h1>Gerenciamento de Usuários</h1>
-                        <p>Visualize e edite os perfis dos usuários do portal</p>
-                        <button onClick={fetchUsers} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
+                        <p>Visualize e edite os perfis dos {filteredUsers.length} usuários carregados</p>
+                        <button onClick={() => fetchUsers(null, hasActiveFilters)} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
                             ↻ Atualizar dados
                         </button>
+                    </div>
+                    <div className="page-actions-bar" style={{ justifyContent: 'flex-end', padding: 0 }}>
                         <button onClick={handleOpenEmailModal} className="btn-primary" disabled={loading} style={{ marginTop: '8px', marginLeft: '10px' }}>
                             <LiaEnvelopeSolid style={{ marginRight: '8px' }} /> Enviar E-mail para Todos
                         </button>
@@ -337,16 +402,66 @@ const AdminUsersDashboard = () => {
 
                 <div className="data-card">
                     <div className="card-header">
-                        <div className="form-group" style={{ flexGrow: 1 }}>
-                            <input
-                                type="text"
-                                placeholder="Buscar por nome ou e-mail..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="form-input"
-                            />
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', width: '100%' }}>
+                            <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
+                                <LiaSearchSolid style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888' }} size={20} />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por nome ou e-mail..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="form-input"
+                                    style={{ paddingLeft: '42px', margin: 0 }}
+                                />
+                            </div>
+
+                            <button
+                                onClick={() => setShowFilters(!showFilters)}
+                                className={showFilters ? 'btn-primary' : 'btn-secondary'}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                            >
+                                <LiaFilterSolid size={18} />
+                                Filtros {hasActiveFilters && <span className="filter-badge">!</span>}
+                            </button>
+
+                            {hasActiveFilters && (
+                                <button onClick={clearFilters} className="btn-secondary">
+                                    Limpar filtros
+                                </button>
+                            )}
+                            
+                            <span style={{ marginLeft: 'auto', fontSize: '0.85rem', color: '#6b7280' }}>
+                                Página {currentPage}
+                            </span>
                         </div>
                     </div>
+
+                    {showFilters && (
+                        <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                            gap: '16px', 
+                            padding: '20px', 
+                            backgroundColor: '#f9fafb',
+                            borderBottom: '1px solid #e5e7eb'
+                        }}>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Tipo de Usuário</label>
+                                <select
+                                    value={filterTipo}
+                                    onChange={(e) => {
+                                        setFilterTipo(e.target.value);
+                                        setCurrentPage(1);
+                                        setCursors([null]);
+                                    }}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                >
+                                    {tiposList.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    )}
 
                     {loading && <p>Carregando usuários...</p>}
                     {!loading && filteredUsers.length === 0 && <p>Nenhum usuário encontrado.</p>}
@@ -367,6 +482,25 @@ const AdminUsersDashboard = () => {
                             </li>
                         ))}
                     </ul>
+
+                    {!loading && users.length > 0 && !hasActiveFilters && (
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px', paddingBottom: '20px' }}>
+                            <button
+                                onClick={() => { setCurrentPage(1); setCursors([null]); fetchUsers(null); }}
+                                disabled={currentPage === 1}
+                                className="btn-secondary"
+                                style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
+                            >
+                                ⇤ Início
+                            </button>
+                            <button onClick={handlePrevPage} disabled={currentPage === 1} className="btn-secondary">
+                                Anterior
+                            </button>
+                            <button onClick={handleNextPage} disabled={isLastPage} className="btn-primary">
+                                Próxima Página ➔
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <UserEditModal
