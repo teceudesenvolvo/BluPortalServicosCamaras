@@ -22,12 +22,18 @@ const AdminMigration = () => {
 
     const collectionsToMigrate = [
         { id: 'balcao-cidadao', name: 'Balcão do Cidadão' },
+        { id: 'balcao-config', name: 'Configurações do Balcão (Geral)' },
+        { id: 'availability', name: 'Horários de Disponibilidade' },
+        { id: 'blockedDates', name: 'Datas Bloqueadas (Feriados)' },
+        { id: 'bookedSlots', name: 'Slots Agendados (Ocupação)' },
         { id: 'users', name: 'Usuários' },
         { id: 'notifications', name: 'Notificações' },
         { id: 'mail', name: 'E-mails (Fila)' },
         { id: 'ouvidoria', name: 'Ouvidoria' },
         { id: 'atendimento-juridico', name: 'Atendimento Jurídico' },
         { id: 'procuradoria-mulher', name: 'Procuradoria da Mulher' },
+        { id: 'procuradoria-mulher-btn-panico', name: 'Configuração Botão Pânico' },
+        { id: 'panic-alerts', name: 'Alertas de Pânico' },
         { id: 'vereadores', name: 'Vereadores' },
         { id: 'piel', name: 'Informativos PIEL' },
         { id: 'denuncias-procon', name: 'Procon (Denúncias)' },
@@ -89,29 +95,6 @@ const AdminMigration = () => {
         }
     };
 
-    const migrateConfig = async () => {
-        try {
-            addLog('⚙️ Migrando configurações de agendamento...', 'info');
-            const nodes = ['availability', 'blockedDates', 'bookedSlots'];
-            
-            for (const node of nodes) {
-                const rtdbRef = ref(db, `${config.cityCollection}/balcao-cidadao/balcao-config/${node}`);
-                const snapshot = await get(rtdbRef);
-                
-                if (snapshot.exists()) {
-                    const data = snapshot.val();
-                    const fsRef = doc(firestore, 'balcao-config', node);
-                    await setDoc(fsRef, typeof data === 'object' ? data : { values: data }, { merge: true });
-                    addLog(`✅ Configuração [${node}] migrada.`, 'success');
-                }
-            }
-            return true;
-        } catch (error) {
-            addLog(`❌ Erro ao migrar configurações: ${error.message}`, 'error');
-            return false;
-        }
-    };
-
     const migrateToFirestore = async () => {
         setMigrating(true);
         setMigrationStatus('in-progress');
@@ -123,11 +106,6 @@ const AdminMigration = () => {
                 setMigrationStatus('error');
                 setMigrating(false);
                 return;
-            }
-
-            // Migra as configurações de agendamento apenas se a coleção for balcao-cidadao
-            if (selectedCollection === 'balcao-cidadao') {
-                await migrateConfig();
             }
 
             addLog(`🔄 Iniciando migração da coleção [${selectedCollection}]...`, 'info');
