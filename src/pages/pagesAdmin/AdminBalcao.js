@@ -386,12 +386,12 @@ const AdminBalcaoDashboard = () => {
             }));
 
             const counts = fetchedData.reduce((acc, item) => {
-                const status = item.status || 'Não Classificado';
+                const status = item.status || 'Cancelado';
                 acc[status] = (acc[status] || 0) + 1;
                 return acc;
             }, {});
 
-            const fixedStatuses = ['Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Concluído', 'Não Classificado'];
+            const fixedStatuses = ['Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Concluído', 'Cancelado'];
             const orderedCounts = {};
             fixedStatuses.forEach(status => {
                 orderedCounts[status] = counts[status] || 0;
