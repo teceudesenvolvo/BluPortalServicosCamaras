@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { 
+    collection, addDoc, serverTimestamp as fsTimestamp 
+} from 'firebase/firestore';
 import Chart from 'chart.js/auto'; // Importa Chart.js
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '../../firebase'; // Importa as instâncias corretas do Firebase
+import { db, auth, firestore } from '../../firebase'; // Importa as instâncias corretas do Firebase
 import config from '../../config'; // Importa a configuração
 import AdminSidebar from '../../components/AdminSidebar'; // Importa o novo Sidebar de Admin
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
@@ -424,14 +427,14 @@ const AdminProconDashboard = () => {
         });
 
         // 2. Adiciona a um nó 'mail' para ser processado por um serviço de e-mail
-        const mailRef = ref(db, `${config.cityCollection}/mail`);
-        const newMailRef = push(mailRef);
-        await set(newMailRef, {
+        const mailRef = collection(firestore, 'mail');
+        await addDoc(mailRef, {
             to: userProfile.email,
             message: {
                 subject: notificationTitle,
                 html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
             },
+            timestamp: fsTimestamp()
         });
     };
 

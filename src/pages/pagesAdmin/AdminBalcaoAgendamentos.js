@@ -422,6 +422,7 @@ const AdminBalcaoAgendamentos = () => {
                 subject: notificationTitle,
                 html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
             },
+                timestamp: serverTimestamp()
         });
     };
 
@@ -477,6 +478,7 @@ const AdminBalcaoAgendamentos = () => {
                 subject: notificationTitle,
                 html: `<p>${notificationMessage}</p>`,
             },
+                timestamp: serverTimestamp()
         });
         alert(`Usuário ${userData.email} notificado!`);
     };

@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { 
+    collection, addDoc, serverTimestamp as fsTimestamp 
+} from 'firebase/firestore';
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '../../firebase';
+import { db, auth, firestore } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
@@ -284,14 +287,14 @@ const AdminJuridicoDashboard = () => {
         });
 
         // 2. Adiciona a um nó 'mail' para ser processado por um serviço de e-mail
-        const mailRef = ref(db, `${config.cityCollection}/mail`);
-        const newMailRef = push(mailRef);
-        await set(newMailRef, {
+        const mailRef = collection(firestore, 'mail');
+        await addDoc(mailRef, {
             to: solicitacao.dadosUsuario.email,
             message: {
                 subject: notificationTitle,
                 html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
             },
+            timestamp: fsTimestamp()
         });
     };
 

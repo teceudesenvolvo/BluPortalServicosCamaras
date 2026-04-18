@@ -4,14 +4,14 @@ import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { firestore } from '../../firebase';
 import { 
     collection, query, where, doc, getDoc, 
-    updateDoc, setDoc, serverTimestamp, orderBy, onSnapshot 
+    updateDoc, serverTimestamp, onSnapshot, runTransaction
 } from 'firebase/firestore';
 import Sidebar from '../../components/Sidebar';
 import config from '../../config';
 import { uploadFileToStorage, deleteFileFromStorage } from '../../utils/firebaseStorageUtils';
 
 // Ícones
-import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane, LiaEditSolid, LiaPaperclipSolid, LiaUploadSolid } from "react-icons/lia";
+import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane, LiaPaperclipSolid, LiaUploadSolid } from "react-icons/lia";
 
 // Componente para Agendamento
 const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
@@ -46,6 +46,10 @@ const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
                 let holidays = [];
 
                 await Promise.all(years.map(async (year) => {
+                    // Adicionando feriados municipais de Paraipaba independente da API
+                    holidays.push(`05/02/${year}`); // Emancipação Política
+                    holidays.push(`01/11/${year}`); // Dia da Padroeira
+                    holidays.push(`19/03/${year}`); // São José
                     try {
                         const res = await fetch(`https://brasilapi.com.br/api/feriados/v1/${year}`);
                         if (res.ok) {
@@ -55,11 +59,6 @@ const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
                                 return `${d}/${m}/${y}`;
                             });
                             holidays = [...holidays, ...formatted];
-                            
-                            // Adicionando feriados municipais de Paraipaba (Lei 741/2018)
-                            holidays.push(`05/02/${year}`); // Emancipação Política
-                            holidays.push(`01/11/${year}`); // Dia da Padroeira
-                            holidays.push(`19/03/${year}`); // São José - Padroeiro dos Trabalhadores (considerado ponto facultativo)
                         }
                     } catch (error) {
                         console.error(`Erro ao buscar feriados para ${year}:`, error);
@@ -322,14 +321,15 @@ const BalcaoCidadao = () => {
 
             setLoading(true);
             const solicitacoesRef = collection(firestore, 'balcao-cidadao');
-            const q = query(solicitacoesRef, where('userId', '==', currentUser.uid), orderBy('dataSolicitacao', 'desc'));
+            // Removemos o orderBy da query do Firestore para evitar a necessidade de índice composto
+            const q = query(solicitacoesRef, where('userId', '==', currentUser.uid));
 
             const unsubscribe = onSnapshot(q, (snapshot) => {
                 const solicitacoesList = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data(),
                     dataSolicitacao: doc.data().dataSolicitacao?.toMillis ? doc.data().dataSolicitacao.toMillis() : doc.data().dataSolicitacao
-                }));
+                })).sort((a, b) => (b.dataSolicitacao || 0) - (a.dataSolicitacao || 0)); // Ordenação local (descendente)
                 setSolicitacoes(solicitacoesList);
                 setLoading(false);
             }, (err) => {
@@ -447,21 +447,32 @@ const BalcaoCidadao = () => {
         const bookedSlotRef = doc(firestore, 'balcao-config', 'bookedSlots');
 
         try {
-            const snapshot = await getDoc(bookedSlotRef);
-            const currentBookings = snapshot.exists() ? (snapshot.data()[date] || []) : [];
-            
-            if (currentBookings.includes(time)) {
-                alert('Este horário foi agendado por outra pessoa. Por favor, escolha outro.');
-                return;
-            }
+            await runTransaction(firestore, async (transaction) => {
+                const bookedSnap = await transaction.get(bookedSlotRef);
+                const currentBookings = bookedSnap.exists() ? (bookedSnap.data()[date] || []) : [];
 
-            await updateDoc(solicitacaoRef, { status: 'Agendado', appointmentDate: date, appointmentTime: time });
-            await setDoc(bookedSlotRef, { [date]: [...currentBookings, time] }, { merge: true });
+                if (currentBookings.includes(time)) {
+                    throw new Error("Este horário acabou de ser ocupado. Por favor, escolha outro.");
+                }
+
+                // Atualiza a solicitação do usuário
+                transaction.update(solicitacaoRef, { 
+                    status: 'Agendado', 
+                    appointmentDate: date, 
+                    appointmentTime: time 
+                });
+
+                // Atualiza o mapa de slots ocupados
+                transaction.set(bookedSlotRef, { 
+                    [date]: [...currentBookings, time] 
+                }, { merge: true });
+            });
 
             alert('Agendamento confirmado com sucesso!');
             setSelectedSolicitacao(null); // Fecha o modal
         } catch (error) {
-            console.error("Erro ao confirmar agendamento:", error);
+            alert(error.message);
+            console.error("Erro na transação de agendamento:", error);
         }
     };
 
@@ -513,7 +524,7 @@ const BalcaoCidadao = () => {
                                                 {solicitacao.status}
                                             </span>
                                         </div>
-                                        {['Aguardando Atendimento', 'Em Análise'].includes(solicitacao.status) && (
+                                        {/* {['Aguardando Atendimento', 'Em Análise'].includes(solicitacao.status) && (
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); navigate(`/balcao/novo/${solicitacao.id}`); }}
                                                 className="btn-icon"
@@ -522,7 +533,7 @@ const BalcaoCidadao = () => {
                                             >
                                                 <LiaEditSolid size={22} color="var(--primary-color, #2563eb)" />
                                             </button>
-                                        )}
+                                        )} */}
                                     </div>
                                 </li>
                             ))}

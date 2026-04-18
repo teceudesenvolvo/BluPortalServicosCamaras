@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     collection, doc, getDocs, query, orderBy, limit, startAfter, 
-    updateDoc, addDoc, where, getDoc, deleteDoc
+    updateDoc, addDoc, where, getDoc, deleteDoc, serverTimestamp
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
@@ -454,7 +454,7 @@ const AdminBalcaoSolicitacoes = () => {
                     subject: notificationTitle,
                     html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
                 },
-                timestamp: new Date()
+                timestamp: serverTimestamp()
             });
         } catch (error) {
             console.error('Erro ao enviar notificação:', error);
@@ -544,7 +544,7 @@ const AdminBalcaoSolicitacoes = () => {
                     subject: notificationTitle,
                     html: `<p>${notificationMessage}</p>`,
                 },
-                timestamp: new Date()
+                timestamp: serverTimestamp()
             });
             
             alert(`Usuário ${userData.email} notificado!`);
