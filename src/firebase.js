@@ -2,15 +2,14 @@
 
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getDatabase } from "firebase/database";
 import { getStorage } from "firebase/storage";
 import { initializeFirestore } from "firebase/firestore";
+import { getDatabase } from "firebase/database";
 
 // As chaves são lidas das variáveis de ambiente (arquivo .env.local) para segurança e para garantir que a configuração esteja completa.
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
   authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  databaseURL: process.env.REACT_APP_FIREBASE_DATABASE_URL,
   projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
   storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
@@ -23,7 +22,6 @@ const app = initializeApp(firebaseConfig);
 
 // Exporta os serviços que iremos usar
 export const auth = getAuth(app);
-export const db = getDatabase(app);
 
 // Inicializa o Firestore com configurações de rede mais robustas para evitar timeouts
 export const firestore = initializeFirestore(app, {
@@ -32,6 +30,9 @@ export const firestore = initializeFirestore(app, {
 });
 
 export const storage = getStorage(app);
+
+// Exporta a instância do Realtime Database
+export const db = getDatabase(app);
 
 // Exporta o app para uso futuro, se necessário
 export default app;

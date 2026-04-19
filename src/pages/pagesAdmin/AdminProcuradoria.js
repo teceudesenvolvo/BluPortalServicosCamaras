@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get } from 'firebase/database';
+import { 
+    collection, query, orderBy, limit, getDocs, getDoc, 
+    doc, updateDoc, addDoc, serverTimestamp 
+} from 'firebase/firestore';
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '../../firebase';
+import { firestore, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
@@ -27,10 +30,10 @@ const SolicitacaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage,
                     return;
                 }
                 setLoadingProfile(true);
-                const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
                 try {
-                    const snapshot = await get(userRef);
-                    setConsumerProfile(snapshot.exists() ? snapshot.val() : solicitacao.dadosUsuario);
+                    const userRef = doc(firestore, 'users', userId);
+                    const snapshot = await getDoc(userRef);
+                    setConsumerProfile(snapshot.exists() ? snapshot.data() : solicitacao.dadosUsuario);
                 } catch (error) {
                     console.error("Erro ao buscar perfil:", error);
                     setConsumerProfile(solicitacao.dadosUsuario);
@@ -163,13 +166,11 @@ const AdminProcuradoriaDashboard = () => {
     const fetchSolicitacoes = useCallback(async () => {
         setLoading(true);
         try {
-            const solicitacoesRef = ref(db, `${config.cityCollection}/procuradoria-mulher`);
-            const q = query(solicitacoesRef, orderByKey(), limitToLast(200));
-            const snapshot = await get(q);
-            const data = snapshot.val();
-            const fetchedData = data 
-                ? Object.keys(data).map(key => ({ id: key, ...data[key] })).sort((a, b) => (b.dataSolicitacao || 0) - (a.dataSolicitacao || 0))
-                : [];
+            const solicitacoesRef = collection(firestore, 'procuradoria-mulher');
+            const q = query(solicitacoesRef, orderBy('dataSolicitacao', 'desc'), limit(200));
+            const snapshot = await getDocs(q);
+            
+            const fetchedData = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
             setSolicitacoes(fetchedData);
 
             const counts = fetchedData.reduce((acc, item) => {
@@ -249,9 +250,8 @@ const AdminProcuradoriaDashboard = () => {
         const notificationDescription = customMessage?.body || `Abra o aplicativo da Câmara Municipal de ${cityName} para acompanhar os detalhes. Protocolo: ${solicitacao.id}.`;
 
         // 1. Salva a notificação no app
-        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
-        const newNotificationRef = push(notificacoesRef);
-        await set(newNotificationRef, {
+        const notificacoesRef = collection(firestore, 'notifications');
+        await addDoc(notificacoesRef, {
             isRead: false,
             protocolo: solicitacao.id,
             targetUserId: solicitacao.userId,
@@ -263,9 +263,8 @@ const AdminProcuradoriaDashboard = () => {
         });
 
         // 2. Adiciona a um nó 'mail' para ser processado por um serviço de e-mail
-        const mailRef = ref(db, `${config.cityCollection}/mail`);
-        const newMailRef = push(mailRef);
-        await set(newMailRef, {
+        const mailRef = collection(firestore, 'mail');
+        await addDoc(mailRef, {
             to: solicitacao.dadosUsuario.email,
             message: {
                 subject: notificationTitle,
@@ -275,14 +274,14 @@ const AdminProcuradoriaDashboard = () => {
     };
 
     const handleStatusChange = async (id, newStatus) => {
-        const itemRef = ref(db, `${config.cityCollection}/procuradoria-mulher/${id}`);
+        const itemRef = doc(firestore, 'procuradoria-mulher', id);
         let updateData = { status: newStatus };
         if (newStatus === 'Concluída' || newStatus === 'Cancelada') {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
         } else {
             updateData.deletionTimestamp = null;
         }
-        await update(itemRef, updateData);
+        await updateDoc(itemRef, updateData);
         await sendNotification(
             { ...selectedSolicitacao, id, status: newStatus },
             { title: "Atualização de Status - Procuradoria", body: `O status do seu atendimento foi alterado para: ${newStatus}.` }
@@ -293,9 +292,11 @@ const AdminProcuradoriaDashboard = () => {
     };
 
     const handleSendMessage = async (id, text) => {
-        const messagesRef = ref(db, `${config.cityCollection}/procuradoria-mulher/${id}/messages`);
-        const newMessageRef = push(messagesRef);
-        await set(newMessageRef, { text, sender: 'admin', timestamp: serverTimestamp() });
+        const itemRef = doc(firestore, 'procuradoria-mulher', id);
+        const newMessageId = Date.now().toString();
+        const newMessage = { text, sender: 'admin', timestamp: new Date().toISOString() };
+        
+        await updateDoc(itemRef, { [`messages.${newMessageId}`]: newMessage });
         await sendNotification(
             { ...selectedSolicitacao, id },
             { title: "Nova Mensagem - Procuradoria", body: `Você recebeu uma nova mensagem da equipe de atendimento: "${text}"` }
@@ -318,11 +319,11 @@ const AdminProcuradoriaDashboard = () => {
                 timestamp: serverTimestamp() 
             };
 
-            const itemRef = ref(db, `${config.cityCollection}/procuradoria-mulher/${id}`);
-            const snapshot = await get(itemRef);
-            const currentData = snapshot.val();
+            const itemRef = doc(firestore, 'procuradoria-mulher', id);
+            const snapshot = await getDoc(itemRef);
+            const currentData = snapshot.data();
             const currentFiles = currentData.arquivos || [];
-            await update(itemRef, { arquivos: [...currentFiles, fileData] });
+            await updateDoc(itemRef, { arquivos: [...currentFiles, fileData] });
             alert("Arquivo enviado!");
         } catch (error) {
             console.error("Erro no upload admin:", error);

@@ -2,9 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
-import { db } from '../../firebase';
-import config from '../../config';
-import { ref, get, set } from 'firebase/database';
+import { firestore } from '../../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Ícones
 import { LiaSaveSolid, LiaArrowLeftSolid } from "react-icons/lia";
@@ -23,9 +22,9 @@ const ConfigurarPanico = () => {
     const fetchConfig = useCallback(async () => {
         if (!currentUser) return;
         setLoading(true);
-        const configRef = ref(db, `${config.cityCollection}/procuradoria-mulher-btn-panico/${currentUser.uid}`);
         try {
-            const snapshot = await get(configRef);
+            const configRef = doc(firestore, 'procuradoria-mulher-btn-panico', currentUser.uid);
+            const snapshot = await getDoc(configRef);
             if (snapshot.exists()) {
                 setContato(snapshot.val());
             }
@@ -39,8 +38,8 @@ const ConfigurarPanico = () => {
     // Busca perfil do usuário
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) return;
-        const userRef = ref(db, `${config.cityCollection}/users/${currentUser.uid}`);
-        const snapshot = await get(userRef);
+        const userRef = doc(firestore, 'users', currentUser.uid);
+        const snapshot = await getDoc(userRef);
         if (snapshot.exists()) {
             setLoggedInUserData(snapshot.val());
         }
@@ -76,8 +75,8 @@ const ConfigurarPanico = () => {
         setSuccess('');
 
         try {
-            const configRef = ref(db, `${config.cityCollection}/procuradoria-mulher-btn-panico/${currentUser.uid}`);
-            await set(configRef, contato);
+            const configRef = doc(firestore, 'procuradoria-mulher-btn-panico', currentUser.uid);
+            await setDoc(configRef, contato);
             setSuccess('Contato de emergência salvo com sucesso!');
         } catch (err) {
             console.error("Erro ao salvar configuração:", err);

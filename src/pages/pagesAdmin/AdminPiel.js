@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ref, get, update, push, remove, serverTimestamp } from 'firebase/database';
-import { db } from '../../firebase';
-import config from '../../config';
+import { 
+    collection, getDocs, doc, addDoc, updateDoc, deleteDoc, 
+    serverTimestamp as fsTimestamp
+} from 'firebase/firestore';
+import { firestore } from '../../firebase';
 import AdminSidebar from '../../components/AdminSidebar';
 import { LiaPlusSolid, LiaTimesSolid, LiaEditSolid, LiaTrashAltSolid, LiaSaveSolid } from "react-icons/lia";
 
@@ -68,10 +70,23 @@ const AdminPiel = () => {
     const fetchInformativos = useCallback(async () => {
         setLoading(true);
         try {
-            const informativosRef = ref(db, `${config.cityCollection}/piel`);
-            const snapshot = await get(informativosRef);
-            const data = snapshot.val();
-            const fetchedInformativos = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+            const informativosRef = collection(firestore, 'piel');
+            // Realizamos a busca sem query de ordenação para garantir que o admin veja itens legados/migrados
+            const snapshot = await getDocs(informativosRef);
+            
+            const fetchedInformativos = snapshot.docs.map(docSnap => {
+                const data = docSnap.data();
+                const timestamp = data.createdAt?.toMillis 
+                    ? data.createdAt.toMillis() 
+                    : (data.createdAt ? new Date(data.createdAt).getTime() : (data.migratedAt ? new Date(data.migratedAt).getTime() : 0));
+
+                return { 
+                    id: docSnap.id, 
+                    ...data,
+                    timestamp
+                };
+            }).sort((a, b) => b.timestamp - a.timestamp);
+
             setInformativos(fetchedInformativos);
         } catch (error) {
             console.error('Erro ao buscar informativos:', error);
@@ -95,29 +110,38 @@ const AdminPiel = () => {
     };
 
     const handleSave = async (item) => {
-        if (item.id) {
-            // Editar
-            const itemRef = ref(db, `${config.cityCollection}/piel/${item.id}`);
-            const { id, ...dataToUpdate } = item;
-            await update(itemRef, dataToUpdate);
-        } else {
-            // Adicionar
-            const informativosRef = ref(db, `${config.cityCollection}/piel`);
-            const newItem = {
-                ...item,
-                createdAt: serverTimestamp()
-            };
-            await push(informativosRef, newItem);
+        try {
+            if (item.id) {
+                // Editar
+                const itemRef = doc(firestore, 'piel', item.id);
+                const { id, ...dataToUpdate } = item;
+                await updateDoc(itemRef, dataToUpdate);
+            } else {
+                // Adicionar
+                const informativosRef = collection(firestore, 'piel');
+                const newItem = {
+                    ...item,
+                    createdAt: fsTimestamp()
+                };
+                await addDoc(informativosRef, newItem);
+            }
+            handleCloseModal();
+            fetchInformativos(); // Atualiza a lista
+        } catch (error) {
+            console.error('Erro ao salvar informativo:', error);
+            alert('Erro ao salvar as informações.');
         }
-        handleCloseModal();
-        fetchInformativos(); // Atualiza a lista
     };
 
     const handleDelete = async (id) => {
         if (window.confirm('Tem certeza que deseja excluir este informativo?')) {
-            const itemRef = ref(db, `${config.cityCollection}/piel/${id}`);
-            await remove(itemRef);
-            fetchInformativos(); // Atualiza a lista
+            try {
+                const itemRef = doc(firestore, 'piel', id);
+                await deleteDoc(itemRef);
+                fetchInformativos(); // Atualiza a lista
+            } catch (error) {
+                console.error('Erro ao excluir informativo:', error);
+            }
         }
     };
 

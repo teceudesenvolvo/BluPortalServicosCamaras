@@ -1,14 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, push, get } from 'firebase/database';
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
-
 import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { db } from '../../firebase';
-import config from '../../config'; // Importa a configuração
+import { firestore } from '../../firebase';
 import Sidebar from '../../components/Sidebar'; // Importa o componente Sidebar real
-
+import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils'; // Função para upload de arquivos
 
 pdfMake.vfs = pdfFonts.vfs;
@@ -69,12 +66,12 @@ const AddProducts = () => {
             return;
         }
 
-        // Busca os dados do perfil do usuário no Realtime Database
-    const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
+        // Busca os dados do perfil do usuário no Firestore
         try {
-            const snapshot = await get(userRef);
+            const userRef = doc(firestore, 'users', userId);
+            const snapshot = await getDoc(userRef);
             if (snapshot.exists()) {
-                const userData = snapshot.val();
+                const userData = snapshot.data();
                 // Carrega todos os dados do perfil do usuário
                 setLoggedInUserData({ ...userData, uid: userId, email: user.email });
             } else {
@@ -265,8 +262,8 @@ const AddProducts = () => {
         };
 
         try {
-            // Envia os dados para o nó 'denuncias-procon' no Realtime Database
-      await push(ref(db, `${config.cityCollection}/denuncias-procon`), reclamacaoDataFinal);
+            // Envia os dados para a coleção 'denuncias-procon' no Firestore
+            await addDoc(collection(firestore, 'denuncias-procon'), reclamacaoDataFinal);
 
             gerarPDF(protocolo, loggedInUserData, reclamacaoFormData, empresaInfo);
             alert(`Reclamação registrada com sucesso! Protocolo: ${protocolo}`);

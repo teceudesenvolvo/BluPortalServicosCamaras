@@ -2,9 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
-import { db } from '../../firebase';
-import config from '../../config';
-import { ref, get, push, set, serverTimestamp } from 'firebase/database';
+import { firestore } from '../../firebase';
+import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
 // Ícones
@@ -36,11 +35,11 @@ const NovaProcuradoria = () => {
 
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) return;
-        const userRef = ref(db, `${config.cityCollection}/users/${currentUser.uid}`);
         try {
-            const snapshot = await get(userRef);
+            const userRef = doc(firestore, 'users', currentUser.uid);
+            const snapshot = await getDoc(userRef);
             if (snapshot.exists()) {
-                setLoggedInUserData(snapshot.val());
+                setLoggedInUserData(snapshot.data());
             }
         } catch (error) {
             console.error("Erro ao buscar perfil do usuário:", error);
@@ -91,8 +90,6 @@ const NovaProcuradoria = () => {
                 };
             }
 
-            const novaSolicitacaoRef = push(ref(db, `${config.cityCollection}/procuradoria-mulher`));
-            
             // Realiza upload dos arquivos pro Firebase Storage
             const anexosProcessados = [];
             for (const file of anexos) {
@@ -105,7 +102,7 @@ const NovaProcuradoria = () => {
                 });
             }
 
-            await set(novaSolicitacaoRef, {
+            await addDoc(collection(firestore, 'procuradoria-mulher'), {
                 dadosSolicitacao: { ...formData, anexos: anexosProcessados },
                 dadosUsuario: dadosUsuarioParaSalvar,
                 userId: formData.identificacao === 'identificado' ? currentUser.uid : 'anonimo',

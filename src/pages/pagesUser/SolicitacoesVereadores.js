@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { db } from '../../firebase';
+import { firestore } from '../../firebase';
 import Sidebar from '../../components/Sidebar';
-import config from '../../config';
-import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 
 // Ícones
 import { LiaPlusSolid, LiaTimesSolid } from "react-icons/lia";
@@ -68,41 +67,41 @@ const SolicitacoesVereadores = () => {
             }
 
             setLoading(true);
-            try {
-                const solicitacoesRef = ref(db, `${config.cityCollection}/solicitacoes-vereadores`);
-                const q = query(solicitacoesRef, orderByChild('userId'), equalTo(currentUser.uid));
+            const solicitacoesRef = collection(firestore, 'solicitacoes-vereadores');
+            const q = query(solicitacoesRef, where('userId', '==', currentUser.uid));
 
-                onValue(q, (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        const list = Object.keys(data).map(key => ({
-                            id: key,
-                            ...data[key]
-                        })).sort((a, b) => b.dataSolicitacao - a.dataSolicitacao);
-                        setSolicitacoes(list);
-                    } else {
-                        setSolicitacoes([]);
-                    }
-                    setLoading(false);
-                });
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                const list = snapshot.docs.map(docSnap => ({
+                    id: docSnap.id,
+                    ...docSnap.data(),
+                    timestamp: docSnap.data().dataSolicitacao?.toMillis 
+                        ? docSnap.data().dataSolicitacao.toMillis() 
+                        : (docSnap.data().dataSolicitacao || 0)
+                })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-            } catch (err) {
+                setSolicitacoes(list);
+                setLoading(false);
+            }, (err) => {
                 console.error("Erro ao buscar solicitações:", err);
                 setError("Não foi possível carregar suas solicitações.");
                 setLoading(false);
-            }
+            });
+
+            return unsubscribe;
         };
 
-        fetchSolicitacoes();
+        const unsubscribe = fetchSolicitacoes();
+        return () => unsubscribe && unsubscribe();
     }, [currentUser, navigate]);
+
 
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) return;
-        const userRef = ref(db, `${config.cityCollection}/users/${currentUser.uid}`);
+        const userRef = doc(firestore, 'users', currentUser.uid);
         try {
-            const snapshot = await get(userRef);
+            const snapshot = await getDoc(userRef);
             if (snapshot.exists()) {
-                const userData = snapshot.val();
+                const userData = snapshot.data();
                 setLoggedInUserData({
                     nome: userData.name || currentUser.email,
                     tipo: userData.tipo || 'Cidadão',

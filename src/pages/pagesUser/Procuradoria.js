@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { db } from '../../firebase';
+import { firestore } from '../../firebase';
 import Sidebar from '../../components/Sidebar';
-import config from '../../config';
-import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 
 // Ícones
 import { LiaPlusSolid, LiaTimesSolid, LiaShieldAltSolid, LiaExclamationTriangleSolid } from "react-icons/lia";
@@ -64,15 +63,16 @@ const Procuradoria = () => {
         }
 
         // 1. Buscar o contato de emergência
-        const configRef = ref(db, `${config.cityCollection}/procuradoria-mulher-btn-panico/${currentUser.uid}`);
-        const snapshot = await get(configRef);
+        const configRef = doc(firestore, 'procuradoria-mulher-btn-panico', currentUser.uid);
+        const snapshot = await getDoc(configRef);
+        const data = snapshot.exists() ? snapshot.data() : null;
 
-        if (!snapshot.exists() || !snapshot.val().telefone) {
+        if (!data || !data.telefone) {
             alert("Você precisa configurar um telefone de confiança primeiro. Vá para 'Configurar Botão de Pânico'.");
             navigate('/procuradoria/panico-config');
             return;
         }
-        const telefoneContato = snapshot.val().telefone;
+        const telefoneContato = data.telefone;
 
         // 2. Obter a localização
         if (!navigator.geolocation) {
@@ -103,41 +103,41 @@ const Procuradoria = () => {
             }
 
             setLoading(true);
-            try {
-                const solicitacoesRef = ref(db, `${config.cityCollection}/procuradoria-mulher`);
-                const q = query(solicitacoesRef, orderByChild('userId'), equalTo(currentUser.uid));
+            const solicitacoesRef = collection(firestore, 'procuradoria-mulher');
+            const q = query(solicitacoesRef, where('userId', '==', currentUser.uid));
 
-                onValue(q, (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        const solicitacoesList = Object.keys(data).map(key => ({
-                            id: key,
-                            ...data[key]
-                        })).sort((a, b) => b.dataSolicitacao - a.dataSolicitacao);
-                        setSolicitacoes(solicitacoesList);
-                    } else {
-                        setSolicitacoes([]);
-                    }
-                    setLoading(false);
-                });
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                const solicitacoesList = snapshot.docs.map(docSnap => ({
+                    id: docSnap.id,
+                    ...docSnap.data(),
+                    timestamp: docSnap.data().dataSolicitacao?.toMillis 
+                        ? docSnap.data().dataSolicitacao.toMillis() 
+                        : (docSnap.data().dataSolicitacao || 0)
+                })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-            } catch (err) {
-                console.error("Erro ao buscar solicitações:", err);
-                setError("Não foi possível carregar suas solicitações. Tente novamente mais tarde.");
+                setSolicitacoes(solicitacoesList);
                 setLoading(false);
-            }
+            }, (err) => {
+                console.error("Erro ao buscar solicitações:", err);
+                setError("Não foi possível carregar suas solicitações.");
+                setLoading(false);
+            });
+
+            return unsubscribe;
         };
 
-        fetchSolicitacoes();
+        const unsubscribe = fetchSolicitacoes();
+        return () => unsubscribe && unsubscribe();
     }, [currentUser, navigate]);
+
 
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) return;
-        const userRef = ref(db, `${config.cityCollection}/users/${currentUser.uid}`);
+        const userRef = doc(firestore, 'users', currentUser.uid);
         try {
-            const snapshot = await get(userRef);
+            const snapshot = await getDoc(userRef);
             if (snapshot.exists()) {
-                const userData = snapshot.val();
+                const userData = snapshot.data();
                 setLoggedInUserData({
                     nome: userData.name || currentUser.email,
                     tipo: userData.tipo || 'Cidadão',

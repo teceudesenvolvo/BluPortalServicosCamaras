@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Splide, SplideSlide } from '@splidejs/react-splide';
-import { db } from '../firebase'; // Importa a configuração do DB
-import { ref, get } from 'firebase/database'; // Importa funções do Realtime Database
-import config from '../config'; // Importa a configuração
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { firestore } from '../firebase';
 import { LiaUser } from 'react-icons/lia'; // Ícone de usuário padrão
 
 // Componente: Card do Vereador (agora parte deste módulo)
@@ -41,20 +40,18 @@ const VereadoresSlider = () => {
         const fetchVereadores = async () => {
             setLoading(true);
             setError(null);
-      const usersRef = ref(db, `${config.cityCollection}/vereadores`);
 
             try {
-                const snapshot = await get(usersRef);
-                if (snapshot.exists()) {
-                    const vereadoresData = [];
-                    // O snapshot retorna um objeto, então iteramos para criar um array
-                    snapshot.forEach(childSnapshot => {
-                        vereadoresData.push({
-                            id: childSnapshot.key,
-                            ...childSnapshot.val()
-                        });
-                    });
-                    setVereadores(vereadoresData);
+                const vereadoresRef = collection(firestore, 'vereadores');
+                const q = query(vereadoresRef, orderBy('name', 'asc'));
+                const snapshot = await getDocs(q);
+                
+                if (!snapshot.empty) {
+                    const list = snapshot.docs.map(docSnap => ({
+                        id: docSnap.id,
+                        ...docSnap.data()
+                    }));
+                    setVereadores(list);
                 } else {
                     setVereadores([]); // Nenhum vereador encontrado
                 }

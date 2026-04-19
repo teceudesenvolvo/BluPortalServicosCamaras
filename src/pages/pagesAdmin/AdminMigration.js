@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ref, get } from 'firebase/database';
-import { collection, writeBatch, doc, setDoc } from 'firebase/firestore';
+import { collection, writeBatch, doc, setDoc, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, firestore, auth } from '../../firebase';
 import config from '../../config';
@@ -233,8 +233,6 @@ const AdminMigration = () => {
 
             // Contar documentos no Firestore
             const firestoreRef = collection(firestore, selectedCollection);
-            // Para contar, vamos tentar um getDocs com limit
-            const { getDocs } = await import('firebase/firestore');
             const fsSnapshot = await getDocs(firestoreRef);
             const firestoreCount = fsSnapshot.size;
 

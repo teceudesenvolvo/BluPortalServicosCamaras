@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get } from 'firebase/database';
 import { 
-    collection, addDoc, serverTimestamp as fsTimestamp 
+    collection, addDoc, serverTimestamp as fsTimestamp,
+    query, orderBy, limit, getDocs, doc, getDoc, updateDoc
 } from 'firebase/firestore';
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth, firestore } from '../../firebase';
+import { auth, firestore } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
@@ -32,10 +32,10 @@ const SolicitacaoJuridicoModal = ({ solicitacao, onClose, onStatusChange, onSend
                     return;
                 }
                 setLoadingProfile(true);
-                const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
                 try {
-                    const snapshot = await get(userRef);
-                    setConsumerProfile(snapshot.exists() ? snapshot.val() : solicitacao.dadosUsuario);
+                    const userDocRef = doc(firestore, 'users', userId);
+                    const snapshot = await getDoc(userDocRef);
+                    setConsumerProfile(snapshot.exists() ? snapshot.data() : solicitacao.dadosUsuario);
                 } catch (error) {
                     console.error("Erro ao buscar perfil do consumidor:", error);
                     setConsumerProfile(solicitacao.dadosUsuario);
@@ -174,13 +174,15 @@ const AdminJuridicoDashboard = () => {
     const fetchSolicitacoes = useCallback(async () => {
         setLoading(true);
         try {
-            const solicitacoesRef = ref(db, `${config.cityCollection}/atendimento-juridico`);
-            const q = query(solicitacoesRef, orderByKey(), limitToLast(200));
-            const snapshot = await get(q);
-            const data = snapshot.val();
-            const fetchedSolicitacoes = data 
-                ? Object.keys(data).map(key => ({ id: key, ...data[key] })).sort((a, b) => (b.dataSolicitacao || 0) - (a.dataSolicitacao || 0))
-                : [];
+            const solicitacoesRef = collection(firestore, 'atendimento-juridico');
+            const q = query(solicitacoesRef, orderBy('dataSolicitacao', 'desc'), limit(200));
+            const snapshot = await getDocs(q);
+            
+            const fetchedSolicitacoes = snapshot.docs.map(docSnap => ({ 
+                id: docSnap.id, 
+                ...docSnap.data() 
+            }));
+
             setSolicitacoes(fetchedSolicitacoes);
 
             const counts = fetchedSolicitacoes.reduce((acc, item) => {
@@ -273,13 +275,12 @@ const AdminJuridicoDashboard = () => {
         const notificationDescription = `Abra o aplicativo da Câmara Municipal de ${cityName} para acompanhar os detalhes. Protocolo: ${solicitacao.id}.`;
 
         // 1. Salva a notificação no app
-        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
-        const newNotificationRef = push(notificacoesRef);
-        await set(newNotificationRef, {
+        const notificacoesRef = collection(firestore, 'notifications');
+        await addDoc(notificacoesRef, {
             isRead: false,
             protocolo: solicitacao.id,
             targetUserId: solicitacao.userId,
-            timestamp: serverTimestamp(),
+            timestamp: fsTimestamp(),
             tituloNotification: notificationTitle,
             descricaoNotification: notificationDescription,
             userEmail: solicitacao.dadosUsuario.email,
@@ -299,14 +300,14 @@ const AdminJuridicoDashboard = () => {
     };
 
     const handleStatusChange = async (solicitacaoId, newStatus) => {
-        const solicitacaoRef = ref(db, `${config.cityCollection}/atendimento-juridico/${solicitacaoId}`);
+        const solicitacaoRef = doc(firestore, 'atendimento-juridico', solicitacaoId);
         let updateData = { status: newStatus };
         if (newStatus === 'Concluído' || newStatus === 'Cancelado') {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
         } else {
             updateData.deletionTimestamp = null;
         }
-        await update(solicitacaoRef, updateData);
+        await updateDoc(solicitacaoRef, updateData);
         await sendNotification({ ...selectedSolicitacao, id: solicitacaoId, status: newStatus });
         alert('Status atualizado com sucesso!');
         handleCloseModal();
@@ -314,13 +315,14 @@ const AdminJuridicoDashboard = () => {
     };
 
     const handleSendMessage = async (solicitacaoId, messageText) => {
-        const messagesRef = ref(db, `${config.cityCollection}/atendimento-juridico/${solicitacaoId}/messages`);
-        const newMessageRef = push(messagesRef);
-        await set(newMessageRef, {
+        const solicitacaoRef = doc(firestore, 'atendimento-juridico', solicitacaoId);
+        const newMessageId = Date.now().toString();
+        const newMessage = {
             text: messageText,
             sender: 'admin',
-            timestamp: serverTimestamp(),
-        });
+            timestamp: new Date().toISOString(),
+        };
+        await updateDoc(solicitacaoRef, { [`messages.${newMessageId}`]: newMessage });
         await sendNotification({ ...selectedSolicitacao, id: solicitacaoId });
         alert('Mensagem enviada com sucesso!');
     };
@@ -337,14 +339,14 @@ const AdminJuridicoDashboard = () => {
                 url: uploadResult.url,
                 data: uploadResult.url, 
                 sender: 'admin', 
-                timestamp: serverTimestamp() 
+                timestamp: fsTimestamp() 
             };
 
-            const solicitacaoRef = ref(db, `${config.cityCollection}/atendimento-juridico/${solicitacaoId}`);
-            const snapshot = await get(solicitacaoRef);
-            const solicitacaoAtual = snapshot.val();
+            const solicitacaoRef = doc(firestore, 'atendimento-juridico', solicitacaoId);
+            const snapshot = await getDoc(solicitacaoRef);
+            const solicitacaoAtual = snapshot.data();
             const arquivosAtuais = solicitacaoAtual.arquivos || [];
-            await update(solicitacaoRef, { arquivos: [...arquivosAtuais, fileData] });
+            await updateDoc(solicitacaoRef, { arquivos: [...arquivosAtuais, fileData] });
             alert("Arquivo enviado com sucesso!");
         } catch (error) {
             console.error("Erro no upload admin:", error);

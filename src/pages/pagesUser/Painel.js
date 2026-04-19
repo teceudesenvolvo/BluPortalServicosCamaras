@@ -2,9 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext'; // Para obter dados do usuário
 import Sidebar from '../../components/Sidebar'; 
-import { ref, get } from 'firebase/database'; // Importa o Realtime Database
-import config from '../../config'; // Importa a configuração
-import { db } from '../../firebase'; // Importa a instância do db
+import { doc, getDoc } from 'firebase/firestore';
+import { firestore } from '../../firebase';
 import {
     LiaUserFriendsSolid,
     LiaUserAstronautSolid,
@@ -65,17 +64,17 @@ const DashboardPage = () => {
         }
 
         const userId = user.uid;
-    const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
         try {
-            const snapshot = await get(userRef);
+            const userRef = doc(firestore, 'users', userId);
+            const snapshot = await getDoc(userRef);
             if (snapshot.exists()) {
-                const userData = snapshot.val();
+                const userData = snapshot.data();
                 setLoggedInUserData({
                     uid: userId,
                     nome: userData.name || user.email || 'Usuário',
                     email: user.email,
                     tipo: userData.tipo || 'Cidadão', // Busca o tipo do banco de dados
-                    avatar: userData.avatarBase64 || null, // Adiciona o avatar ao estado
+                    avatar: userData.avatarUrl || userData.avatarBase64 || null, // Prioriza URL do Storage
                 });
             } else {
                 // Caso o perfil não exista, usa dados básicos do Auth

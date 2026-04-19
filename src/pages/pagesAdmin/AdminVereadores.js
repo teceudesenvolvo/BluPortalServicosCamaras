@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { db } from '../../firebase';
-import config from '../../config';
-import { ref, get, push, update, remove } from 'firebase/database';
+import { firestore } from '../../firebase';
+import { 
+    collection, getDocs, doc, addDoc, updateDoc, deleteDoc, query, orderBy 
+} from 'firebase/firestore';
 import AdminSidebar from '../../components/AdminSidebar';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
@@ -35,18 +36,14 @@ const AdminVereadores = () => {
     const fetchVereadores = useCallback(async () => {
         try {
             setLoading(true); // Mover para dentro do try para evitar que o loading fique preso
-            const vereadoresRef = ref(db, `${config.cityCollection}/vereadores`);
-            const snapshot = await get(vereadoresRef);
-            const data = snapshot.val();
-            if (data) {
-                const list = Object.keys(data).map(key => ({
-                    id: key,
-                    ...data[key]
-                })).sort((a, b) => (a.name || '').localeCompare(b.name || '')); // Adicionado fallback para name
-                setVereadores(list);
-            } else {
-                setVereadores([]);
-            }
+            const vereadoresRef = collection(firestore, 'vereadores');
+            const q = query(vereadoresRef, orderBy('name', 'asc'));
+            const snapshot = await getDocs(q);
+            const list = snapshot.docs.map(docSnap => ({
+                id: docSnap.id,
+                ...docSnap.data()
+            }));
+            setVereadores(list);
         } catch (error) {
             console.error('Erro ao buscar vereadores:', error);
         } finally {
@@ -106,7 +103,7 @@ const AdminVereadores = () => {
     const handleDelete = async (id) => {
         if (window.confirm("Tem certeza que deseja excluir este vereador?")) {
             try {
-                await remove(ref(db, `${config.cityCollection}/vereadores/${id}`));
+                await deleteDoc(doc(firestore, 'vereadores', id));
                 alert("Vereador excluído com sucesso.");
                 fetchVereadores(); // Atualiza a lista
             } catch (error) {
@@ -141,10 +138,10 @@ const AdminVereadores = () => {
             const uploadResult = await uploadFileToStorage(convertedFile, folderPath);
 
             // 3. Atualiza o banco: define avatarUrl e remove avatarBase64
-            const itemRef = ref(db, `${config.cityCollection}/vereadores/${vereador.id}`);
-            await update(itemRef, {
+            const itemRef = doc(firestore, 'vereadores', vereador.id);
+            await updateDoc(itemRef, {
                 avatarUrl: uploadResult.url,
-                avatarBase64: null // Remove o campo pesado
+                avatarBase64: null
             });
 
             alert(`Imagem do vereador ${vereador.name} migrada com sucesso!`);
@@ -172,7 +169,7 @@ const AdminVereadores = () => {
                 const blob = await res.blob();
                 const file = new File([blob], `${v.id}-avatar.jpg`, { type: blob.type });
                 const up = await uploadFileToStorage(file, `vereadores/avatares/${v.id}`);
-                await update(ref(db, `${config.cityCollection}/vereadores/${v.id}`), { avatarUrl: up.url, avatarBase64: null });
+                await updateDoc(doc(firestore, 'vereadores', v.id), { avatarUrl: up.url, avatarBase64: null });
                 successCount++;
             } catch (err) { console.error(`Erro ao migrar ${v.name}:`, err); }
         }
@@ -196,11 +193,11 @@ const AdminVereadores = () => {
 
             if (selectedId) {
                 // Atualizar existente
-                await update(ref(db, `${config.cityCollection}/vereadores/${selectedId}`), dataToSave);
+                await updateDoc(doc(firestore, 'vereadores', selectedId), dataToSave);
                 alert("Vereador atualizado com sucesso!");
             } else {
                 // Criar novo
-                await push(ref(db, `${config.cityCollection}/vereadores/`), dataToSave);
+                await addDoc(collection(firestore, 'vereadores'), dataToSave);
                 alert("Vereador cadastrado com sucesso!");
             }
             handleCancel();

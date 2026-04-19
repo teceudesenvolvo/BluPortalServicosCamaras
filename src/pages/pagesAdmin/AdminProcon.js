@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, query, orderByKey, limitToLast, update, push, set, serverTimestamp, get } from 'firebase/database';
 import { 
-    collection, addDoc, serverTimestamp as fsTimestamp 
+    collection, query, getDocs, getDoc, doc, updateDoc, addDoc, serverTimestamp as fsTimestamp, orderBy, limit
 } from 'firebase/firestore';
 import Chart from 'chart.js/auto'; // Importa Chart.js
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth, firestore } from '../../firebase'; // Importa as instâncias corretas do Firebase
+import { auth, firestore } from '../../firebase'; // Importa as instâncias corretas do Firebase
 import config from '../../config'; // Importa a configuração
 import AdminSidebar from '../../components/AdminSidebar'; // Importa o novo Sidebar de Admin
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
@@ -38,12 +37,12 @@ const ComplaintDetailsModal = ({ denuncia, onClose, onStatusChange, onSendMessag
 
                 setLoadingProfile(true);
                 // 3. Busca o perfil mais recente do usuário na coleção 'users' usando o userId.
-        const userRef = ref(db, `${config.cityCollection}/users/${userId}`);
-                console.log(userRef);
+        const userDocRef = doc(firestore, config.cityCollection, 'users', userId);
+                console.log(userDocRef);
                 try {
-                    const snapshot = await get(userRef);
+                    const snapshot = await getDoc(userDocRef);
                     // Se o perfil atual existir, use-o. Senão, use os dados do momento da reclamação.
-                    setConsumerProfile(snapshot.exists() ? snapshot.val() : denuncia.userDataAtTimeOfComplaint);
+                    setConsumerProfile(snapshot.exists() ? snapshot.data() : denuncia.userDataAtTimeOfComplaint);
                 } catch (error) {
                     console.error("Erro ao buscar perfil atual do consumidor:", error);
                     setConsumerProfile(denuncia.userDataAtTimeOfComplaint); // Em caso de erro, também usa o fallback.
@@ -77,9 +76,9 @@ const ComplaintDetailsModal = ({ denuncia, onClose, onStatusChange, onSendMessag
             const folderPath = `denuncias-procon/migrated/${denuncia.id}`;
             const uploadResult = await uploadFileToStorage(convertedFile, folderPath);
             
-            const itemRef = ref(db, `${config.cityCollection}/denuncias-procon/${denuncia.id}/arquivos/${index}`);
+            const itemRef = doc(firestore, config.cityCollection, 'denuncias-procon', denuncia.id, 'arquivos', String(index));
             
-            await update(itemRef, {
+            await updateDoc(itemRef, {
                 url: uploadResult.url,
                 data: uploadResult.url
             });
@@ -261,15 +260,14 @@ const AdminProconDashboard = () => {
     const fetchDenuncias = useCallback(async () => {
         setLoading(true);
         try {
-            const denunciasRef = ref(db, `${config.cityCollection}/denuncias-procon`);
-            const q = query(denunciasRef, orderByKey(), limitToLast(200));
-            const snapshot = await get(q);
-            const data = snapshot.val();
-            const fetchedDenuncias = data 
-                ? Object.keys(data)
-                    .map(key => ({ id: key, ...data[key] }))
-                    .sort((a, b) => (b.createdAt || b.timestamp || 0) - (a.createdAt || a.timestamp || 0))
-                : [];
+            const denunciasRef = collection(firestore, config.cityCollection, 'denuncias-procon');
+            const q = query(denunciasRef, orderBy('createdAt', 'desc'), limit(200));
+            const snapshot = await getDocs(q);
+            const fetchedDenuncias = snapshot.docs.map(docSnap => ({ 
+                id: docSnap.id, 
+                ...docSnap.data() 
+            }))
+                .sort((a, b) => (b.createdAt || b.timestamp || 0) - (a.createdAt || a.timestamp || 0));
             
             setDenuncias(fetchedDenuncias);
             
@@ -391,13 +389,13 @@ const AdminProconDashboard = () => {
         }
 
         // Busca o perfil do usuário para garantir que os dados estão atualizados
-    const userRef = ref(db, `${config.cityCollection}/users/${denuncia.userId}`);
+    const userDocRef = doc(firestore, config.cityCollection, 'users', denuncia.userId);
         let userProfile = denuncia.userDataAtTimeOfComplaint; // Fallback
 
         try {
-            const snapshot = await get(userRef);
+            const snapshot = await getDoc(userDocRef);
             if (snapshot.exists()) {
-                userProfile = snapshot.val();
+                userProfile = snapshot.data();
             }
         } catch (error) {
             console.error("Erro ao buscar perfil do usuário para notificação:", error);
@@ -406,20 +404,19 @@ const AdminProconDashboard = () => {
         if (!userProfile || !userProfile.email) {
             console.log("Usuário sem e-mail, notificação não enviada.");
             return;
-        };
+        }
 
         const cityName = config.cityCollection.charAt(0).toUpperCase() + config.cityCollection.slice(1);
         const notificationTitle = customMessage?.title || `Sua reclamação no Procon foi atualizada.`;
         const notificationDescription = customMessage?.body || `Abra o aplicativo da Câmara Municipal de ${cityName} para acompanhar os detalhes. Protocolo: ${denuncia.id}.`;
 
         // 1. Salva a notificação no app
-        const notificacoesRef = ref(db, `${config.cityCollection}/notifications`);
-        const newNotificationRef = push(notificacoesRef);
-        await set(newNotificationRef, {
+        const notificacoesRef = collection(firestore, config.cityCollection, 'notifications');
+        await addDoc(notificacoesRef, {
             isRead: false,
             protocolo: denuncia.id,
             targetUserId: denuncia.userId,
-            timestamp: serverTimestamp(),
+            timestamp: fsTimestamp(),
             tituloNotification: notificationTitle,
             descricaoNotification: notificationDescription,
             userEmail: userProfile.email,
@@ -439,14 +436,14 @@ const AdminProconDashboard = () => {
     };
 
     const handleStatusChange = async (denunciaId, newStatus) => {
-        const denunciaRef = ref(db, `${config.cityCollection}/denuncias-procon/${denunciaId}`);
+        const denunciaRef = doc(firestore, config.cityCollection, 'denuncias-procon', denunciaId);
         let updateData = { status: newStatus };
         if (newStatus === 'Finalizada' || newStatus === 'Cancelado') {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
         } else {
             updateData.deletionTimestamp = null;
         }
-        await update(denunciaRef, updateData);
+        await updateDoc(denunciaRef, updateData);
         await sendNotification(
             { ...selectedDenuncia, id: denunciaId, status: newStatus },
             { title: "Alteração de Status Procon", body: `Sua reclamação teve o status alterado para: ${newStatus}.` }
@@ -457,12 +454,11 @@ const AdminProconDashboard = () => {
     };
 
     const handleSendMessage = async (denunciaId, messageText) => {
-    const messagesRef = ref(db, `${config.cityCollection}/denuncias-procon/${denunciaId}/messages`);
-        const newMessageRef = push(messagesRef);
-        await set(newMessageRef, {
+    const messagesRef = collection(firestore, config.cityCollection, 'denuncias-procon', denunciaId, 'messages');
+        await addDoc(messagesRef, {
             text: messageText,
             sender: 'admin',
-            timestamp: serverTimestamp(),
+            timestamp: fsTimestamp(),
         });
         await sendNotification(
             { ...selectedDenuncia, id: denunciaId },
@@ -490,14 +486,14 @@ const AdminProconDashboard = () => {
                 url: uploadResult.url,
                 data: uploadResult.url,
                 sender: 'admin',
-                timestamp: serverTimestamp(),
+                timestamp: fsTimestamp(),
             };
 
-            const denunciaRef = ref(db, `${config.cityCollection}/denuncias-procon/${denunciaId}`);
-            const snapshot = await get(denunciaRef);
-            const denunciaAtual = snapshot.val();
+            const denunciaRef = doc(firestore, 'denuncias-procon', denunciaId);
+            const snapshot = await getDoc(denunciaRef);
+            const denunciaAtual = snapshot.data();
             const arquivosAtuais = denunciaAtual.arquivos || [];
-            await update(denunciaRef, { arquivos: [...arquivosAtuais, fileData] });
+            await updateDoc(denunciaRef, { arquivos: [...arquivosAtuais, fileData] });
             alert("Arquivo enviado com sucesso!");
         } catch (err) {
             console.error("Erro no upload admin:", err);

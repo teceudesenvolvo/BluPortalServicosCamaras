@@ -2,9 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
-import { db } from '../../firebase'; // Usa apenas o Realtime Database
-import config from '../../config'; // Importa a configuração
-import { ref, get, push, set, serverTimestamp } from 'firebase/database'; // Funções do Realtime Database
+import { firestore } from '../../firebase';
+import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
  
 // Ícones
 import { LiaPaperPlane, LiaArrowLeftSolid } from "react-icons/lia";
@@ -47,11 +46,11 @@ const NovoAtendimentoJuridico = () => {
         }
 
         const userId = currentUser.uid;
-    const userRef = ref(db, `${config.cityCollection}/users/${userId}`); // Usa db
         try {
-            const snapshot = await get(userRef);
+            const userRef = doc(firestore, 'users', userId);
+            const snapshot = await getDoc(userRef);
             if (snapshot.exists()) {
-                const userData = snapshot.val();
+                const userData = snapshot.data();
                 // Carrega todos os dados do perfil do usuário
                 setLoggedInUserData({
                     nome: userData.name || currentUser.displayName || currentUser.email,
@@ -109,11 +108,8 @@ const NovoAtendimentoJuridico = () => {
                 cep: loggedInUserData?.cep || 'Não informado',
             };
 
-            // Cria uma nova referência com um ID único na coleção 'atendimento-juridico'
-      const novaSolicitacaoRef = push(ref(db, `${config.cityCollection}/atendimento-juridico`));
-
-            // Salva os dados no Realtime Database
-            await set(novaSolicitacaoRef, {
+            // Salva os dados no Firestore
+            await addDoc(collection(firestore, 'atendimento-juridico'), {
                 dadosAcontecimento: formData, // Dados do formulário
                 dadosUsuario: dadosUsuarioParaSalvar, // Dados filtrados do usuário
                 userId: currentUser.uid,

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, get } from 'firebase/database';
-import { db } from '../../firebase';
-import config from '../../config';
+import { collection, getDocs } from 'firebase/firestore';
+import { firestore } from '../../firebase';
 import Footer from '../../components/Footer';
 import Logo from '../../assets/logo-paraipaba.png';
 import HeroBackground from '../../assets/fachada2-cm.jpg';
@@ -15,10 +14,26 @@ const Piel = () => {
     useEffect(() => {
         const fetchInformativos = async () => {
             try {
-                const informativosRef = ref(db, `${config.cityCollection}/piel`);
-                const snapshot = await get(informativosRef);
-                const data = snapshot.val();
-                const fetchedInformativos = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)) : [];
+                const informativosRef = collection(firestore, 'piel');
+                // Carregamos a coleção completa e ordenamos localmente.
+                // Isso evita que documentos migrados sem o campo 'createdAt' sejam ignorados pelo Firestore.
+                const snapshot = await getDocs(informativosRef);
+                
+                const fetchedInformativos = snapshot.docs.map(docSnap => {
+                    const data = docSnap.data();
+                    // Normalização de data: prioriza Timestamp do Firestore, depois strings de data, 
+                    // e por fim o campo 'migratedAt' gerado pela ferramenta de migração.
+                    const timestamp = data.createdAt?.toMillis 
+                        ? data.createdAt.toMillis() 
+                        : (data.createdAt ? new Date(data.createdAt).getTime() : (data.migratedAt ? new Date(data.migratedAt).getTime() : 0));
+                    
+                    return { 
+                        id: docSnap.id, 
+                        ...data,
+                        timestamp
+                    };
+                }).sort((a, b) => b.timestamp - a.timestamp);
+
                 setInformativos(fetchedInformativos);
             } catch (error) {
                 console.error('Erro ao buscar informativos:', error);

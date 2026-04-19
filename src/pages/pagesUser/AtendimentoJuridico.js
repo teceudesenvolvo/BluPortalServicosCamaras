@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { db } from '../../firebase'; // Usa apenas o Realtime Database
+import { firestore } from '../../firebase';
 import Sidebar from '../../components/Sidebar';
-import config from '../../config';
-import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database'; // Funções do Realtime Database
+import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 
 // Ícones
 import { LiaPlusSolid, LiaTimesSolid } from "react-icons/lia";
@@ -68,33 +67,33 @@ const AtendimentoJuridico = () => {
             }
 
             setLoading(true);
-            try {
-                const atendimentosRef = ref(db, `${config.cityCollection}/atendimento-juridico`);
-                const q = query(atendimentosRef, orderByChild('userId'), equalTo(currentUser.uid));
+            const atendimentosRef = collection(firestore, 'atendimento-juridico');
+            const q = query(atendimentosRef, where('userId', '==', currentUser.uid));
 
-                onValue(q, (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        const atendimentosList = Object.keys(data).map(key => ({
-                            id: key,
-                            ...data[key]
-                        })).sort((a, b) => b.dataSolicitacao - a.dataSolicitacao); // Ordena do mais novo para o mais antigo
-                        setAtendimentos(atendimentosList);
-                    } else {
-                        setAtendimentos([]);
-                    }
-                    setLoading(false);
-                });
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                const atendimentosList = snapshot.docs.map(docSnap => ({
+                    id: docSnap.id,
+                    ...docSnap.data(),
+                    timestamp: docSnap.data().dataSolicitacao?.toMillis 
+                        ? docSnap.data().dataSolicitacao.toMillis() 
+                        : (docSnap.data().dataSolicitacao || 0)
+                })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-            } catch (err) {
-                console.error("Erro ao buscar atendimentos:", err);
-                setError("Não foi possível carregar seus atendimentos. Tente novamente mais tarde.");
+                setAtendimentos(atendimentosList);
                 setLoading(false);
-            }
+            }, (err) => {
+                console.error("Erro ao buscar atendimentos:", err);
+                setError("Não foi possível carregar seus atendimentos.");
+                setLoading(false);
+            });
+
+            return unsubscribe;
         };
 
-        fetchAtendimentos();
+        const unsubscribe = fetchAtendimentos();
+        return () => unsubscribe && unsubscribe();
     }, [currentUser, navigate]);
+
 
     // Busca os dados do perfil do usuário no Realtime Database
     const fetchUserProfile = useCallback(async () => {
@@ -104,11 +103,11 @@ const AtendimentoJuridico = () => {
         }
 
         const userId = currentUser.uid;
-        const userRef = ref(db, `${config.cityCollection}/users/${userId}`); // Usa db
+        const userRef = doc(firestore, 'users', userId);
         try {
-            const snapshot = await get(userRef);
+            const snapshot = await getDoc(userRef);
             if (snapshot.exists()) {
-                const userData = snapshot.val();
+                const userData = snapshot.data();
                 setLoggedInUserData({
                     nome: userData.name || currentUser.email,
                     tipo: userData.tipo || 'Cidadão',

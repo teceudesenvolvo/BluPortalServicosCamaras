@@ -2,9 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
-import { db } from '../../firebase';
-import config from '../../config';
-import { ref, get, push, set, serverTimestamp, query, orderByChild, equalTo } from 'firebase/database';
+import { firestore } from '../../firebase';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 
 // Ícones
 import { LiaPaperPlane, LiaArrowLeftSolid } from "react-icons/lia";
@@ -32,15 +31,14 @@ const NovaSolicitacaoVereador = () => {
     useEffect(() => {
         const fetchVereadores = async () => {
             try {
-                const usersRef = ref(db, `${config.cityCollection}/users`);
-                const q = query(usersRef, orderByChild('tipo'), equalTo('Vereador'));
-                const snapshot = await get(q);
+                const usersRef = collection(firestore, 'users');
+                const q = query(usersRef, where('tipo', '==', 'Vereador'));
+                const snapshot = await getDocs(q);
 
-                if (snapshot.exists()) {
-                    const data = snapshot.val();
-                    const vereadoresList = Object.keys(data).map(key => ({
-                        uid: key, // O ID do usuário agora é o UID
-                        ...data[key]
+                if (!snapshot.empty) {
+                    const vereadoresList = snapshot.docs.map(docSnap => ({
+                        uid: docSnap.id,
+                        ...docSnap.data()
                     }));
                     setVereadores(vereadoresList);
                 } else {
@@ -56,11 +54,11 @@ const NovaSolicitacaoVereador = () => {
 
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) return;
-        const userRef = ref(db, `${config.cityCollection}/users/${currentUser.uid}`);
         try {
-            const snapshot = await get(userRef);
+            const userRef = doc(firestore, 'users', currentUser.uid);
+            const snapshot = await getDoc(userRef);
             if (snapshot.exists()) {
-                setLoggedInUserData(snapshot.val());
+                setLoggedInUserData(snapshot.data());
             }
         } catch (error) {
             console.error("Erro ao buscar perfil do usuário:", error);
@@ -112,9 +110,7 @@ const NovaSolicitacaoVereador = () => {
                 city: loggedInUserData?.city || 'Não informado',
             };
 
-            const novaSolicitacaoRef = push(ref(db, `${config.cityCollection}/solicitacoes-vereadores`));
-
-            await set(novaSolicitacaoRef, {
+            await addDoc(collection(firestore, 'solicitacoes-vereadores'), {
                 dadosSolicitacao: formData,
                 dadosUsuario: dadosUsuarioParaSalvar,
                 userId: currentUser.uid,
