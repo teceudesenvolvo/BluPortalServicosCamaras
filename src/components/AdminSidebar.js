@@ -32,7 +32,9 @@ const AdminSidebarItem = ({ icon, title, path, isActive, onClick }) => (
 const AdminSidebar = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
+    const [isMobileExpanded, setIsMobileExpanded] = useState(false);
+    const [loadingRoles, setLoadingRoles] = useState(true);
     const [userType, setUserType] = useState(null);
     const [userEmail, setUserEmail] = useState(null);
 
@@ -58,6 +60,7 @@ const AdminSidebar = () => {
                 setUserType(null); // Limpa o tipo se o usuário deslogar
                 setUserEmail(null);
             }
+            setLoadingRoles(false);
         });
         return () => unsubscribe(); // Limpa o listener ao desmontar o componente
     }, []); // O array vazio faz com que o efeito rode apenas uma vez
@@ -93,35 +96,60 @@ const AdminSidebar = () => {
         return false;
     });
 
-    const handleMobileMenuToggle = () => setMobileMenuOpen(!isMobileMenuOpen);
-
     const handleItemClick = (path) => {
         navigate(path);
-        setMobileMenuOpen(false);
+        setIsMobileExpanded(false); // Fecha o menu ao navegar
+    };
+
+    const toggleMobileMenu = () => {
+        setIsMobileExpanded(!isMobileExpanded);
     };
 
     return (
-        <div className="dashboard-sidebar">
+        <>
+            {/* Overlay para fechar o menu ao clicar fora no mobile */}
+            {isMobileExpanded && (
+                <div className="sidebar-overlay" onClick={toggleMobileMenu} />
+            )}
+        <div 
+            className={`dashboard-sidebar ${isHovered || isMobileExpanded ? 'expanded' : 'collapsed'}`}
+            onMouseEnter={() => {
+                if (window.innerWidth > 900) setIsHovered(true);
+            }}
+            onMouseLeave={() => {
+                if (window.innerWidth > 900) setIsHovered(false);
+            }}
+        >
             <div className="sidebar-header">
-                <img src={Logo} alt="Logo Paraipaba" className="sidebar-logo" style={{ height: '120px', width: 'auto' }} />
-                <button className="sidebar-hamburger-btn" onClick={handleMobileMenuToggle}>
-                    {isMobileMenuOpen ? <LiaTimesSolid size={24} /> : <LiaBarsSolid size={24} />}
+                <button className="sidebar-hamburger-btn" onClick={toggleMobileMenu}>
+                    {isMobileExpanded ? <LiaTimesSolid size={24} /> : <LiaBarsSolid size={24} />}
                 </button>
+
+                <img 
+                    src={Logo} 
+                    alt="Logo Paraipaba" 
+                    className="sidebar-logo" 
+                />
             </div>
 
-            <div className={`sidebar-menu ${isMobileMenuOpen ? 'is-open' : ''}`}>
-                {visibleMenuItems.map((item) => (
-                    <AdminSidebarItem
-                        key={item.title}
-                        icon={item.icon}
-                        title={item.title}
-                        path={item.path}
-                        isActive={location.pathname === item.path}
-                        onClick={handleItemClick}
-                    />
-                ))}
+            <div className="sidebar-menu">
+                {loadingRoles ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>Carregando...</div>
+                ) : (
+                    visibleMenuItems.map((item) => (
+                        <AdminSidebarItem
+                            key={item.title}
+                            icon={item.icon}
+                            title={item.title}
+                            path={item.path}
+                            isActive={location.pathname === item.path}
+                            onClick={handleItemClick}
+                        />
+                    ))
+                )}
             </div>
         </div>
+        </>
     );
 };
 

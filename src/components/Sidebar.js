@@ -27,7 +27,8 @@ const SidebarItem = ({ icon, title, path, isActive, onClick }) => (
 // --- Componente Principal: Sidebar ---
 const Sidebar = ({ onItemClick }) => {
     const location = useLocation(); // Hook para obter a rota atual
-    const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
+    const [isMobileExpanded, setIsMobileExpanded] = useState(false);
 
     // Itens do menu agora são definidos diretamente aqui
     const menuItems = [
@@ -41,33 +42,48 @@ const Sidebar = ({ onItemClick }) => {
         { title: 'Perfil', icon: <LiaUser />, path: '/perfil' },
     ];
 
-    const handleMobileMenuToggle = () => {
-        setMobileMenuOpen(!isMobileMenuOpen);
+    const handleItemClick = (path) => {
+        onItemClick(path);
+        setIsMobileExpanded(false);
     };
 
-    // Fecha o menu mobile ao clicar em um item
-    const handleMobileItemClick = (path) => {
-        onItemClick(path);
-        setMobileMenuOpen(false);
+    const toggleMobileMenu = () => {
+        setIsMobileExpanded(!isMobileExpanded);
     };
 
     return (
-        <div className="dashboard-sidebar">
+        <>
+            {/* Overlay para fechar o menu ao clicar fora no mobile */}
+            {isMobileExpanded && (
+                <div className="sidebar-overlay" onClick={toggleMobileMenu} />
+            )}
+        <div 
+            className={`dashboard-sidebar ${isHovered || isMobileExpanded ? 'expanded' : 'collapsed'}`}
+            onMouseEnter={() => {
+                if (window.innerWidth > 900) setIsHovered(true);
+            }}
+            onMouseLeave={() => {
+                if (window.innerWidth > 900) setIsHovered(false);
+            }}
+            onClick={() => {
+                // No mobile, se o usuário clicar fora do botão mas na barra (que é 100% largura), não fazemos nada indesejado
+                if (window.innerWidth <= 900 && !isMobileExpanded) return;
+            }}
+        >
             <div className="sidebar-header">
+                <button className="sidebar-hamburger-btn" onClick={toggleMobileMenu}>
+                    {isMobileExpanded ? <LiaTimesSolid size={24} /> : <LiaBarsSolid size={24} />}
+                </button>
+
                 <img
                     src={Logo}
                     alt="Logo Paraipaba"
                     className="sidebar-logo"
-                    style={{ height: '120px', width: 'auto' }}
                 />
-                {/* Botão Hambúrguer para Mobile */}
-                <button className="sidebar-hamburger-btn" onClick={handleMobileMenuToggle}>
-                    {isMobileMenuOpen ? <LiaTimesSolid size={24} /> : <LiaBarsSolid size={24} />}
-                </button>
             </div>
 
-            {/* O menu agora usa uma classe condicional para ser exibido no mobile */}
-            <div className={`sidebar-menu ${isMobileMenuOpen ? 'is-open' : ''}`}>
+            {/* O menu agora permanece sempre visível através dos ícones */}
+            <div className="sidebar-menu">
                 {menuItems.map((item) => (
                     <SidebarItem
                         key={item.title} // A chave continua sendo o título
@@ -75,7 +91,7 @@ const Sidebar = ({ onItemClick }) => {
                         title={item.title}
                         path={item.path}
                         isActive={location.pathname === item.path}
-                        onClick={handleMobileItemClick} // Usa o novo handler
+                        onClick={handleItemClick}
                     />
                 ))}
             </div>
@@ -90,6 +106,7 @@ const Sidebar = ({ onItemClick }) => {
             </div>
 
         </div>
+        </>
     );
 };
 

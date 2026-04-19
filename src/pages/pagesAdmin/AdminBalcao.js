@@ -415,29 +415,20 @@ const AdminBalcaoDashboard = () => {
 
         const ctx = chartRef.current.getContext('2d');
         chartInstance.current = new Chart(ctx, {
-            type: 'bar',
+            type: 'line',
             data: {
                 labels: Object.keys(statusCounts),
                 datasets: [{
                     label: 'Total de Solicitações',
                     data: Object.values(statusCounts),
-                    backgroundColor: [
-                        'rgba(37, 99, 235, 0.7)',
-                        'rgba(255, 192, 9, 0.7)',
-                        'rgba(76, 175, 80, 0.7)',
-                        'rgba(239, 68, 68, 0.7)',
-                        'rgba(156, 163, 175, 0.7)',
-                        'rgba(139, 92, 246, 0.7)',
-                    ],
-                    borderColor: [
-                        '#2563eb',
-                        '#ffc009',
-                        '#4caf50',
-                        '#ef4444',
-                        '#9ca3af',
-                        '#8b5cf6',
-                    ],
-                    borderWidth: 1
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    pointBackgroundColor: '#1d4ed8',
+                    borderWidth: 3
                 }]
             },
             options: {
@@ -447,7 +438,16 @@ const AdminBalcaoDashboard = () => {
                     duration: 2000,
                     easing: 'easeOutQuart'
                 },
-                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+                scales: { 
+                    y: { 
+                        beginAtZero: true, 
+                        ticks: { stepSize: 1 },
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                },
                 plugins: {
                     legend: { display: false },
                     title: { display: true, text: 'Solicitações por Status', font: { size: 16, weight: '600' } }

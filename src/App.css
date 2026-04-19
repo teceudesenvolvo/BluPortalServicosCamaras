@@ -438,9 +438,11 @@ body{
     font-weight: bold;
     cursor: pointer;
     transition: background-color 0.3s;
-    background-color: #00128A;
+    background-color: #025AA1;
     color: white;
 }
+
+
 
 .btn-secondary {
     flex: 1;
@@ -571,9 +573,12 @@ body{
 
 /* 1. Sidebar Fixo (Menu Lateral) */
 .dashboard-sidebar {
-  width: 250px;
-  /* Largura fixa da sidebar */
-  background-color: #00128A;
+  width: 80px; /* Largura inicial recolhida */
+  transition: width 0.3s ease; /* Transição suave de largura */
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  background-image: linear-gradient(180deg, #025AA1 0%, #025AA1 100%);
   /* Azul forte */
   color: white;
   padding: 20px 0;
@@ -581,6 +586,21 @@ body{
   height: 100%;
   overflow-y: auto;
   border-radius: 0px 20px 20px 0px;
+  z-index: 1000;
+}
+
+.sidebar-logo {
+  width: 50%;
+  transition: 0.3s all;
+  object-fit: contain;
+}
+
+.dashboard-sidebar.expanded {
+  width: 260px; /* Largura quando expandido (hover) */
+}
+
+.dashboard-sidebar.expanded .sidebar-logo {
+  height: 100px;
 }
 
 .sidebar-header {
@@ -603,12 +623,22 @@ body{
   display: flex;
   align-items: center;
   padding: 12px 20px;
-  padding-left: 10px;
+  padding-left: 28px; /* Alinhamento para centralizar ícones quando recolhido */
   /* Alinhamento visual */
   cursor: pointer;
-  transition: background-color 0.2s, border-left 0.2s;
+  transition: background-color 0.2s, border-left 0.2s, padding-left 0.3s ease;
   font-size: 15px;
   border-left: 5px solid transparent;
+}
+
+.sidebar-title {
+  opacity: 0; /* Esconde o texto por padrão */
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.dashboard-sidebar.expanded .sidebar-title {
+  opacity: 1; /* Mostra o texto apenas quando expandido */
 }
 
 .sidebar-item:hover {
@@ -616,7 +646,7 @@ body{
 }
 
 .sidebar-item.active {
-  background-color: #0b3e8c;
+  background-color: #004882;
   /* Azul ligeiramente mais escuro */
   border-left: 5px solid #ffc107;
   /* Cor de destaque Amarelo */
@@ -625,11 +655,33 @@ body{
 
 /* Botão Hambúrguer (escondido no desktop) */
 .sidebar-hamburger-btn {
-    display: none;
+    display: none; /* Ativado via media query */
     background: none;
     border: none;
     color: white;
     cursor: pointer;
+    padding: 10px; /* Aumenta a área de clique */
+    margin-right: -10px;
+}
+
+.dashboard-sidebar.collapsed .sidebar-hamburger-btn {
+    margin-bottom: 20px;
+}
+
+.dashboard-sidebar.expanded .sidebar-hamburger-btn {
+    margin-bottom: 30px;
+}
+
+/* Overlay para fechar o menu no mobile */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1100;
+  display: none;
 }
 
 .sidebar-icon {
@@ -639,14 +691,18 @@ body{
 
 /* 2. Conteúdo Principal */
 .dashboard-content {
-  margin-left: 250px;
-  /* Ocupa o espaço à direita da sidebar */
+  margin-left: 80px; /* Alinhado com a sidebar recolhida */
+  transition: margin-left 0.3s ease; /* Acompanha a expansão da sidebar */
   flex-grow: 1;
   padding: 30px;
   background-color: #f0f2f5;
   /* Fundo cinza claro */
   display: flex;
   flex-direction: column;
+}
+
+.dashboard-sidebar.expanded + .dashboard-content {
+  margin-left: 260px; /* Empurra o conteúdo quando a sidebar expande */
 }
 
 /* Cabeçalho do Conteúdo */
@@ -835,7 +891,7 @@ body{
 
 /* Estilos para a seção de download do app no Sidebar */
 .sidebar-app-download {
-    margin-top: 100%; /* Empurra a seção para o final */
+    margin-top: auto; /* Usa flexbox para empurrar para o rodapé da sidebar */
     padding: 20px;
     text-align: center;
     border-top: 1px solid #ffffff34; /* Linha separadora */
@@ -865,30 +921,31 @@ body{
 /* Media Query: Versão Mobile/Tablet */
 @media (max-width: 900px) {
   .dashboard-sidebar {
-    width: 100%;
-    height: auto;
-    position: relative;
-    /* Deixa de ser fixo */
-    padding: 0;
-    border-radius: 0;
-    z-index: 100; /* Garante que a sidebar fique sobre o conteúdo */
-    overflow: visible; /* Permite que o menu dropdown seja exibido */
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  }
-
-  .dashboard-layout {
-    flex-direction: column;
+    position: fixed; /* Mantém vertical como no desktop */
+    width: 80px;
+    height: 100%;
   }
 
   .sidebar-header {
     padding: 20px;
     display: flex;
-    justify-content: space-between;
+    justify-content: center; /* Centraliza o hambúrguer no modo trilho (recolhido) */
     align-items: center;
   }
 
   .sidebar-logo {
-    height: 60px !important; /* Reduz a logo no mobile */
+    display: none; /* Oculta a logomarca por padrão no mobile */
+  }
+
+  .dashboard-sidebar.expanded .sidebar-header {
+    justify-content: space-between; /* Restaura o espaço entre logo e botão ao expandir */
+  }
+
+  .dashboard-sidebar.expanded .sidebar-logo {
+    display: block; /* Mostra a logomarca apenas quando expandido */
+    height: 60px !important;
+    object-fit: contain;
+    margin-left: -40px;
   }
 
   .sidebar-hamburger-btn {
@@ -896,22 +953,12 @@ body{
   }
 
   .sidebar-menu {
-    display: none; /* Escondido por padrão */
-    position: absolute;
-    top: 100%; /* Abaixo do header */
-    left: 0;
-    right: 0;
-    background-color: #00128A;
+    display: block; /* Garante que os ícones apareçam */
     padding: 10px 0;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  }
-
-  .sidebar-menu.is-open {
-    display: block; /* Mostra o menu quando aberto */
   }
 
   .dashboard-content {
-    margin-left: 0;
+    margin-left: 80px; /* Mantém o espaço para o trilho de ícones */
     padding: 20px;
   }
 
@@ -1136,20 +1183,6 @@ body{
 
 /* Responsividade */
 @media (max-width: 768px) {
-  .dashboard-content {
-    margin-left: 0;
-  }
-
-  .dashboard-sidebar {
-    position: relative;
-    height: auto;
-    width: 100%;
-  }
-
-  .sidebar-menu {
-    display: none;
-  }
-
   /* Esconde o menu lateral no mobile */
 
   .form-container-tabs,
@@ -1869,7 +1902,7 @@ body{
     .sidebar-item.active {
         border-left: none;
         border-bottom: 3px solid #ffcc00;
-        padding-left: 15px;
+        padding-left: 30px;
     }
 
     .content-header, .page-actions-bar, .data-list-container {
