@@ -1,4 +1,4 @@
-const {onValueCreated} = require("firebase-functions/v2/database");
+const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {defineString, defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin"); // Keep admin for database operations
@@ -11,9 +11,9 @@ const gmailAppPassword = defineSecret("GMAIL_APP_PASSWORD");
 
 let mailTransport;
 
-exports.sendMailOnNewRequest = onValueCreated(
+exports.sendMailOnNewRequest = onDocumentCreated(
     {
-      ref: "/{city}/mail/{pushId}",
+      document: "mail/{mailId}",
       secrets: [gmailAppPassword],
     },
     async (event) => {
@@ -32,7 +32,7 @@ exports.sendMailOnNewRequest = onValueCreated(
 
       if (!snapshot) return;
 
-      const mailData = snapshot.val();
+      const mailData = snapshot.data();
 
       const emailFooter = "<br><br><hr><p><i>Por favor não responda " +
           "este email. Email oficial da câmara:<br/>" +
@@ -54,7 +54,7 @@ exports.sendMailOnNewRequest = onValueCreated(
 
       await mailTransport.sendMail(mailOptions);
 
-      return snapshot.ref.remove();
+      return snapshot.ref.delete();
     },
 );
 
@@ -101,11 +101,10 @@ function cleanupFiles(request, promises) {
  * Realiza a limpeza de arquivos e remove o registro do banco
  * @param {Object} snapshot Snapshot do Firebase
  * @param {Array} promises Array de promessas
- * @param {string} cityKey Chave da cidade
  * @param {string} collName Nome da coleção
  */
-function processDeletion(snapshot, promises, cityKey, collName) {
-  const data = snapshot.val();
+function processDeletion(snapshot, promises, collName) {
+  const data = snapshot.data();
   cleanupFiles(data, promises);
 
   // Limpeza do slot específico no calendário se for Balcão do Cidadão
@@ -115,13 +114,15 @@ function processDeletion(snapshot, promises, cityKey, collName) {
     const appTime = data.appointmentTime ||
                    data.dadosSolicitacao?.appointmentTime;
     if (appDate && appTime) {
-      const slotPath = `${cityKey}/balcao-config/bookedSlots/` +
-                      `${appDate}/${appTime}`;
-      promises.push(snapshot.ref.root.child(slotPath).remove());
+      const bookedSlotsRef = admin.firestore()
+          .collection("balcao-config").doc("bookedSlots");
+      promises.push(bookedSlotsRef.update({
+        [appDate]: admin.firestore.FieldValue.arrayRemove(appTime),
+      }));
     }
   }
 
-  promises.push(snapshot.ref.remove());
+  promises.push(snapshot.ref.delete());
 }
 
 // Função agendada para apagar solicitações expiradas
@@ -129,68 +130,50 @@ exports.cleanupExpiredRequests = onSchedule(
     "every 1 hours",
     async (event) => {
       const now = Date.now();
+      const db = admin.firestore();
       try {
-        const rootRef = admin.database().ref();
-        // Buscamos apenas as chaves das cidades para economizar download.
-        // O ideal é ter um nó 'metadata/cities' para evitar o scan.
-        const citiesSnapshot = await rootRef.once("value");
-        const citiesData = citiesSnapshot.val();
-        if (!citiesData) return null;
-
         const deletionPromises = [];
+        const collections = [
+          "balcao-cidadao",
+          "denuncias-procon",
+          "atendimento-juridico",
+          "procuradoria-mulher",
+          "ouvidoria",
+        ];
 
-        for (const cityKey in citiesData) {
-          // Ignoramos nós que não são cidades (ex: logs, metadata)
-          if (cityKey === "mail" || cityKey === "notifications") continue;
+        for (const collName of collections) {
+          const expiredSnapshot = await db.collection(collName)
+              .where("deletionTimestamp", "<=", now)
+              .where("deletionTimestamp", ">", 0)
+              .get();
 
-          if (Object.prototype.hasOwnProperty.call(citiesData, cityKey)) {
-            const collections = [
-              "balcao-cidadao",
-              "denuncias-procon",
-              "atendimento-juridico",
-              "procuradoria-mulher",
-              "ouvidoria",
+          expiredSnapshot.forEach((doc) => {
+            const val = doc.data();
+            if (!val) return;
+
+            // Status finais que permitem a exclusão após o prazo
+            const finalStatuses = [
+              "Concluído", "Concluída", "Cancelado", "Cancelada",
+              "Finalizada", "Respondida",
             ];
-            for (const collName of collections) {
-              const collPath = `${cityKey}/${collName}`;
-              const collRef = rootRef.child(collPath);
-              const expiredSnapshot = await collRef
-                  .orderByChild("deletionTimestamp")
-                  .startAt(1)
-                  .endAt(now).once("value");
 
-              expiredSnapshot.forEach((child) => {
-                const val = child.val();
-                if (!val) return;
+            const isFinalStatus = finalStatuses.includes(val.status);
 
-                // Status finais que permitem a exclusão após o prazo
-                const finalStatuses = [
-                  "Concluído", "Concluída", "Cancelado", "Cancelada",
-                  "Finalizada", "Respondida",
-                ];
-
-                const isFinalStatus = finalStatuses.includes(val.status);
-
-                // Proteção: só apaga se o deletionTimestamp venceu (5 dias)
-                // e o status for um dos estados finais autorizados.
-                if (val.deletionTimestamp && val.deletionTimestamp <= now &&
-                    isFinalStatus) {
-                  console.log(`DELETANDO: Solicitação ${child.key} ` +
-                      `(Status: ${val.status}) expirou.`);
-                  processDeletion(child, deletionPromises, cityKey, collName);
-                } else if (val.deletionTimestamp) {
-                  const diffMs = val.deletionTimestamp - now;
-                  const waitTime = Math.round(diffMs / (1000 * 60 * 60));
-                  console.log(`MANTENDO: ${child.key} ainda tem ` +
-                      `${waitTime} horas de carência.`);
-                } else {
-                  // Registros sem deletionTimestamp (como "Aguardando
-                  // Atendimento") nem entram aqui
-                }
-              });
+            // Proteção: só apaga se o deletionTimestamp venceu
+            // e o status for um dos estados finais autorizados.
+            if (isFinalStatus) {
+              console.log(`DELETANDO: Solicitação ${doc.id} ` +
+                  `(Status: ${val.status}) expirou.`);
+              processDeletion(doc, deletionPromises, collName);
+            } else {
+              const diffMs = val.deletionTimestamp - now;
+              const waitTime = Math.round(diffMs / (1000 * 60 * 60));
+              console.log(`MANTENDO: ${doc.id} ainda tem ` +
+                  `${waitTime} horas de carência (Status: ${val.status}).`);
             }
-          }
+          });
         }
+
         await Promise.all(deletionPromises);
         console.log(`Limpeza concluída. Operações: ${deletionPromises.length}`);
         return null;

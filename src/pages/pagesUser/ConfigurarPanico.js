@@ -26,7 +26,11 @@ const ConfigurarPanico = () => {
             const configRef = doc(firestore, 'procuradoria-mulher-btn-panico', currentUser.uid);
             const snapshot = await getDoc(configRef);
             if (snapshot.exists()) {
-                setContato(snapshot.val());
+                const data = snapshot.data();
+                setContato({
+                    telefone: data.telefone || '',
+                    email: data.email || ''
+                });
             }
         } catch (err) {
             setError("Erro ao carregar configuração existente.");
@@ -38,10 +42,14 @@ const ConfigurarPanico = () => {
     // Busca perfil do usuário
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) return;
-        const userRef = doc(firestore, 'users', currentUser.uid);
-        const snapshot = await getDoc(userRef);
-        if (snapshot.exists()) {
-            setLoggedInUserData(snapshot.val());
+        try {
+            const userRef = doc(firestore, 'users', currentUser.uid);
+            const snapshot = await getDoc(userRef);
+            if (snapshot.exists()) {
+                setLoggedInUserData(snapshot.data());
+            }
+        } catch (error) {
+            console.error("Erro ao buscar perfil do usuário:", error);
         }
     }, [currentUser]);
 

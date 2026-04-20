@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-    collection, query, orderBy, limit, getDocs, getDoc, 
+    collection, query, getDocs, getDoc, 
     doc, updateDoc, addDoc, serverTimestamp 
 } from 'firebase/firestore';
 import Chart from 'chart.js/auto';
@@ -167,7 +167,7 @@ const AdminProcuradoriaDashboard = () => {
         setLoading(true);
         try {
             const solicitacoesRef = collection(firestore, 'procuradoria-mulher');
-            const q = query(solicitacoesRef, orderBy('dataSolicitacao', 'desc'), limit(200));
+            const q = query(solicitacoesRef);
             const snapshot = await getDocs(q);
             
             const fetchedData = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));

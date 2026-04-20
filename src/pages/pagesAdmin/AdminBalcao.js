@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     collection, doc, getDocs, query, orderBy, limit, getDoc, 
-    updateDoc, setDoc, addDoc
+    updateDoc, setDoc, addDoc, serverTimestamp
 } from 'firebase/firestore';
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -477,7 +477,7 @@ const AdminBalcaoDashboard = () => {
                 isRead: false,
                 protocolo: solicitacao.id,
                 targetUserId: solicitacao.userId,
-                timestamp: new Date(),
+                timestamp: serverTimestamp(),
                 tituloNotification: notificationTitle,
                 descricaoNotification: notificationDescription,
                 userEmail: solicitacao.dadosUsuario.email,
@@ -492,7 +492,7 @@ const AdminBalcaoDashboard = () => {
                     subject: notificationTitle,
                     html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
                 },
-                timestamp: new Date()
+                timestamp: serverTimestamp()
             });
         } catch (error) {
             console.error('Erro ao enviar notificação:', error);
@@ -568,7 +568,7 @@ const AdminBalcaoDashboard = () => {
                 userId: userData.id,
                 userEmail: userData.email,
                 message: notificationMessage,
-                timestamp: new Date(),
+                timestamp: serverTimestamp(),
                 read: false,
                 protocolo: solicitacao.id
             });
@@ -581,7 +581,7 @@ const AdminBalcaoDashboard = () => {
                     subject: notificationTitle,
                     html: `<p>${notificationMessage}</p>`,
                 },
-                timestamp: new Date()
+                timestamp: serverTimestamp()
             });
             
             alert(`Usuário ${userData.email} notificado!`);
