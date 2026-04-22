@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     collection, query, where, getDocs, doc, updateDoc,
-    getDoc, addDoc, serverTimestamp, limit, startAfter
+    getDoc, addDoc, serverTimestamp, limit, startAfter, orderBy
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
@@ -259,7 +259,7 @@ const AdminBalcaoAgendamentos = () => {
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterStatus, setFilterStatus] = useState('Agendado');
+    const [filterStatus, setFilterStatus] = useState('Todas'); // Alterado para mostrar tudo por padrão
     const [filterAssunto, setFilterAssunto] = useState('Todos');
     const [filterDateFrom, setFilterDateFrom] = useState('');
     const [filterDateTo, setFilterDateTo] = useState('');
@@ -271,9 +271,9 @@ const AdminBalcaoAgendamentos = () => {
     const [firstKey, setFirstKey] = useState(null);
     const [isLastPage, setIsLastPage] = useState(false);
     const itemsPerPage = 15;
-    const maxItemsWithFilters = 60; 
+    const maxItemsWithFilters = 500; // Aumentado para garantir que o filtro local encontre mais dados
 
-    const hasActiveFilters = !!(searchTerm || filterStatus !== 'Agendado' || filterAssunto !== 'Todos' || filterDateFrom || filterDateTo);
+    const hasActiveFilters = !!(searchTerm || filterStatus !== 'Todas' || filterAssunto !== 'Todos' || filterDateFrom || filterDateTo);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -290,6 +290,11 @@ const AdminBalcaoAgendamentos = () => {
             const solicitacoesRef = collection(firestore, 'balcao-cidadao');
 
             let q = query(solicitacoesRef);
+
+            // Adiciona ordenação por data de solicitação para consistência
+            if (!filtering) {
+                q = query(q, orderBy('dataSolicitacao', 'desc'));
+            }
 
             // Filtro de Status no Servidor
             if (filterStatus !== 'Todas') {
@@ -337,7 +342,7 @@ const AdminBalcaoAgendamentos = () => {
                 : [];
             setAgendamentos(fetchedData);
             setFirstKey(snapshot.docs[snapshot.docs.length - 1] || null);
-            setIsLastPage(filtering ? true : snapshot.docs.length < itemsPerPage);
+            setIsLastPage(snapshot.docs.length < itemsPerPage); // Permite paginação mesmo com filtros
         } catch (error) {
             console.error('Erro ao buscar agendamentos:', error);
         } finally {
@@ -513,7 +518,7 @@ const AdminBalcaoAgendamentos = () => {
 
     const clearFilters = () => {
         setSearchTerm('');
-        setFilterStatus('Agendado');
+        setFilterStatus('Todas');
         setFilterAssunto('Todos');
         setFilterDateFrom('');
         setFilterDateTo('');
@@ -705,7 +710,7 @@ const AdminBalcaoAgendamentos = () => {
                     </ul>
 
                     {/* Paginação */}
-                    {!loading && agendamentos.length > 0 && !hasActiveFilters && (
+                    {!loading && agendamentos.length > 0 && (
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
                             <button
                                 onClick={handleResetPagination}
