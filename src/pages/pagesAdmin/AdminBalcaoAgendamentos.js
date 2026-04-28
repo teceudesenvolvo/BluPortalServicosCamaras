@@ -328,6 +328,9 @@ const AdminBalcaoAgendamentos = () => {
                         };
                     })
                     .filter(item => {
+                        // Não apresentar agendamentos que não possuem data definida
+                        if (!item.appointmentDate) return false;
+
                         // Agora o item.appointmentDate já está preenchido
                         if (filterDateFrom && item.appointmentDate < filterDateFrom) return false;
                         if (filterDateTo && item.appointmentDate > filterDateTo) return false;
