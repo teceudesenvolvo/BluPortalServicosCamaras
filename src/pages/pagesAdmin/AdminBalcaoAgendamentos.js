@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     collection, query, where, getDocs, doc, updateDoc,
-    getDoc, addDoc, serverTimestamp, limit, orderBy
+    getDoc, addDoc, serverTimestamp, limit
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
@@ -259,8 +259,13 @@ const AdminBalcaoAgendamentos = () => {
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterStatus, setFilterStatus] = useState('Agendado'); // Alterado para mostrar Agendado por padrão
     const [filterAssunto, setFilterAssunto] = useState('Todos');
+    const [filterBeneficiario, setFilterBeneficiario] = useState('');
+    const [filterParentesco, setFilterParentesco] = useState('Todos');
+    const [filterEmail, setFilterEmail] = useState('');
+    const [filterTelefone, setFilterTelefone] = useState('');
+    const [filterTipoDocumento, setFilterTipoDocumento] = useState('');
+    const [filterEstadoCivil, setFilterEstadoCivil] = useState('');
     const [filterDateFrom, setFilterDateFrom] = useState('');
     const [filterDateTo, setFilterDateTo] = useState('');
     const [showFilters, setShowFilters] = useState(false);
@@ -269,7 +274,7 @@ const AdminBalcaoAgendamentos = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 15;
 
-    const hasActiveFilters = !!(searchTerm || filterStatus !== 'Todas' || filterAssunto !== 'Todos' || filterDateFrom || filterDateTo);
+    const hasActiveFilters = !!(searchTerm || filterAssunto !== 'Todos' || filterDateFrom || filterDateTo || filterBeneficiario || filterParentesco !== 'Todos' || filterEmail || filterTelefone || filterTipoDocumento || filterEstadoCivil);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -285,13 +290,8 @@ const AdminBalcaoAgendamentos = () => {
             const solicitacoesRef = collection(firestore, 'balcao-cidadao');
             let q;
 
-            // Como a ordenação no Firebase por appointmentDate omite documentos onde a data
-            // está aninhada (em dadosSolicitacao), buscamos por status e ordenamos localmente.
-            if (filterStatus === 'Todas') {
-                q = query(solicitacoesRef, orderBy('timestamp', 'desc'), limit(200));
-            } else {
-                q = query(solicitacoesRef, where('status', '==', filterStatus), limit(1000));
-            }
+            // Buscamos apenas os agendamentos confirmados
+            q = query(solicitacoesRef, where('status', '==', 'Agendado'), limit(1000));
 
             const snapshot = await getDocs(q);
             const fetchedData = !snapshot.empty
@@ -319,13 +319,13 @@ const AdminBalcaoAgendamentos = () => {
         } finally {
             setLoading(false);
         }
-    }, [filterStatus]);
+    }, []);
 
     useEffect(() => {
         if (!isAuthReady) return;
         setCurrentPage(1);
         fetchAgendamentos();
-    }, [isAuthReady, filterStatus, fetchAgendamentos]);
+    }, [isAuthReady, fetchAgendamentos]);
 
     /* ── Filtragem ── */
     const filteredAgendamentos = agendamentos.filter(item => {
@@ -333,11 +333,41 @@ const AdminBalcaoAgendamentos = () => {
         const matchesSearch =
             (item.dadosSolicitacao?.assunto?.toLowerCase() || '').includes(searchLower) ||
             (item.dadosUsuario?.name?.toLowerCase() || '').includes(searchLower) ||
+            (item.dadosBeneficiario?.name?.toLowerCase() || '').includes(searchLower) ||
             (item.id?.toLowerCase() || '').includes(searchLower);
 
-        // Adicionando filtros de status e assunto locais para consistência
-        const matchesStatus = filterStatus === 'Todas' || item.status === filterStatus;
+        // Adicionando filtros locais para consistência
         const matchesAssunto = filterAssunto === 'Todos' || (item.dadosSolicitacao?.assunto || item.assunto) === filterAssunto;
+
+        // Filtro por Beneficiário
+        const beneficiarioName = (item.dadosBeneficiario?.id === 'outro' ? item.dadosBeneficiario?.name : item.dadosUsuario?.name) || '';
+        const matchesBeneficiario = !filterBeneficiario || beneficiarioName.toLowerCase().includes(filterBeneficiario.toLowerCase());
+
+        // Filtro por Parentesco
+        const parentesco = item.dadosBeneficiario?.parentesco || '';
+        const matchesParentesco = filterParentesco === 'Todos' ||
+            (filterParentesco === 'Próprio Solicitante'
+                ? (!item.dadosBeneficiario || item.dadosBeneficiario?.id !== 'outro')
+                : parentesco.toLowerCase() === filterParentesco.toLowerCase());
+
+        // Filtro por E-mail
+        const email = (item.dadosUsuario?.email || '').toLowerCase();
+        const matchesEmail = !filterEmail || email.includes(filterEmail.toLowerCase());
+
+        // Filtro por Telefone
+        const allTelefones = `${item.dadosUsuario?.telefone || ''} ${item.dadosUsuario?.phone || ''} ${item.dadosBeneficiario?.phone || ''}`.replace(/\D/g, '');
+        const searchTelefone = filterTelefone.replace(/\D/g, '');
+        const matchesTelefone = !filterTelefone || allTelefones.includes(searchTelefone);
+
+        // Filtro por Tipo de Documento
+        const tipoDoc = item.dadosSolicitacao?.tipoDocumento || '';
+        const matchesTipoDoc = !filterTipoDocumento || tipoDoc.toLowerCase().includes(filterTipoDocumento.toLowerCase());
+
+        // Filtro por Estado Civil
+        const detalhes = item.dadosSolicitacao?.detalhes || {};
+        const estadoCivilKeys = Object.keys(detalhes).filter(k => k.toLowerCase().includes('estado civil') || k.toLowerCase().includes('estadocivil'));
+        const estadoCivilVal = estadoCivilKeys.length > 0 ? detalhes[estadoCivilKeys[0]] : '';
+        const matchesEstadoCivil = !filterEstadoCivil || (estadoCivilVal && estadoCivilVal.toLowerCase().includes(filterEstadoCivil.toLowerCase()));
 
         // Filtro por Data Agendada
         let matchesDate = true;
@@ -351,7 +381,7 @@ const AdminBalcaoAgendamentos = () => {
             }
         }
 
-        return matchesSearch && matchesStatus && matchesAssunto && matchesDate;
+        return matchesSearch && matchesAssunto && matchesDate && matchesBeneficiario && matchesParentesco && matchesEmail && matchesTelefone && matchesTipoDoc && matchesEstadoCivil;
     });
 
     const totalPages = Math.ceil(filteredAgendamentos.length / itemsPerPage);
@@ -493,15 +523,20 @@ const AdminBalcaoAgendamentos = () => {
 
     const clearFilters = () => {
         setSearchTerm('');
-        setFilterStatus('Todas');
         setFilterAssunto('Todos');
+        setFilterBeneficiario('');
+        setFilterParentesco('Todos');
+        setFilterEmail('');
+        setFilterTelefone('');
+        setFilterTipoDocumento('');
+        setFilterEstadoCivil('');
         setFilterDateFrom('');
         setFilterDateTo('');
         setCurrentPage(1);
     };
 
-    const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Concluído', 'Cancelado', 'Não Classificado'];
     const assuntosList = ['Todos', 'Informações Gerais', 'Emissão de Documentos', 'Agendamento', 'Outros'];
+    const parentescoList = ['Todos', 'Próprio Solicitante', 'Cônjuge', 'Filho(a)', 'Pai', 'Mãe', 'Irmão(ã)', 'Avô(ó)', 'Tio(a)', 'Sobrinho(a)', 'Outro'];
 
     if (!isAuthReady) return <div className="loading-screen">Carregando...</div>;
 
@@ -566,18 +601,6 @@ const AdminBalcaoAgendamentos = () => {
                     {showFilters && (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border-color, #e5e7eb)' }}>
                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label>Status</label>
-                                <select
-                                    value={filterStatus}
-                                    onChange={(e) => { setFilterStatus(e.target.value); handleFilterChange(); }}
-                                    className="form-input"
-                                    style={{ margin: 0 }}
-                                >
-                                    {statusList.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </div>
-
-                            <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label>Assunto</label>
                                 <select
                                     value={filterAssunto}
@@ -587,6 +610,78 @@ const AdminBalcaoAgendamentos = () => {
                                 >
                                     {assuntosList.map(a => <option key={a} value={a}>{a}</option>)}
                                 </select>
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Beneficiário</label>
+                                <input
+                                    type="text"
+                                    placeholder="Nome do beneficiário"
+                                    value={filterBeneficiario}
+                                    onChange={(e) => { setFilterBeneficiario(e.target.value); handleFilterChange(); }}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                />
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Parentesco</label>
+                                <select
+                                    value={filterParentesco}
+                                    onChange={(e) => { setFilterParentesco(e.target.value); handleFilterChange(); }}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                >
+                                    {parentescoList.map(p => <option key={p} value={p}>{p}</option>)}
+                                </select>
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>E-mail</label>
+                                <input
+                                    type="email"
+                                    placeholder="E-mail do solicitante"
+                                    value={filterEmail}
+                                    onChange={(e) => { setFilterEmail(e.target.value); handleFilterChange(); }}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                />
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Telefone</label>
+                                <input
+                                    type="text"
+                                    placeholder="Telefone"
+                                    value={filterTelefone}
+                                    onChange={(e) => { setFilterTelefone(e.target.value); handleFilterChange(); }}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                />
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Tipo de Documento</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ex: RG, CNH..."
+                                    value={filterTipoDocumento}
+                                    onChange={(e) => { setFilterTipoDocumento(e.target.value); handleFilterChange(); }}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                />
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Estado Civil</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ex: Solteiro(a)..."
+                                    value={filterEstadoCivil}
+                                    onChange={(e) => { setFilterEstadoCivil(e.target.value); handleFilterChange(); }}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                />
                             </div>
 
                             <div className="form-group" style={{ marginBottom: 0 }}>
