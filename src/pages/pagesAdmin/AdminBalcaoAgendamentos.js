@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
     collection, query, where, getDocs, doc, updateDoc,
-    getDoc, addDoc, serverTimestamp, limit, startAfter, orderBy
+    getDoc, addDoc, serverTimestamp, limit, orderBy
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
@@ -98,17 +98,17 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
             const response = await fetch(file.data);
             const blob = await response.blob();
             const convertedFile = new File([blob], file.name, { type: file.type });
-            
+
             const folderPath = `balcao-cidadao/migrated/${solicitacao.id}`;
             const uploadResult = await uploadFileToStorage(convertedFile, folderPath);
-            
+
             const itemRef = doc(firestore, 'balcao-cidadao', solicitacao.id);
-            
+
             await updateDoc(itemRef, {
                 [`dadosSolicitacao.anexos.${category}.${index}.url`]: uploadResult.url,
-                [`dadosSolicitacao.anexos.${category}.${index}.data`]: uploadResult.url 
+                [`dadosSolicitacao.anexos.${category}.${index}.data`]: uploadResult.url
             });
-            
+
             file.url = uploadResult.url;
             file.data = uploadResult.url;
             alert("Arquivo migrado com sucesso!");
@@ -144,15 +144,15 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                             )}
                         </div>
 
-                    {solicitacao.dadosBeneficiario && solicitacao.dadosBeneficiario.id === 'outro' && (
-                        <div className="data-card" style={{ marginTop: '20px' }}>
-                            <div className="card-header"><h3>Dados do Beneficiário</h3></div>
-                            <div className="detail-item"><strong>Nome:</strong> {solicitacao.dadosBeneficiario.name || 'N/A'}</div>
-                            <div className="detail-item"><strong>CPF:</strong> {solicitacao.dadosBeneficiario.cpf || 'N/A'}</div>
-                            <div className="detail-item"><strong>Telefone:</strong> {solicitacao.dadosBeneficiario.phone || 'N/A'}</div>
-                            <div className="detail-item"><strong>Parentesco:</strong> {solicitacao.dadosBeneficiario.parentesco || 'N/A'}</div>
-                        </div>
-                    )}
+                        {solicitacao.dadosBeneficiario && solicitacao.dadosBeneficiario.id === 'outro' && (
+                            <div className="data-card" style={{ marginTop: '20px' }}>
+                                <div className="card-header"><h3>Dados do Beneficiário</h3></div>
+                                <div className="detail-item"><strong>Nome:</strong> {solicitacao.dadosBeneficiario.name || 'N/A'}</div>
+                                <div className="detail-item"><strong>CPF:</strong> {solicitacao.dadosBeneficiario.cpf || 'N/A'}</div>
+                                <div className="detail-item"><strong>Telefone:</strong> {solicitacao.dadosBeneficiario.phone || 'N/A'}</div>
+                                <div className="detail-item"><strong>Parentesco:</strong> {solicitacao.dadosBeneficiario.parentesco || 'N/A'}</div>
+                            </div>
+                        )}
 
                         <div className="data-card" style={{ marginTop: '20px' }}>
                             <div className="card-header"><h3>Descrição da Solicitação</h3></div>
@@ -178,7 +178,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                     <div className="detail-item" style={{ marginTop: '10px' }}><strong>Documentos Anexados:</strong></div>
                                     {solicitacao.dadosSolicitacao.anexos && Object.entries(solicitacao.dadosSolicitacao.anexos).length > 0 ? (
                                         <ul className="file-list" style={{ marginTop: '5px', paddingLeft: '20px' }}>
-                                            {Object.entries(solicitacao.dadosSolicitacao.anexos).map(([category, files]) => 
+                                            {Object.entries(solicitacao.dadosSolicitacao.anexos).map(([category, files]) =>
                                                 files.map((file, index) => (
                                                     <li key={`${category}-${index}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
                                                         <button onClick={() => setViewingFile(file)} className="file-link" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>
@@ -259,19 +259,15 @@ const AdminBalcaoAgendamentos = () => {
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterStatus, setFilterStatus] = useState('Todas'); // Alterado para mostrar tudo por padrão
+    const [filterStatus, setFilterStatus] = useState('Agendado'); // Alterado para mostrar Agendado por padrão
     const [filterAssunto, setFilterAssunto] = useState('Todos');
     const [filterDateFrom, setFilterDateFrom] = useState('');
     const [filterDateTo, setFilterDateTo] = useState('');
     const [showFilters, setShowFilters] = useState(false);
 
-    // Paginação
+    // Paginação Local
     const [currentPage, setCurrentPage] = useState(1);
-    const [cursors, setCursors] = useState([null]);
-    const [firstKey, setFirstKey] = useState(null);
-    const [isLastPage, setIsLastPage] = useState(false);
     const itemsPerPage = 15;
-    const maxItemsWithFilters = 500; // Aumentado para garantir que o filtro local encontre mais dados
 
     const hasActiveFilters = !!(searchTerm || filterStatus !== 'Todas' || filterAssunto !== 'Todos' || filterDateFrom || filterDateTo);
 
@@ -283,58 +279,32 @@ const AdminBalcaoAgendamentos = () => {
         return () => unsubscribe();
     }, [navigate]);
 
-    // Busca com paginação e filtros no servidor para consultar em todo o banco
-    const fetchAgendamentos = useCallback(async (cursor = null, filtering = false) => {
+    const fetchAgendamentos = useCallback(async () => {
         setLoading(true);
         try {
             const solicitacoesRef = collection(firestore, 'balcao-cidadao');
+            let q;
 
-            let q = query(solicitacoesRef);
-
-            // Adiciona ordenação por data de solicitação para consistência
-            if (!filtering) {
-                q = query(q, orderBy('dataSolicitacao', 'desc'));
+            // Como a ordenação no Firebase por appointmentDate omite documentos onde a data
+            // está aninhada (em dadosSolicitacao), buscamos por status e ordenamos localmente.
+            if (filterStatus === 'Todas') {
+                q = query(solicitacoesRef, orderBy('timestamp', 'desc'), limit(200));
+            } else {
+                q = query(solicitacoesRef, where('status', '==', filterStatus), limit(1000));
             }
-
-            // Filtro de Status no Servidor
-            if (filterStatus !== 'Todas') {
-                q = query(q, where('status', '==', filterStatus));
-            }
-
-            // Filtro de Assunto no Servidor
-            if (filterAssunto !== 'Todos') {
-                q = query(q, where('dadosSolicitacao.assunto', '==', filterAssunto));
-            }
-
-            if (cursor) {
-                q = query(q, startAfter(cursor));
-            }
-
-            // Se estiver filtrando, buscamos um lote maior para que o filtro local (JS) 
-            // encontre registros que não estariam nos 15 primeiros
-            q = query(q, limit(filtering ? maxItemsWithFilters : itemsPerPage));
 
             const snapshot = await getDocs(q);
             const fetchedData = !snapshot.empty
                 ? snapshot.docs
                     .map(doc => {
                         const data = doc.data();
-                        return { 
-                            id: doc.id, 
+                        return {
+                            id: doc.id,
                             ...data,
                             // Extraímos a data e hora de agendamento aqui para que o .filter abaixo funcione
                             appointmentDate: data.appointmentDate || data.dadosSolicitacao?.appointmentDate,
                             appointmentTime: data.appointmentTime || data.dadosSolicitacao?.appointmentTime
                         };
-                    })
-                    .filter(item => {
-                        // Não apresentar agendamentos que não possuem data definida
-                        if (!item.appointmentDate) return false;
-
-                        // Agora o item.appointmentDate já está preenchido
-                        if (filterDateFrom && item.appointmentDate < filterDateFrom) return false;
-                        if (filterDateTo && item.appointmentDate > filterDateTo) return false;
-                        return true;
                     })
                     .sort((a, b) => {
                         // Ordenação local (JS) para garantir que os mais recentes apareçam primeiro
@@ -344,21 +314,18 @@ const AdminBalcaoAgendamentos = () => {
                     })
                 : [];
             setAgendamentos(fetchedData);
-            setFirstKey(snapshot.docs[snapshot.docs.length - 1] || null);
-            setIsLastPage(snapshot.docs.length < itemsPerPage); // Permite paginação mesmo com filtros
         } catch (error) {
             console.error('Erro ao buscar agendamentos:', error);
         } finally {
             setLoading(false);
         }
-    }, [filterStatus, filterAssunto, filterDateFrom, filterDateTo, itemsPerPage, maxItemsWithFilters]);
+    }, [filterStatus]);
 
     useEffect(() => {
         if (!isAuthReady) return;
         setCurrentPage(1);
-        setCursors([null]);
-        fetchAgendamentos(null, hasActiveFilters);
-    }, [isAuthReady, filterStatus, filterAssunto, filterDateFrom, filterDateTo, searchTerm, hasActiveFilters, fetchAgendamentos]);
+        fetchAgendamentos();
+    }, [isAuthReady, filterStatus, fetchAgendamentos]);
 
     /* ── Filtragem ── */
     const filteredAgendamentos = agendamentos.filter(item => {
@@ -372,33 +339,38 @@ const AdminBalcaoAgendamentos = () => {
         const matchesStatus = filterStatus === 'Todas' || item.status === filterStatus;
         const matchesAssunto = filterAssunto === 'Todos' || (item.dadosSolicitacao?.assunto || item.assunto) === filterAssunto;
 
-        return matchesSearch && matchesStatus && matchesAssunto;
+        // Filtro por Data Agendada
+        let matchesDate = true;
+        if (filterDateFrom || filterDateTo) {
+            const dateStr = item.appointmentDate;
+            if (dateStr) {
+                if (filterDateFrom && dateStr < filterDateFrom) matchesDate = false;
+                if (filterDateTo && dateStr > filterDateTo) matchesDate = false;
+            } else {
+                matchesDate = false;
+            }
+        }
+
+        return matchesSearch && matchesStatus && matchesAssunto && matchesDate;
     });
 
-    const paginatedItems = filteredAgendamentos;
+    const totalPages = Math.ceil(filteredAgendamentos.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedItems = filteredAgendamentos.slice(startIndex, startIndex + itemsPerPage);
+
     const handleNextPage = () => {
-        const nextCursor = firstKey;
-        setCursors(prev => [...prev, nextCursor]);
-        fetchAgendamentos(nextCursor);
-        setCurrentPage(prev => prev + 1);
+        if (currentPage < totalPages) setCurrentPage(prev => prev + 1);
     };
 
     const handlePrevPage = () => {
-        if (currentPage <= 1) return;
-        const newHistory = cursors.slice(0, -1);
-        const targetCursor = newHistory[newHistory.length - 1];
-        fetchAgendamentos(targetCursor);
-        setCursors(newHistory);
-        setCurrentPage(prev => prev - 1);
+        if (currentPage > 1) setCurrentPage(prev => prev - 1);
     };
 
     const handleResetPagination = () => {
         setCurrentPage(1);
-        setCursors([null]);
-        fetchAgendamentos(null);
     };
 
-    const handleFilterChange = () => { setCurrentPage(1); setCursors([null]); };
+    const handleFilterChange = () => { setCurrentPage(1); };
 
     /* ── Ações do Modal ── */
     const sendNotification = async (solicitacao) => {
@@ -430,7 +402,7 @@ const AdminBalcaoAgendamentos = () => {
                 subject: notificationTitle,
                 html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
             },
-                timestamp: serverTimestamp()
+            timestamp: serverTimestamp()
         });
     };
 
@@ -442,7 +414,7 @@ const AdminBalcaoAgendamentos = () => {
         } else {
             updateData.deletionTimestamp = null; // Cancela exclusão se voltar a ativo
         }
-        
+
         await updateDoc(itemRef, updateData);
         await sendNotification({ ...selectedSolicitacao, id, status: newStatus });
         alert('Status atualizado!');
@@ -454,9 +426,9 @@ const AdminBalcaoAgendamentos = () => {
         const itemRef = doc(firestore, 'balcao-cidadao', id);
         const newMessageId = Date.now().toString();
         const newMessage = { text, sender: 'admin', timestamp: new Date().toISOString() };
-        
+
         await updateDoc(itemRef, { [`messages.${newMessageId}`]: newMessage });
-        
+
         await sendNotification({ ...selectedSolicitacao, id });
         alert('Mensagem enviada!');
     };
@@ -486,7 +458,7 @@ const AdminBalcaoAgendamentos = () => {
                 subject: notificationTitle,
                 html: `<p>${notificationMessage}</p>`,
             },
-                timestamp: serverTimestamp()
+            timestamp: serverTimestamp()
         });
         alert(`Usuário ${userData.email} notificado!`);
     };
@@ -498,13 +470,13 @@ const AdminBalcaoAgendamentos = () => {
             const folderPath = `${config.cityCollection}/balcao-cidadao/${targetUserId}/anexos`;
             const uploadResult = await uploadFileToStorage(file, folderPath);
 
-            const fileData = { 
-                name: file.name, 
-                type: file.type, 
+            const fileData = {
+                name: file.name,
+                type: file.type,
                 url: uploadResult.url,
                 data: uploadResult.url, // Fallback
-                sender: 'admin', 
-                timestamp: serverTimestamp() 
+                sender: 'admin',
+                timestamp: serverTimestamp()
             };
 
             const itemRef = doc(firestore, 'balcao-cidadao', id);
@@ -713,8 +685,8 @@ const AdminBalcaoAgendamentos = () => {
                     </ul>
 
                     {/* Paginação */}
-                    {!loading && agendamentos.length > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
+                    {!loading && filteredAgendamentos.length > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
                             <button
                                 onClick={handleResetPagination}
                                 disabled={currentPage === 1}
@@ -723,7 +695,7 @@ const AdminBalcaoAgendamentos = () => {
                             >
                                 ⇤ Início
                             </button>
-                            
+
                             <button
                                 onClick={handlePrevPage}
                                 disabled={currentPage === 1}
@@ -733,11 +705,15 @@ const AdminBalcaoAgendamentos = () => {
                                 Anterior
                             </button>
 
+                            <span style={{ fontSize: '0.9rem', color: '#4b5563', margin: '0 8px' }}>
+                                Página {currentPage} de {totalPages}
+                            </span>
+
                             <button
                                 onClick={handleNextPage}
-                                disabled={isLastPage}
+                                disabled={currentPage >= totalPages}
                                 className="btn-primary"
-                                style={{ padding: '6px 20px', opacity: isLastPage ? 0.4 : 1 }}
+                                style={{ padding: '6px 20px', opacity: currentPage >= totalPages ? 0.4 : 1 }}
                             >
                                 Próxima Página ➔
                             </button>

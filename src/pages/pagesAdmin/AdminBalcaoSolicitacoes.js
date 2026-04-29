@@ -281,8 +281,7 @@ const AdminBalcaoSolicitacoes = () => {
     // Paginação e Filtros
     const [currentPage, setCurrentPage] = useState(1);
     const [cursors, setCursors] = useState([null]); // Histórico de cursores para navegação
-    const itemsPerPage = 15;
-    const maxItemsWithFilters = 500; 
+    const itemsPerPage = 15; 
     const [isLastPage, setIsLastPage] = useState(false);
     const hasActiveFilters = !!(searchTerm || filterStatus !== 'Todas' || filterAssunto !== 'Todos' || filterDateFrom || filterDateTo);
 
@@ -303,9 +302,9 @@ const AdminBalcaoSolicitacoes = () => {
             const solicitacoesRef = collection(firestore, 'balcao-cidadao');
             
             // Para evitar erros de índice composto no Firestore ao combinar filtros e ordenação,
-            // só aplicamos orderBy no servidor quando não há filtros ativos.
             let q = query(solicitacoesRef);
-            if (!filtering) {
+
+            if (!filtering) { // Only apply orderBy, startAfter, and limit for standard pagination
                 q = query(q, orderBy('dataSolicitacao', 'desc'));
             }
 
@@ -317,11 +316,13 @@ const AdminBalcaoSolicitacoes = () => {
                 q = query(q, where('dadosSolicitacao.assunto', '==', filterAssunto));
             }
 
-            if (cursor) {
-                q = query(q, startAfter(cursor));
+            if (!filtering) { // Apply pagination only if no filters are active
+                if (cursor) {
+                    q = query(q, startAfter(cursor));
+                }
+                q = query(q, limit(itemsPerPage));
             }
             
-            q = query(q, limit(filtering ? maxItemsWithFilters : itemsPerPage));
 
             const snapshot = await getDocs(q);
             const fetchedData = snapshot.docs.map(doc => ({ 
@@ -335,14 +336,14 @@ const AdminBalcaoSolicitacoes = () => {
             })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); // Ordenação local garantida
 
             setSolicitacoes(fetchedData);
-            setFirstKey(snapshot.docs[snapshot.docs.length - 1] || null);
-            setIsLastPage(filtering ? true : snapshot.docs.length < itemsPerPage);
+            setFirstKey(snapshot.docs[snapshot.docs.length - 1] || null); // Keep track of last doc for next page
+            setIsLastPage(filtering || snapshot.docs.length < itemsPerPage); // If filtering, assume it's the "last page" for pagination controls
         } catch (error) {
             console.error('Erro ao buscar solicitações:', error);
         } finally {
-            setLoading(false);
+            setLoading(false); 
         }
-    }, [itemsPerPage, filterStatus, filterAssunto, maxItemsWithFilters]);
+    }, [itemsPerPage, filterStatus, filterAssunto]);
 
     useEffect(() => {
         if (!isAuthReady) return;
