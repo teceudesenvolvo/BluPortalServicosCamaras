@@ -256,6 +256,8 @@ const AdminBalcaoAgendamentos = () => {
     const [loading, setLoading] = useState(true);
     const [agendamentos, setAgendamentos] = useState([]);
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
+    const [selectedItems, setSelectedItems] = useState([]);
+    const [bulkStatus, setBulkStatus] = useState('');
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
@@ -452,6 +454,68 @@ const AdminBalcaoAgendamentos = () => {
         fetchAgendamentos(); // Atualiza a lista após mudança de status
     };
 
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            const newSelections = paginatedItems.map(item => item.id).filter(id => !selectedItems.includes(id));
+            setSelectedItems([...selectedItems, ...newSelections]);
+        } else {
+            const idsToRemove = paginatedItems.map(item => item.id);
+            setSelectedItems(selectedItems.filter(id => !idsToRemove.includes(id)));
+        }
+    };
+
+    const handleSelectItem = (id) => {
+        if (selectedItems.includes(id)) {
+            setSelectedItems(selectedItems.filter(itemId => itemId !== id));
+        } else {
+            setSelectedItems([...selectedItems, id]);
+        }
+    };
+
+    const handleBulkStatusChange = async () => {
+        if (selectedItems.length === 0) {
+            alert('Selecione pelo menos um agendamento.');
+            return;
+        }
+        if (!bulkStatus) {
+            alert('Selecione um status para aplicar.');
+            return;
+        }
+        if (!window.confirm(`Tem certeza que deseja alterar o status de ${selectedItems.length} agendamento(s) para "${bulkStatus}"?`)) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await Promise.all(selectedItems.map(async (id) => {
+                const itemRef = doc(firestore, 'balcao-cidadao', id);
+                let updateData = { status: bulkStatus };
+                if (bulkStatus === 'Concluído' || bulkStatus === 'Cancelado') {
+                    updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
+                } else {
+                    updateData.deletionTimestamp = null;
+                }
+
+                await updateDoc(itemRef, updateData);
+
+                const item = agendamentos.find(a => a.id === id);
+                if (item) {
+                    await sendNotification({ ...item, status: bulkStatus });
+                }
+            }));
+
+            alert('Status atualizado com sucesso!');
+            setSelectedItems([]);
+            setBulkStatus('');
+            fetchAgendamentos();
+        } catch (error) {
+            console.error('Erro na atualização em massa:', error);
+            alert('Erro ao atualizar status.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSendMessage = async (id, text) => {
         const itemRef = doc(firestore, 'balcao-cidadao', id);
         const newMessageId = Date.now().toString();
@@ -533,6 +597,7 @@ const AdminBalcaoAgendamentos = () => {
         setFilterDateFrom('');
         setFilterDateTo('');
         setCurrentPage(1);
+        setSelectedItems([]);
     };
 
     const assuntosList = ['Todos', 'Informações Gerais', 'Emissão de Documentos', 'Agendamento', 'Outros'];
@@ -711,14 +776,52 @@ const AdminBalcaoAgendamentos = () => {
 
                 {/* Lista completa */}
                 <div className="data-card">
-                    <div className="card-header">
-                        <h3>Lista de Agendamentos</h3>
-                        <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
-                            Página {currentPage} {hasActiveFilters && '(Resultados filtrados)'}
-                        </span>
+                    <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                        <div>
+                            <h3>Lista de Agendamentos</h3>
+                            <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                                Página {currentPage} {hasActiveFilters && '(Resultados filtrados)'}
+                            </span>
+                        </div>
+                        {selectedItems.length > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f3f4f6', padding: '8px 12px', borderRadius: '8px' }}>
+                                <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{selectedItems.length} selecionado(s)</span>
+                                <select 
+                                    value={bulkStatus} 
+                                    onChange={(e) => setBulkStatus(e.target.value)} 
+                                    className="form-input" 
+                                    style={{ margin: 0, minWidth: '180px', padding: '6px 10px', height: 'auto' }}
+                                >
+                                    <option value="">Alterar status para...</option>
+                                    <option value="Agendamento Liberado">Agendamento Liberado</option>
+                                    <option value="Agendado">Agendado</option>
+                                    <option value="Aguardando Atendimento">Aguardando Atendimento</option>
+                                    <option value="Em Análise">Em Análise</option>
+                                    <option value="Concluído">Concluído</option>
+                                    <option value="Documentação Reprovada">Documentação Reprovada</option>
+                                    <option value="Documentação Reenviada">Documentação Reenviada</option>
+                                    <option value="Cancelado">Cancelado</option>
+                                </select>
+                                <button onClick={handleBulkStatusChange} className="btn-primary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
+                                    Aplicar
+                                </button>
+                            </div>
+                        )}
                     </div>
 
-                    {loading && <p>Carregando agendamentos...</p>}
+                    {!loading && paginatedItems.length > 0 && (
+                        <div style={{ padding: '10px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <input 
+                                type="checkbox" 
+                                checked={paginatedItems.length > 0 && paginatedItems.every(item => selectedItems.includes(item.id))}
+                                onChange={handleSelectAll}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            <span style={{ fontSize: '0.9rem', color: '#4b5563', fontWeight: '500' }}>Selecionar todos desta página</span>
+                        </div>
+                    )}
+
+                    {loading && <p style={{ padding: '16px' }}>Carregando agendamentos...</p>}
 
                     {!loading && filteredAgendamentos.length === 0 && (
                         <div style={{ textAlign: 'center', padding: '40px 0', color: '#6b7280' }}>
@@ -742,8 +845,16 @@ const AdminBalcaoAgendamentos = () => {
                                     key={item.id}
                                     className="data-list-item"
                                     onClick={() => setSelectedSolicitacao(item)}
-                                    style={{ cursor: 'pointer', opacity: isPast ? 0.6 : 1 }}
+                                    style={{ cursor: 'pointer', opacity: isPast ? 0.6 : 1, display: 'flex', alignItems: 'center' }}
                                 >
+                                    <div style={{ marginRight: '16px' }} onClick={(e) => e.stopPropagation()}>
+                                        <input 
+                                            type="checkbox"
+                                            checked={selectedItems.includes(item.id)}
+                                            onChange={() => handleSelectItem(item.id)}
+                                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                    </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
                                         <div style={{
                                             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
