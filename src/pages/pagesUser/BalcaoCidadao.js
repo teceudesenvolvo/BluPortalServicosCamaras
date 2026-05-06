@@ -96,13 +96,18 @@ const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
             else setError('');
             return;
         }
-        setError('');
 
         const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }).toLowerCase();
         const allSlotsForDay = availability[dayOfWeek] || [];
         const alreadyBookedSlots = bookedSlots[date] || [];
         const freeSlots = allSlotsForDay.filter(slot => !alreadyBookedSlots.includes(slot));
         setAvailableTimes(freeSlots);
+
+        if (freeSlots.length === 0) {
+            setError('Não há mais horários disponíveis para esta data.');
+        } else {
+            setError('');
+        }
     };
 
     const handleSchedule = () => {

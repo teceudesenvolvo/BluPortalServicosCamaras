@@ -592,8 +592,6 @@ const NovoBalcaoCidadao = () => {
                                     <select id="tipoDocumento" name="tipoDocumento" value={tipoDocumento} onChange={handleTipoDocumentoChange} required>
                                         <option value="">Selecione o documento</option>
                                         <option value="cin">Carteira de Identidade Nacional (CIN)</option>
-                                        <option value="cpf">CPF (2ª via / Atualização)</option>
-                                        <option value="ctd">Carteira de Trabalho Digital (Auxílio)</option>
                                     </select>
                                 </div>
                                 {renderDocumentFields()}
