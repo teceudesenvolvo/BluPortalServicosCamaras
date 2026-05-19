@@ -39,13 +39,13 @@ const HomePage = () => {
     const [appLink, setAppLink] = useState('');
 
     useEffect(() => {
-        // Verifica se o usuário já fechou o popup anteriormente para não ser intrusivo
-        const isDismissed = localStorage.getItem('app-popup-dismissed');
-        if (isDismissed) return;
+        // Verifica se o popup já foi exibido/fechado anteriormente
+        const hasBeenShown = localStorage.getItem('app-popup-shown');
+        if (hasBeenShown) return;
 
         const userAgent = navigator.userAgent || navigator.vendor || window.opera;
 
-        // Identificação do dispositivo
+        // Identificação do dispositivo mobile
         if (/android/i.test(userAgent)) {
             setAppLink('https://play.google.com/store/apps/details?id=com.blutecnologias.appcamara&pcampaignid=web_share');
             setShowAppPopup(true);
@@ -55,8 +55,8 @@ const HomePage = () => {
         }
     }, []);
 
-    const dismissPopup = () => {
-        localStorage.setItem('app-popup-dismissed', 'true');
+    const handleDismissPopup = () => {
+        localStorage.setItem('app-popup-shown', 'true');
         setShowAppPopup(false);
     };
 
@@ -88,12 +88,12 @@ const HomePage = () => {
                 <div style={popupStyles.overlay}>
                     <div style={popupStyles.content}>
                         <h2 style={popupStyles.title}>Baixe nosso App!</h2>
-                        <p style={popupStyles.text}>Acesse os serviços da Câmara de Paraipaba com muito mais facilidade e rapidez direto do seu celular.</p>
+                        <p style={popupStyles.text}>Acesse os serviços da Câmara Municipal direto do seu celular com muito mais praticidade.</p>
                         <div style={popupStyles.buttonContainer}>
                             <a href={appLink} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                                <button style={popupStyles.downloadButton} onClick={() => setShowAppPopup(false)}>Baixar Agora</button>
+                                <button style={popupStyles.downloadButton} onClick={handleDismissPopup}>Baixar Agora</button>
                             </a>
-                            <button style={popupStyles.dismissButton} onClick={dismissPopup}>Agora não</button>
+                            <button style={popupStyles.dismissButton} onClick={handleDismissPopup}>Agora não</button>
                         </div>
                     </div>
                 </div>
@@ -166,7 +166,6 @@ const popupStyles = {
         maxWidth: '400px',
         width: '100%',
         boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-        animation: 'fadeIn 0.3s ease-out'
     },
     title: {
         color: '#00128A',
