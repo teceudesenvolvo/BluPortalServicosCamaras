@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     LiaUserFriendsSolid,
@@ -35,6 +35,30 @@ const ServiceCard = ({ icon, title, description, onClick }) => {
 // Componente Principal: Home Page
 const HomePage = () => {
     const navigate = useNavigate();
+    const [showAppPopup, setShowAppPopup] = useState(false);
+    const [appLink, setAppLink] = useState('');
+
+    useEffect(() => {
+        // Verifica se o usuário já fechou o popup anteriormente para não ser intrusivo
+        const isDismissed = localStorage.getItem('app-popup-dismissed');
+        if (isDismissed) return;
+
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+
+        // Identificação do dispositivo
+        if (/android/i.test(userAgent)) {
+            setAppLink('https://play.google.com/store/apps/details?id=com.blutecnologias.appcamara&pcampaignid=web_share');
+            setShowAppPopup(true);
+        } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+            setAppLink('https://apps.apple.com/br/app/cm-paraipaba/id6769832252');
+            setShowAppPopup(true);
+        }
+    }, []);
+
+    const dismissPopup = () => {
+        localStorage.setItem('app-popup-dismissed', 'true');
+        setShowAppPopup(false);
+    };
 
     const services = [
         {
@@ -60,6 +84,20 @@ const HomePage = () => {
     return (
         <div className="home-page-modern">
             <MaintenancePopup />
+            {showAppPopup && (
+                <div style={popupStyles.overlay}>
+                    <div style={popupStyles.content}>
+                        <h2 style={popupStyles.title}>Baixe nosso App!</h2>
+                        <p style={popupStyles.text}>Acesse os serviços da Câmara de Paraipaba com muito mais facilidade e rapidez direto do seu celular.</p>
+                        <div style={popupStyles.buttonContainer}>
+                            <a href={appLink} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                                <button style={popupStyles.downloadButton} onClick={() => setShowAppPopup(false)}>Baixar Agora</button>
+                            </a>
+                            <button style={popupStyles.dismissButton} onClick={dismissPopup}>Agora não</button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <header className="home-header-modern" style={{ backgroundImage: `url(${HeroBackground})` }}>
                 <div className="header-blur-overlay"></div>
                 <div className="nav-container">
@@ -104,6 +142,69 @@ const HomePage = () => {
             <Footer />
         </div>
     );
+};
+
+const popupStyles = {
+    overlay: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10001,
+        padding: '20px'
+    },
+    content: {
+        backgroundColor: 'white',
+        padding: '30px',
+        borderRadius: '20px',
+        textAlign: 'center',
+        maxWidth: '400px',
+        width: '100%',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+        animation: 'fadeIn 0.3s ease-out'
+    },
+    title: {
+        color: '#00128A',
+        marginBottom: '15px',
+        fontSize: '1.5rem',
+        fontWeight: 'bold'
+    },
+    text: {
+        color: '#4b5563',
+        marginBottom: '25px',
+        lineHeight: '1.6',
+        fontSize: '1rem'
+    },
+    buttonContainer: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px'
+    },
+    downloadButton: {
+        backgroundColor: '#00128A',
+        color: 'white',
+        border: 'none',
+        padding: '14px',
+        borderRadius: '10px',
+        width: '100%',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        fontSize: '1rem'
+    },
+    dismissButton: {
+        backgroundColor: 'transparent',
+        color: '#9ca3af',
+        border: 'none',
+        padding: '10px',
+        cursor: 'pointer',
+        fontSize: '0.9rem',
+        textDecoration: 'underline'
+    }
 };
 
 export default HomePage;

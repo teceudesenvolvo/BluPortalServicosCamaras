@@ -99,18 +99,26 @@ const promptStyles = {
     banner: {
         backgroundColor: '#00128A',
         color: 'white',
-        padding: '10px 20px',
+        padding: '15px 20px',
         textAlign: 'center',
         display: 'flex',
+        flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        gap: '15px',
-        flexWrap: 'wrap',
-        marginBottom: '20px', // Adiciona um espaço antes do conteúdo do rodapé
+        gap: '12px',
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 9999,
+        boxShadow: '0 -4px 15px rgba(0,0,0,0.3)',
+        borderTop: '2px solid rgba(255,255,255,0.1)'
     },
     text: {
         margin: 0,
-        fontSize: '1rem',
+        fontSize: '0.95rem',
+        fontWeight: '500',
+        lineHeight: '1.4'
     },
     downloadButton: {
         backgroundColor: '#4CAF50',
