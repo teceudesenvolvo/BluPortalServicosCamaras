@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { firestore } from '../../firebase';
-import { 
-    collection, query, where, doc, getDoc, 
+import {
+    collection, query, where, doc, getDoc,
     updateDoc, serverTimestamp, onSnapshot, runTransaction
 } from 'firebase/firestore';
 import Sidebar from '../../components/Sidebar';
@@ -29,14 +29,14 @@ const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
             const availabilityRef = doc(firestore, 'balcao-config', 'availability');
             const bookedSlotsRef = doc(firestore, 'balcao-config', 'bookedSlots');
             const blockedDatesRef = doc(firestore, 'balcao-config', 'blockedDates');
-            
+
             try {
                 const [availSnap, bookedSnap, blockedSnap] = await Promise.all([
                     getDoc(availabilityRef), getDoc(bookedSlotsRef), getDoc(blockedDatesRef)
                 ]);
                 if (availSnap.exists()) setAvailability(availSnap.data());
                 if (bookedSnap.exists()) setBookedSlots(bookedSnap.data());
-                
+
                 let manualBlocked = [];
                 if (blockedSnap.exists()) manualBlocked = blockedSnap.data().dates || [];
 
@@ -172,7 +172,7 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmi
     const handleFileUpdate = async (e, fieldKey) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
-        
+
         setUploading(true);
         try {
             await onUploadFiles(solicitacao.id, files, fieldKey);
@@ -211,7 +211,7 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmi
                     )}
                     <hr />
                     <h4>Detalhes</h4>
-                    <div className="detail-item"><strong>Assunto:</strong> {dadosSolicitacao?.assunto || 'N/A'}</div> 
+                    <div className="detail-item"><strong>Assunto:</strong> {dadosSolicitacao?.assunto || 'N/A'}</div>
                     {dadosSolicitacao?.assunto === 'Agendamento' ? (
                         <>
                             <div className="detail-item"><strong>Data Agendada:</strong> {dadosSolicitacao?.appointmentDate || 'N/A'}</div>
@@ -345,7 +345,7 @@ const BalcaoCidadao = () => {
 
             return unsubscribe;
         };
-        
+
         const unsubscribe = fetchSolicitacoes();
         return () => unsubscribe && unsubscribe();
     }, [currentUser, navigate]);
@@ -385,7 +385,7 @@ const BalcaoCidadao = () => {
         if (!currentUser) return;
         const docRef = doc(firestore, 'balcao-cidadao', solicitacaoId);
         const msgId = Date.now().toString();
-        
+
         try {
             await updateDoc(docRef, {
                 [`messages.${msgId}`]: {
@@ -400,7 +400,7 @@ const BalcaoCidadao = () => {
 
     const handleUploadFiles = async (solicitacaoId, files, fieldKey = 'arquivos_adicionais') => {
         if (!currentUser) return;
-        
+
         try {
             const solicitacaoRef = doc(firestore, 'balcao-cidadao', solicitacaoId);
             const snapshot = await getDoc(solicitacaoRef);
@@ -419,7 +419,7 @@ const BalcaoCidadao = () => {
 
             const uploadedFiles = [];
             const folderPath = `${config.cityCollection}/balcao-cidadao/${currentUser.uid}/anexos`;
-            
+
             for (const file of files) {
                 const result = await uploadFileToStorage(file, folderPath);
                 uploadedFiles.push({
@@ -435,8 +435,8 @@ const BalcaoCidadao = () => {
                 updatedFieldFiles = [...(currentAnexos.arquivos_adicionais || []), ...uploadedFiles];
             }
 
-            await updateDoc(solicitacaoRef, { 
-                [`dadosSolicitacao.anexos.${fieldKey}`]: updatedFieldFiles, 
+            await updateDoc(solicitacaoRef, {
+                [`dadosSolicitacao.anexos.${fieldKey}`]: updatedFieldFiles,
                 ultimaAtualizacao: serverTimestamp(),
                 status: 'Documentação Reenviada',
                 deletionTimestamp: null
@@ -461,15 +461,15 @@ const BalcaoCidadao = () => {
                 }
 
                 // Atualiza a solicitação do usuário
-                transaction.update(solicitacaoRef, { 
-                    status: 'Agendado', 
-                    appointmentDate: date, 
-                    appointmentTime: time 
+                transaction.update(solicitacaoRef, {
+                    status: 'Agendado',
+                    appointmentDate: date,
+                    appointmentTime: time
                 });
 
                 // Atualiza o mapa de slots ocupados
-                transaction.set(bookedSlotRef, { 
-                    [date]: [...currentBookings, time] 
+                transaction.set(bookedSlotRef, {
+                    [date]: [...currentBookings, time]
                 }, { merge: true });
             });
 
