@@ -15,6 +15,7 @@ import Perfil from './pages/Perfil';
 import DevelopmentPopup from './components/DevelopmentPopup';
 
 // Páginas Usuário Comum
+import DownloadApp from './pages/DownloadApp';
 import Painel from './pages/pagesUser/Painel';
 import Procon from './pages/pagesUser/realizarReclamacaoProcon';
 import ProconAtendimentos from './pages/pagesUser/ProconAtendimentos';
@@ -57,6 +58,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cadastro" element={<CadastroPage />} />
+          <Route path="/download-app" element={<DownloadApp />} />
           <Route path="/perfil" element={<Perfil />} />
 
           {/* Com Login - Usuário Comum */}
