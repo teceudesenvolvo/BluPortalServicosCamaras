@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { firestore } from '../../firebase';
 import {
-    collection, query, where, doc, getDoc,
+    collection, query, where, doc, getDoc, deleteDoc,
     updateDoc, serverTimestamp, onSnapshot, runTransaction
 } from 'firebase/firestore';
 import Sidebar from '../../components/Sidebar';
@@ -11,7 +11,7 @@ import config from '../../config';
 import { uploadFileToStorage, deleteFileFromStorage } from '../../utils/firebaseStorageUtils';
 
 // Ícones
-import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane, LiaPaperclipSolid, LiaUploadSolid } from "react-icons/lia";
+import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane, LiaPaperclipSolid, LiaUploadSolid, LiaTrashAltSolid } from "react-icons/lia";
 
 // Componente para Agendamento
 const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
@@ -246,13 +246,15 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmi
                                             </a>
                                         </div>
                                     ))}
-                                    <div style={{ marginTop: '8px' }}>
+                                    {status !== 'Cancelado' && (
+                                        <div style={{ marginTop: '8px' }}>
                                         <label className="btn-secondary" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 10px', fontSize: '0.75rem', borderRadius: '4px' }}>
                                             <LiaUploadSolid size={14} />
                                             {uploading ? 'Enviando...' : 'Substituir Arquivo'}
                                             <input type="file" multiple={field === 'arquivos_adicionais'} onChange={(e) => handleFileUpdate(e, field)} hidden disabled={uploading} />
                                         </label>
                                     </div>
+                                    )}
                                 </div>
                             ))
                         ) : (
@@ -260,7 +262,7 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmi
                         )}
                     </div>
 
-                    {(!dadosSolicitacao?.anexos || !dadosSolicitacao.anexos.arquivos_adicionais) && (
+                    {status !== 'Cancelado' && (!dadosSolicitacao?.anexos || !dadosSolicitacao.anexos.arquivos_adicionais) && (
                         <div className="upload-section" style={{ marginTop: '10px' }}>
                             <label className="btn-secondary" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', fontSize: '0.9rem' }}>
                                 <LiaUploadSolid size={18} />
@@ -303,6 +305,7 @@ const getStatusClass = (status) => {
         case 'Concluído': return 'status-completed';
         case 'Documentação Reprovada': return 'status-danger';
         case 'Documentação Reenviada': return 'status-in-progress';
+        case 'Cancelado': return 'status-danger';
         default: return '';
     }
 };
@@ -380,6 +383,19 @@ const BalcaoCidadao = () => {
 
     const handleNavigation = (path) => navigate(path);
     const handleOpenModal = (solicitacao) => setSelectedSolicitacao(solicitacao);
+
+    const handleDeleteSolicitacao = async (id) => {
+        if (!window.confirm("Tem certeza que deseja excluir esta solicitação? Esta ação não pode ser desfeita e permitirá que você crie uma nova solicitação para este assunto.")) {
+            return;
+        }
+        try {
+            await deleteDoc(doc(firestore, 'balcao-cidadao', id));
+            alert("Solicitação excluída com sucesso.");
+        } catch (err) {
+            console.error("Erro ao deletar solicitação:", err);
+            alert("Erro ao excluir solicitação. Tente novamente.");
+        }
+    };
 
     const handleSendMessage = async (solicitacaoId, text) => {
         if (!currentUser) return;
@@ -529,6 +545,16 @@ const BalcaoCidadao = () => {
                                                 {solicitacao.status}
                                             </span>
                                         </div>
+                                        {solicitacao.status === 'Cancelado' && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteSolicitacao(solicitacao.id); }}
+                                                className="btn-icon"
+                                                title="Excluir solicitação"
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
+                                            >
+                                                <LiaTrashAltSolid size={22} color="#ef4444" />
+                                            </button>
+                                        )}
                                         {/* {['Aguardando Atendimento', 'Em Análise'].includes(solicitacao.status) && (
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); navigate(`/balcao/novo/${solicitacao.id}`); }}
