@@ -10,6 +10,7 @@ import {
 
 import Footer from '../components/Footer'; // Importa o novo componente
 import VereadoresSlider from '../components/VereadoresSlider'; // Importa o slider
+import NoticiasSlider from '../components/NoticiasSlider'; // Importa o slider de notícias
 import MaintenancePopup from '../components/MaintenancePopup';
 import Logo from '../assets/logo-paraipaba.png';
 import HeroBackground from '../assets/fachada2-cm.jpg';
@@ -119,6 +120,8 @@ const HomePage = () => {
             </header>
 
             <main className="home-main-content">
+               
+
                 <section className="services-section-modern">
                     <h2>Nossos Serviços</h2>
                     <div className="services-container-modern">
@@ -136,6 +139,10 @@ const HomePage = () => {
 
                 <section className="vereadores-slider-section">
                     <VereadoresSlider />
+                </section>
+
+                 <section className="noticias-section-modern" style={{ padding: '40px 0 0 0', maxWidth: '1200px', margin: '0 auto' }}>
+                    <NoticiasSlider />
                 </section>
             </main>
 

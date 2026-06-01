@@ -1,14 +1,18 @@
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
+const {onRequest} = require("firebase-functions/v2/https");
 const {defineString, defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin"); // Keep admin for database operations
+const {GoogleGenerativeAI} = require("@google/generative-ai");
 const nodemailer = require("nodemailer");
 
 admin.initializeApp();
 
 const gmailEmail = defineString("GMAIL_EMAIL");
 const gmailAppPassword = defineSecret("GMAIL_APP_PASSWORD");
+const genAIKey = defineSecret("GENAI_API_KEY");
 
+let genAI;
 let mailTransport;
 
 exports.sendMailOnNewRequest = onDocumentCreated(
@@ -55,6 +59,51 @@ exports.sendMailOnNewRequest = onDocumentCreated(
       await mailTransport.sendMail(mailOptions);
 
       return snapshot.ref.delete();
+    },
+);
+
+exports.generateNews = onRequest(
+    {secrets: [genAIKey]},
+    async (req, res) => {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Access-Control-Allow-Methods", "POST,OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type");
+
+      if (req.method === "OPTIONS") {
+        return res.status(204).send("");
+      }
+      if (req.method !== "POST") {
+        return res.status(405).send("Method Not Allowed");
+      }
+
+      if (!genAI) {
+        const apiKey = await genAIKey.value();
+        genAI = new GoogleGenerativeAI(apiKey);
+      }
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
+
+      try {
+        const prompt = req.body?.prompt;
+        if (!prompt || typeof prompt !== "string") {
+          return res.status(400).json({error: "Campo prompt é obrigatório."});
+        }
+
+        const result = await model.generateContent({
+          contents: [{parts: [{text: prompt}]}],
+          generationConfig: {
+            temperature: 0.7,
+          },
+        });
+
+        const response = result.response;
+        const generatedText = response.text() || "";
+
+        const cleanedText = generatedText.replace(/```html|```/g, "").trim();
+        return res.json({text: cleanedText});
+      } catch (error) {
+        console.error("Erro no generateNews:", error);
+        return res.status(500).json({error: "Erro interno ao gerar texto."});
+      }
     },
 );
 

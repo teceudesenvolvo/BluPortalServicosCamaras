@@ -11,4 +11,15 @@ module.exports = function(app) {
       },
     })
   );
+
+  app.use(
+    '/generateNews', // Firebase Cloud Function proxy
+    createProxyMiddleware({
+      target: 'https://generatenews-ncrh4bwrmq-uc.a.run.app', // Deploy function URL
+      changeOrigin: true,
+      pathRewrite: {
+        '^/generateNews': '', // Remove prefix
+      },
+    })
+  );
 };

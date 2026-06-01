@@ -10,6 +10,7 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/Login';
 import CadastroPage from './pages/Cadastro';
 import Perfil from './pages/Perfil';
+import NoticiaDetalhe from './pages/NoticiaDetalhe';
 
 // Componentes Globais
 import DevelopmentPopup from './components/DevelopmentPopup';
@@ -38,6 +39,7 @@ import AdminProcon from './pages/pagesAdmin/AdminProcon';
 import AdminJuridico from './pages/pagesAdmin/AdminJuridico';
 import AdminBalcao from './pages/pagesAdmin/AdminBalcao';
 import AdminBalcaoSolicitacoes from './pages/pagesAdmin/AdminBalcaoSolicitacoes';
+import AdminNoticiasSite from './pages/pagesAdmin/AdminNoticiasSite';
 import AdminOuvidoria from './pages/pagesAdmin/AdminOuvidoria';
 import AdminProcuradoria from './pages/pagesAdmin/AdminProcuradoria';
 import AdminVereadores from './pages/pagesAdmin/AdminVereadores';
@@ -60,6 +62,7 @@ function App() {
           <Route path="/cadastro" element={<CadastroPage />} />
           <Route path="/download-app" element={<DownloadApp />} />
           <Route path="/perfil" element={<Perfil />} />
+          <Route path="/noticia/:id" element={<NoticiaDetalhe />} />
 
           {/* Com Login - Usuário Comum */}
           <Route path="/dashboard" element={<Painel />} />
@@ -81,6 +84,7 @@ function App() {
           {/* Com Login - Admin */}
           <Route path="/admin-procon" element={<AdminProcon />} />
           <Route path="/admin-juridico" element={<AdminJuridico />} />
+          <Route path="/admin-noticias" element={<AdminNoticiasSite />} />
           <Route path="/admin-balcao" element={<AdminBalcao />} />
           <Route path="/admin-balcao/solicitacoes" element={<AdminBalcaoSolicitacoes />} />
           <Route path="/admin-ouvidoria" element={<AdminOuvidoria />} />
