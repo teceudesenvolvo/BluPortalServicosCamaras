@@ -136,14 +136,15 @@ const HomePage = () => {
                         ))}
                     </div>
                 </section>
+                 <section className="noticias-section-modern" style={{ padding: '40px 0 0 0', maxWidth: '1200px', margin: '0 auto' }}>
+                    <NoticiasSlider />
+                </section>
 
                 <section className="vereadores-slider-section">
                     <VereadoresSlider />
                 </section>
 
-                 <section className="noticias-section-modern" style={{ padding: '40px 0 0 0', maxWidth: '1200px', margin: '0 auto' }}>
-                    <NoticiasSlider />
-                </section>
+                
             </main>
 
             <Footer />

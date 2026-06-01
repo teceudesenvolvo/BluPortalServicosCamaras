@@ -1,4 +1,7 @@
-const {onDocumentCreated} = require("firebase-functions/v2/firestore");
+const {
+  onDocumentCreated,
+  onDocumentWritten,
+} = require("firebase-functions/v2/firestore");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onRequest} = require("firebase-functions/v2/https");
 const {defineString, defineSecret} = require("firebase-functions/params");
@@ -85,7 +88,9 @@ exports.generateNews = onRequest(
       try {
         const prompt = req.body?.prompt;
         if (!prompt || typeof prompt !== "string") {
-          return res.status(400).json({error: "Campo prompt é obrigatório."});
+          return res.status(400).json({
+            error: "Campo prompt é obrigatório.",
+          });
         }
 
         const result = await model.generateContent({
@@ -106,6 +111,67 @@ exports.generateNews = onRequest(
       }
     },
 );
+
+exports.notifyUsersOnNewsPublished = onDocumentWritten(
+    "noticias/{noticiaId}",
+    async (event) => {
+      const beforeData = event.data.before ? event.data.before.data() : null;
+      const afterData = event.data.after ? event.data.after.data() : null;
+
+      // Caso de exclusão de documento
+      if (!afterData) return null;
+
+      // Verifica se o status mudou para "Publicado" (ou se foi criado já
+      // publicado)
+      const isNewlyPublished = afterData.status === "Publicado" &&
+          (!beforeData || beforeData.status !== "Publicado");
+
+      if (!isNewlyPublished) return null;
+
+      const db = admin.firestore();
+      const usersSnapshot = await db.collection("users").get();
+
+      const promises = [];
+      usersSnapshot.forEach((userDoc) => {
+        const userData = userDoc.data();
+        const email = userData.email || userData.userEmail;
+
+        if (email) {
+          // 1. Cria a notificação interna para o histórico do App
+          promises.push(db.collection("notifications").add({
+            isRead: false,
+            protocolo: event.params.noticiaId,
+            targetUserId: userDoc.id,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            tituloNotification: "📢 " + afterData.titulo,
+            descricaoNotification: afterData.subtitulo ||
+                "Nova notícia publicada. Confira os detalhes no portal!",
+            userEmail: email,
+            userId: userDoc.id,
+          }));
+
+          // 2. Adiciona à fila de e-mail (processado por sendMailOnNewRequest)
+          promises.push(db.collection("mail").add({
+            to: email,
+            message: {
+              subject: `Informativo: ${afterData.titulo}`,
+              html: `<h3>${afterData.titulo}</h3>` +
+                    `<p>${afterData.subtitulo || ""}</p>` +
+                    `<hr>` +
+                    `<p>Uma nova notícia foi publicada no Portal de ` +
+                    `Serviços da ` +
+                    `Câmara Municipal de Paraipaba.</p>` +
+                    `<p>Acesse o aplicativo para ler o conteúdo completo.</p>`,
+            },
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          }));
+        }
+      });
+
+      return Promise.all(promises);
+    },
+);
+
 
 /**
  * Remove arquivos do Storage baseados nos dados da solicitação
