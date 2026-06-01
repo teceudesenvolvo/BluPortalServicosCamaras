@@ -175,7 +175,7 @@ const AdminUsersDashboard = () => {
     const hasActiveFilters = !!(searchTerm || filterTipo !== 'Todos');
 
     const BATCH_SIZE = 20; // Define o tamanho do lote
-    const [currentBatchStartIndex, setCurrentBatchStartIndex] = useState(200); // Começa em 20, pois os primeiros 20 já foram enviados
+    const [currentBatchStartIndex, setCurrentBatchStartIndex] = useState(0); 
     const [showEmailModal, setShowEmailModal] = useState(false);
 
     useEffect(() => {
