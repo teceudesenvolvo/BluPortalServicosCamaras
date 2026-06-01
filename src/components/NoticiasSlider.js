@@ -4,7 +4,6 @@ import { Splide, SplideSlide } from '@splidejs/react-splide';
 // Importação obrigatória para o Splide funcionar visualmente
 import '@splidejs/react-splide/css'; 
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
-import config from '../config';
 import { firestore } from '../firebase';
 import { LiaImageSolid, LiaCalendarSolid } from 'react-icons/lia';
 
