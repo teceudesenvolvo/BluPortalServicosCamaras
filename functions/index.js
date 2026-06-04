@@ -60,6 +60,31 @@ exports.sendMailOnNewRequest = onDocumentCreated(
 
       try {
         await mailTransport.sendMail(mailOptions);
+
+        if (mailData.userId) {
+          const db = admin.firestore();
+          const protocolo = mailData.protocolo || "";
+          const status = mailData.status || "Atualizado";
+          const desc = `O status da sua solicitação (Protocolo: ${protocolo})` +
+              ` foi alterado para: ${status}.`;
+
+          await db.collection("notifications").add({
+            userId: mailData.userId,
+            flavorId: "paraipaba",
+            tituloNotification: "Status de Solicitação Atualizado",
+            descricaoNotification: desc,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            read: false,
+            isRead: false,
+            data: {
+              protocolo: protocolo,
+              solicitacaoId: protocolo,
+              status: status,
+              collection: mailData.collection || "balcao-cidadao",
+            },
+          });
+        }
+
         return snapshot.ref.delete();
       } catch (error) {
         console.error(`Erro ao enviar email para ${mailData.to}:`, error);
@@ -88,7 +113,7 @@ exports.generateNews = onRequest(
           location: "us-central1",
         });
       }
-      const model = genAI.getGenerativeModel({model: "gemini-1.5-flash"});
+      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
 
       try {
         const prompt = req.body?.prompt;
@@ -152,15 +177,18 @@ exports.notifyUsersOnNewsPublished = onDocumentWritten(
         const userData = userDoc.data() || {};
         const email = userData.email || userData.userEmail || null;
         const notificationPayload = {
-          isRead: false,
-          protocolo: event.params.noticiaId,
-          targetUserId: userDoc.id,
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
-          tituloNotification: "📢 " + afterData.titulo,
-          descricaoNotification: afterData.subtitulo ||
-              "Nova notícia publicada. Confira os detalhes no portal!",
-          userEmail: email,
           userId: userDoc.id,
+          flavorId: "paraipaba",
+          tituloNotification: "📢 " + afterData.titulo,
+          descricaoNotification: afterData.subtitulo || "Novidade no app.",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          read: false,
+          isRead: false,
+          data: {
+            protocolo: event.params.noticiaId,
+            type: "news",
+            screen: "Notificacoes",
+          },
         };
 
         promises.push(

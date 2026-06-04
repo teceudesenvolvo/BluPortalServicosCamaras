@@ -12,10 +12,15 @@ module.exports = function(app) {
     })
   );
 
+  const functionsBaseUrl = process.env.REACT_APP_FUNCTIONS_BASE_URL ||
+      'https://us-central1-blu-app-camara.cloudfunctions.net/generateNews';
+  const functionsTarget = functionsBaseUrl.endsWith('/generateNews') ?
+      functionsBaseUrl : `${functionsBaseUrl.replace(/\/$/, '')}/generateNews`;
+
   app.use(
     '/generateNews', // Firebase Cloud Function proxy
     createProxyMiddleware({
-      target: 'https://generatenews-ncrh4bwrmq-uc.a.run.app', // Deploy function URL
+      target: functionsTarget,
       changeOrigin: true,
       pathRewrite: {
         '^/generateNews': '', // Remove prefix

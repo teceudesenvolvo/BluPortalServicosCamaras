@@ -119,8 +119,9 @@ const AdminNoticiasSite = () => {
         }
 
         setGeneratingAI(true);
-        const FUNCTIONS_BASE_URL = process.env.REACT_APP_FUNCTIONS_BASE_URL?.replace(/\/$/, "") || "";
-        const endpoint = FUNCTIONS_BASE_URL ? `${FUNCTIONS_BASE_URL}/generateNews` : "/generateNews";
+        const FUNCTIONS_BASE_URL = process.env.REACT_APP_FUNCTIONS_BASE_URL?.replace(/\/$/, "") ||
+            "https://us-central1-blu-app-camara.cloudfunctions.net";
+        const endpoint = `${FUNCTIONS_BASE_URL}/generateNews`;
         const prompt = `Escreva uma notícia profissional e detalhada para o portal de uma Câmara Municipal. 
         Título: ${formData.titulo}
         Subtítulo: ${formData.subtitulo}
@@ -331,9 +332,18 @@ const AdminNoticiasSite = () => {
                                             Imagem de Capa <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>(Recomendado: 1440x720px)</span>
                                             *
                                         </label>
-                                        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <a 
+                                                href="https://canva.link/b9w91b1mkurncmw" 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="btn-secondary"
+                                                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                                            >
+                                                <LiaImageSolid /> Criar imagem no Canva
+                                            </a>
                                             <label className="btn-secondary" style={{ cursor: 'pointer' }}>
-                                                <LiaUploadSolid /> Selecionar Imagem
+                                                <LiaUploadSolid /> Enviar Imagem
                                                 <input type="file" hidden accept="image/*" onChange={handleImageChange} />
                                             </label>
                                             {capaPreview && (
