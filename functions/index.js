@@ -140,10 +140,17 @@ exports.notifyUsersOnNewsPublished = onDocumentWritten(
       const usersSnapshot = await db.collection("users").get();
       console.log(`Encontrados ${usersSnapshot.size} usuários para processar.`);
 
+      const notificationsRef = db.collection("notifications");
+      const mailRef = db.collection("mail");
       const promises = [];
+
+      if (usersSnapshot.empty) {
+        console.warn("Nenhum usuário encontrado para notificação de notícias.");
+      }
+
       usersSnapshot.forEach((userDoc) => {
         const userData = userDoc.data() || {};
-        const email = userData.email || userData.userEmail;
+        const email = userData.email || userData.userEmail || null;
         const notificationPayload = {
           isRead: false,
           protocolo: event.params.noticiaId,
@@ -152,37 +159,51 @@ exports.notifyUsersOnNewsPublished = onDocumentWritten(
           tituloNotification: "📢 " + afterData.titulo,
           descricaoNotification: afterData.subtitulo ||
               "Nova notícia publicada. Confira os detalhes no portal!",
-          userEmail: email || null,
+          userEmail: email,
           userId: userDoc.id,
         };
 
-        promises.push(db.collection("notifications").add(notificationPayload));
+        promises.push(
+            notificationsRef.add(notificationPayload)
+                .then(() => {
+                  console.log("Notificação Firestore criada para " +
+                      userDoc.id);
+                })
+                .catch((error) => {
+                  console.error("Erro ao criar notificação para " +
+                      userDoc.id + ":", error);
+                }),
+        );
 
         if (email) {
-          // 2. Adiciona à fila de e-mail (processado por sendMailOnNewRequest)
-          promises.push(db.collection("mail").add({
-            to: email,
-            message: {
-              subject: `Informativo: ${afterData.titulo}`,
-              html: `<h3>${afterData.titulo}</h3>` +
-                    `<p>${afterData.subtitulo || ""}</p>` +
-                    `<hr>` +
-                    `<p>Uma nova notícia foi publicada no Portal de ` +
-                    `Serviços da ` +
-                    `Câmara Municipal de Paraipaba.</p>` +
-                    `<p>Acesse o aplicativo para ler o conteúdo completo.</p>`,
-            },
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-          }));
+          promises.push(
+              mailRef.add({
+                to: email,
+                message: {
+                  subject: `Informativo: ${afterData.titulo}`,
+                  html: `<h3>${afterData.titulo}</h3>` +
+                        `<p>${afterData.subtitulo || ""}</p>` +
+                        `<hr><p>Uma nova notícia foi publicada no ` +
+                        `Portal de Serviços da Câmara Municipal de ` +
+                        `Paraipaba.</p><p>Acesse o aplicativo para ler ` +
+                        `o conteúdo completo.</p>`,
+                },
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+              })
+                  .then(() => console.log(`E-mail enfileirado para ${email}`))
+                  .catch((error) => {
+                    console.error(`Erro ao enfileirar email para ${email}:`,
+                        error);
+                  }),
+          );
         } else {
           console.log(`Usuário ${userDoc.id} sem email; ` +
-              "notificação gravada em Firestore apenas.");
+              "notificação Firestore gravada apenas.");
         }
       });
 
       await Promise.all(promises);
-      console.log("Notificações enviadas com sucesso para " +
-          `${promises.length / 2} usuários.`);
+      console.log("Notificações de notícias processadas.");
       return null;
     },
 );
