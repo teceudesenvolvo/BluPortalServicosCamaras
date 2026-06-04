@@ -1,0 +1,82 @@
+[debug] [2026-06-04T00:24:15.225Z] ----------------------------------------------------------------------
+[debug] [2026-06-04T00:24:15.227Z] Command:       /Users/leonardoribeiro/.nvm/versions/node/v22.21.1/bin/node /Users/leonardoribeiro/.nvm/versions/node/v22.21.1/bin/firebase deploy --only functions
+[debug] [2026-06-04T00:24:15.228Z] CLI Version:   15.9.1
+[debug] [2026-06-04T00:24:15.228Z] Platform:      darwin
+[debug] [2026-06-04T00:24:15.228Z] Node Version:  v22.21.1
+[debug] [2026-06-04T00:24:15.228Z] Time:          Wed Jun 03 2026 21:24:15 GMT-0300 (Brasilia Standard Time)
+[debug] [2026-06-04T00:24:15.228Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-06-04T00:24:16.306Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-06-04T00:24:16.306Z] > authorizing via signed-in user (blutecnologiasbr@gmail.com)
+[debug] [2026-06-04T00:24:16.306Z] [iam] checking project blu-app-camara for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2026-06-04T00:24:16.307Z] Checked if tokens are valid: true, expires at: 1780535784693
+[debug] [2026-06-04T00:24:16.307Z] Checked if tokens are valid: true, expires at: 1780535784693
+[debug] [2026-06-04T00:24:16.307Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions [none]
+[debug] [2026-06-04T00:24:16.307Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions  x-goog-user-project=blu-app-camara
+[debug] [2026-06-04T00:24:16.307Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-06-04T00:24:17.482Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions 200
+[debug] [2026-06-04T00:24:17.482Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-06-04T00:24:17.483Z] Checked if tokens are valid: true, expires at: 1780535784693
+[debug] [2026-06-04T00:24:17.483Z] Checked if tokens are valid: true, expires at: 1780535784693
+[debug] [2026-06-04T00:24:17.483Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/blu-app-camara/serviceAccounts/blu-app-camara@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-06-04T00:24:17.483Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/blu-app-camara/serviceAccounts/blu-app-camara@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-06-04T00:24:18.495Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/blu-app-camara/serviceAccounts/blu-app-camara@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2026-06-04T00:24:18.495Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/blu-app-camara/serviceAccounts/blu-app-camara@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'blu-app-camara'...
+[info] 
+[info] i  deploying functions 
+[info] Running command: npm --prefix "$RESOURCE_DIR" run lint
+[info] ✔  functions: Finished running predeploy script. 
+[debug] [2026-06-04T00:24:20.603Z] Checked if tokens are valid: true, expires at: 1780535784693
+[debug] [2026-06-04T00:24:20.603Z] Checked if tokens are valid: true, expires at: 1780535784693
+[debug] [2026-06-04T00:24:20.603Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara [none]
+[debug] [2026-06-04T00:24:20.836Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara 200
+[debug] [2026-06-04T00:24:20.836Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/blu-app-camara {"projectNumber":"1070248841383","projectId":"blu-app-camara","lifecycleState":"ACTIVE","name":"blu-app-camara","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2026-03-10T15:40:34.801998Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2026-06-04T00:24:20.839Z] Checked if tokens are valid: true, expires at: 1780535784693
+[debug] [2026-06-04T00:24:20.839Z] Checked if tokens are valid: true, expires at: 1780535784693
+[debug] [2026-06-04T00:24:20.839Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/blu-app-camara/adminSdkConfig [none]
+[debug] [2026-06-04T00:24:21.517Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/blu-app-camara/adminSdkConfig 200
+[debug] [2026-06-04T00:24:21.518Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/blu-app-camara/adminSdkConfig {"projectId":"blu-app-camara","databaseURL":"https://blu-app-camara-default-rtdb.firebaseio.com","storageBucket":"blu-app-camara.firebasestorage.app"}
+[debug] [2026-06-04T00:24:21.519Z] Validating nodejs source
+[warn] ⚠  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[debug] [2026-06-04T00:24:22.033Z] > [functions] package.json contents: {
+  "name": "functions",
+  "description": "Cloud Functions for Firebase",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "dependencies": {
+    "@google-cloud/vertexai": "^1.12.0",
+    "@google/generative-ai": "^0.24.1",
+    "firebase-admin": "^13.7.0",
+    "firebase-functions": "^7.1.1",
+    "nodemailer": "^6.9.13"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-google": "^0.14.0"
+  }
+}
+[debug] [2026-06-04T00:24:22.033Z] Building nodejs source
+[info] i  functions: Loading and analyzing source code for codebase default to determine what to deploy 
+[debug] [2026-06-04T00:24:22.034Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-06-04T00:24:22.039Z] Found firebase-functions binary at '/Users/leonardoribeiro/Documents/BluTecnologias/Developer/BluPortalServicosCamaras/functions/node_modules/.bin/firebase-functions'
+[info] Serving at port 8743
+
+[debug] [2026-06-04T00:24:22.456Z] Got response from /__/functions.yaml {"endpoints":{"sendMailOnNewRequest":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","secretEnvironmentVariables":[{"key":"GMAIL_APP_PASSWORD"}],"labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.created","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"mail/{mailId}"},"retry":false},"entryPoint":"sendMailOnNewRequest"},"generateNews":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"httpsTrigger":{},"entryPoint":"generateNews"},"notifyUsersOnNewsPublished":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.written","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"noticias/{noticiaId}"},"retry":false},"entryPoint":"notifyUsersOnNewsPublished"},"cleanupExpiredRequests":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"scheduleTrigger":{"schedule":"every 1 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetrySeconds":null,"minBackoffSeconds":null,"maxBackoffSeconds":null},"timeZone":null},"entryPoint":"cleanupExpiredRequests"}},"specVersion":"v1alpha1","requiredAPIs":[{"api":"cloudscheduler.googleapis.com","reason":"Needed for scheduled functions."}],"extensions":{},"params":[{"name":"GMAIL_EMAIL","type":"string"},{"type":"secret","name":"GMAIL_APP_PASSWORD"}]}

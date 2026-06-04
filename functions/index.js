@@ -144,21 +144,21 @@ exports.notifyUsersOnNewsPublished = onDocumentWritten(
       usersSnapshot.forEach((userDoc) => {
         const userData = userDoc.data() || {};
         const email = userData.email || userData.userEmail;
+        const notificationPayload = {
+          isRead: false,
+          protocolo: event.params.noticiaId,
+          targetUserId: userDoc.id,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          tituloNotification: "📢 " + afterData.titulo,
+          descricaoNotification: afterData.subtitulo ||
+              "Nova notícia publicada. Confira os detalhes no portal!",
+          userEmail: email || null,
+          userId: userDoc.id,
+        };
+
+        promises.push(db.collection("notifications").add(notificationPayload));
 
         if (email) {
-          // 1. Cria a notificação interna para o histórico do App
-          promises.push(db.collection("notifications").add({
-            isRead: false,
-            protocolo: event.params.noticiaId,
-            targetUserId: userDoc.id,
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            tituloNotification: "📢 " + afterData.titulo,
-            descricaoNotification: afterData.subtitulo ||
-                "Nova notícia publicada. Confira os detalhes no portal!",
-            userEmail: email,
-            userId: userDoc.id,
-          }));
-
           // 2. Adiciona à fila de e-mail (processado por sendMailOnNewRequest)
           promises.push(db.collection("mail").add({
             to: email,
@@ -174,6 +174,9 @@ exports.notifyUsersOnNewsPublished = onDocumentWritten(
             },
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
           }));
+        } else {
+          console.log(`Usuário ${userDoc.id} sem email; ` +
+              "notificação gravada em Firestore apenas.");
         }
       });
 
