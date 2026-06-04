@@ -6,14 +6,13 @@ const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onRequest} = require("firebase-functions/v2/https");
 const {defineString, defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin"); // Keep admin for database operations
-const {GoogleGenerativeAI} = require("@google/generative-ai");
+const {VertexAI} = require("@google-cloud/vertexai");
 const nodemailer = require("nodemailer");
 
 admin.initializeApp();
 
 const gmailEmail = defineString("GMAIL_EMAIL");
 const gmailAppPassword = defineSecret("GMAIL_APP_PASSWORD");
-const genAIKey = defineSecret("GENAI_API_KEY");
 
 let genAI;
 let mailTransport;
@@ -59,14 +58,18 @@ exports.sendMailOnNewRequest = onDocumentCreated(
         html: `${mailData.message.html}${emailFooter}`,
       };
 
-      await mailTransport.sendMail(mailOptions);
-
-      return snapshot.ref.delete();
+      try {
+        await mailTransport.sendMail(mailOptions);
+        return snapshot.ref.delete();
+      } catch (error) {
+        console.error(`Erro ao enviar email para ${mailData.to}:`, error);
+        return null;
+      }
     },
 );
 
 exports.generateNews = onRequest(
-    {secrets: [genAIKey]},
+    {},
     async (req, res) => {
       res.set("Access-Control-Allow-Origin", "*");
       res.set("Access-Control-Allow-Methods", "POST,OPTIONS");
@@ -80,10 +83,12 @@ exports.generateNews = onRequest(
       }
 
       if (!genAI) {
-        const apiKey = await genAIKey.value();
-        genAI = new GoogleGenerativeAI(apiKey);
+        genAI = new VertexAI({
+          project: process.env.GCLOUD_PROJECT,
+          location: "us-central1",
+        });
       }
-      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
+      const model = genAI.getGenerativeModel({model: "gemini-1.5-flash"});
 
       try {
         const prompt = req.body?.prompt;
@@ -94,14 +99,15 @@ exports.generateNews = onRequest(
         }
 
         const result = await model.generateContent({
-          contents: [{parts: [{text: prompt}]}],
+          contents: [{role: "user", parts: [{text: prompt}]}],
           generationConfig: {
             temperature: 0.7,
           },
         });
 
-        const response = result.response;
-        const generatedText = response.text() || "";
+        const response = await result.response;
+        const generatedText =
+            response.candidates[0].content.parts[0].text || "";
 
         const cleanedText = generatedText.replace(/```html|```/g, "").trim();
         return res.json({text: cleanedText});
@@ -129,11 +135,14 @@ exports.notifyUsersOnNewsPublished = onDocumentWritten(
       if (!isNewlyPublished) return null;
 
       const db = admin.firestore();
+      console.log("Iniciando notificação de nova notícia: " +
+          event.params.noticiaId);
       const usersSnapshot = await db.collection("users").get();
+      console.log(`Encontrados ${usersSnapshot.size} usuários para processar.`);
 
       const promises = [];
       usersSnapshot.forEach((userDoc) => {
-        const userData = userDoc.data();
+        const userData = userDoc.data() || {};
         const email = userData.email || userData.userEmail;
 
         if (email) {
@@ -168,7 +177,10 @@ exports.notifyUsersOnNewsPublished = onDocumentWritten(
         }
       });
 
-      return Promise.all(promises);
+      await Promise.all(promises);
+      console.log("Notificações enviadas com sucesso para " +
+          `${promises.length / 2} usuários.`);
+      return null;
     },
 );
 
