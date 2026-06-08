@@ -51,90 +51,251 @@ const FileViewerModal = ({ file, onClose }) => {
     );
 };
 
+const getDefaultDailyAvailability = () => ({
+    monday: { enabled: false, times: '' },
+    tuesday: { enabled: false, times: '' },
+    wednesday: { enabled: false, times: '' },
+    thursday: { enabled: false, times: '' },
+    friday: { enabled: false, times: '' },
+});
+
+const getCurrentMonthKey = () => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const formatConfigForForm = (data = {}) => {
+    const formattedData = {};
+    for (const day in data) {
+        if (Array.isArray(data[day]) && data[day].length > 0) {
+            formattedData[day] = { enabled: true, times: data[day].join(', ') };
+        }
+    }
+    return { ...getDefaultDailyAvailability(), ...formattedData };
+};
+
 // Modal for Availability Configuration
 const AvailabilityModal = ({ onClose, onSave }) => {
-    const [availability, setAvailability] = useState({
-        monday: { enabled: false, times: '' },
-        tuesday: { enabled: false, times: '' },
-        wednesday: { enabled: false, times: '' },
-        thursday: { enabled: false, times: '' },
-        friday: { enabled: false, times: '' },
-    });
+    const formatFormForFirestore = () => {
+        const finalConfig = {};
+        for (const day in currentMonthAvailability) {
+            if (currentMonthAvailability[day].enabled && currentMonthAvailability[day].times.trim()) {
+                finalConfig[day] = currentMonthAvailability[day].times.split(',').map(t => t.trim()).filter(Boolean);
+            }
+        }
+        return finalConfig;
+    };
+
+    const [selectedMonth, setSelectedMonth] = useState('');
+    const [currentMonthAvailability, setCurrentMonthAvailability] = useState(getDefaultDailyAvailability);
+    const [loadingMonth, setLoadingMonth] = useState(false);
     const [blockedDates, setBlockedDates] = useState('');
     const [loading, setLoading] = useState(true);
 
+    const getMonthOptions = () => {
+        const options = [];
+        const today = new Date();
+        for (let i = 0; i < 12; i++) {
+            const date = new Date(today.getFullYear(), today.getMonth() + i, 1);
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const monthName = date.toLocaleString('pt-BR', { month: 'long' });
+            options.push({ value: `${year}-${month}`, label: `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${year}` });
+        }
+        return options;
+    };
+
     useEffect(() => {
-        const fetchConfig = async () => {
+        const fetchInitialConfig = async () => {
+            setLoading(true);
+
             try {
-                const availabilityRef = doc(firestore, 'balcao-config', 'availability');
                 const blockedDatesRef = doc(firestore, 'balcao-config', 'blockedDates');
-
-                const [availSnap, blockedSnap] = await Promise.all([
-                    getDoc(availabilityRef),
-                    getDoc(blockedDatesRef)
-                ]);
-
-                if (availSnap.exists()) {
-                    const data = availSnap.data();
-                    setAvailability(prevAvailability => {
-                        const newState = { ...prevAvailability };
-                        for (const day in data) {
-                            if (newState[day]) {
-                                newState[day] = { enabled: true, times: data[day].join(', ') };
-                            }
-                        }
-                        return newState;
-                    });
-                }
+                const blockedSnap = await getDoc(blockedDatesRef);
                 if (blockedSnap.exists()) {
                     const blockedData = blockedSnap.data();
                     setBlockedDates(blockedData.dates ? blockedData.dates.join(', ') : '');
                 }
+                setSelectedMonth(getCurrentMonthKey());
             } catch (error) {
-                console.error('Erro ao buscar configuração:', error);
+                console.error('Erro ao buscar configuração inicial:', error);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
-        fetchConfig();
+        fetchInitialConfig();
     }, []);
 
+    useEffect(() => {
+        if (!selectedMonth) return;
+
+        const loadMonthlyAvailability = async () => {
+            setLoadingMonth(true);
+            try {
+                const monthlyConfigRef = doc(firestore, 'balcao-monthly-configs', selectedMonth);
+                const monthlySnap = await getDoc(monthlyConfigRef);
+
+                if (monthlySnap.exists()) {
+                    setCurrentMonthAvailability(formatConfigForForm(monthlySnap.data()));
+                } else if (selectedMonth === getCurrentMonthKey()) {
+                    const liveAvailabilityRef = doc(firestore, 'balcao-config', 'availability');
+                    const liveAvailabilitySnap = await getDoc(liveAvailabilityRef);
+                    setCurrentMonthAvailability(liveAvailabilitySnap.exists() ? formatConfigForForm(liveAvailabilitySnap.data()) : getDefaultDailyAvailability());
+                } else {
+                    setCurrentMonthAvailability(getDefaultDailyAvailability());
+                }
+            } catch (error) {
+                console.error(`Erro ao carregar disponibilidade para ${selectedMonth}:`, error);
+            } finally {
+                setLoadingMonth(false);
+            }
+        };
+        loadMonthlyAvailability();
+    }, [selectedMonth]);
+
     const handleDayToggle = (day) => {
-        setAvailability(prev => ({ ...prev, [day]: { ...prev[day], enabled: !prev[day].enabled } }));
+        setCurrentMonthAvailability(prev => ({
+            ...prev,
+            [day]: { ...prev[day], enabled: !prev[day].enabled }
+        }));
     };
 
     const handleTimesChange = (day, times) => {
-        setAvailability(prev => ({ ...prev, [day]: { ...prev[day], times: times } }));
+        setCurrentMonthAvailability(prev => ({
+            ...prev,
+            [day]: { ...prev[day], times: times }
+        }));
     };
 
-    const handleSaveClick = () => {
-        const finalConfig = {};
-        for (const day in availability) {
-            if (availability[day].enabled && availability[day].times.trim()) {
-                finalConfig[day] = availability[day].times.split(',').map(t => t.trim()).filter(Boolean);
-            }
+    const handleSaveMonthlyConfig = async () => {
+        if (!selectedMonth) {
+            alert('Por favor, selecione um mês para salvar a configuração.');
+            return;
         }
+
+        const finalConfig = formatFormForFirestore();
         const blockedDatesConfig = blockedDates.split(',').map(d => d.trim()).filter(Boolean);
-        onSave(finalConfig, blockedDatesConfig);
+        const isCurrentMonth = selectedMonth === getCurrentMonthKey();
+
+        try {
+            const monthlyConfigRef = doc(firestore, 'balcao-monthly-configs', selectedMonth);
+            await setDoc(monthlyConfigRef, finalConfig);
+
+            if (isCurrentMonth) {
+                await onSave(finalConfig, blockedDatesConfig, {
+                    closeModal: false,
+                    successMessage: `Configuração de ${selectedMonth} salva e publicada para os usuários.`
+                });
+                return;
+            }
+
+            alert(`Configuração para ${selectedMonth} salva com sucesso! Como é um mês futuro, ela não altera os horários visíveis aos usuários agora.`);
+        } catch (error) {
+            console.error(`Erro ao salvar configuração para ${selectedMonth}:`, error);
+            alert('Falha ao salvar a configuração mensal.');
+        }
+    };
+
+    const handleApplyToLiveAvailability = async () => {
+        if (!selectedMonth) {
+            alert('Por favor, selecione um mês para aplicar a configuração.');
+            return;
+        }
+
+        if (!window.confirm(`Tem certeza que deseja aplicar a configuração de ${selectedMonth} agora? Mesmo sendo um mês futuro, os usuários passarão a ver estes horários imediatamente.`)) {
+            return;
+        }
+
+        const configToApply = formatFormForFirestore();
+        const blockedDatesConfig = blockedDates.split(',').map(d => d.trim()).filter(Boolean);
+
+        try {
+            const monthlyConfigRef = doc(firestore, 'balcao-monthly-configs', selectedMonth);
+            await setDoc(monthlyConfigRef, configToApply);
+            await onSave(configToApply, blockedDatesConfig, {
+                successMessage: `Configuração de ${selectedMonth} aplicada aos usuários.`
+            });
+        } catch (error) {
+            console.error(`Erro ao aplicar configuração de ${selectedMonth} à disponibilidade ao vivo:`, error);
+            alert('Falha ao aplicar a configuração à disponibilidade ao vivo.');
+        }
     };
 
     const daysOfWeek = { monday: 'Segunda-feira', tuesday: 'Terça-feira', wednesday: 'Quarta-feira', thursday: 'Quinta-feira', friday: 'Sexta-feira' };
-
+    const monthOptions = getMonthOptions();
+    
     if (loading) return <div className="modal-overlay"><div className="modal-content"><p>Carregando...</p></div></div>;
 
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <div className="modal-header"><h3>Configurar Disponibilidade</h3><button type="button" onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button></div>
+                <div className="modal-header">
+                    <h3>Configurar Disponibilidade Mensal</h3>
+                    <button type="button" onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button>
+                </div>
                 <div className="modal-body">
-                    <p>Marque os dias e informe os horários separados por vírgula (ex: 08:00, 09:00).</p>
-                    {Object.keys(daysOfWeek).map(day => (
-                        <div key={day} className="form-row" style={{ alignItems: 'center', marginBottom: '15px' }}><div style={{ flex: '0.5' }}><input type="checkbox" id={day} checked={availability[day].enabled} onChange={() => handleDayToggle(day)} /><label htmlFor={day} style={{ marginLeft: '10px' }}>{daysOfWeek[day]}</label></div><div className="form-group" style={{ flex: '1.5', marginBottom: 0 }}><input type="text" placeholder="Ex: 08:00, 09:00, 10:00" value={availability[day].times} onChange={(e) => handleTimesChange(day, e.target.value)} disabled={!availability[day].enabled} className="form-input" /></div></div>
-                    ))}
                     <div className="form-group">
-                        <label>Dias sem atendimento (feriados, pontos facultativos)</label>
-                        <input type="text" placeholder="Ex: 25/12/2024, 01/01/2025" value={blockedDates} onChange={(e) => setBlockedDates(e.target.value)} className="form-input" />
+                        <label htmlFor="selectMonth">Selecionar Mês:</label>
+                        <select
+                            id="selectMonth"
+                            value={selectedMonth}
+                            onChange={(e) => setSelectedMonth(e.target.value)}
+                            className="form-input"
+                            disabled={loadingMonth}
+                        >
+                            {monthOptions.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
                     </div>
-                    <div className="form-actions"><button onClick={handleSaveClick} className="btn-primary">Salvar Configuração</button></div>
+
+                    {loadingMonth ? (
+                        <p>Carregando horários para {selectedMonth}...</p>
+                    ) : (
+                        <>
+                            <p>Marque os dias e informe os horários separados por vírgula (ex: 08:00, 09:00).</p>
+                            <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                                Salvar Mês guarda a configuração selecionada. Aplicar ao Vivo publica estes horários imediatamente para os usuários, mesmo se o mês selecionado for futuro.
+                            </p>
+                            {Object.keys(daysOfWeek).map(day => (
+                                <div key={day} className="form-row" style={{ alignItems: 'center', marginBottom: '15px' }}>
+                                    <div style={{ flex: '0.5' }}>
+                                        <input
+                                            type="checkbox"
+                                            id={day}
+                                            checked={currentMonthAvailability[day]?.enabled || false}
+                                            onChange={() => handleDayToggle(day)}
+                                        />
+                                        <label htmlFor={day} style={{ marginLeft: '10px' }}>{daysOfWeek[day]}</label>
+                                    </div>
+                                    <div className="form-group" style={{ flex: '1.5', marginBottom: 0 }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Ex: 08:00, 09:00, 10:00"
+                                            value={currentMonthAvailability[day]?.times || ''}
+                                            onChange={(e) => handleTimesChange(day, e.target.value)}
+                                            disabled={!currentMonthAvailability[day]?.enabled}
+                                            className="form-input"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="form-group">
+                                <label>Dias sem atendimento (feriados, pontos facultativos)</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ex: 25/12/2024, 01/01/2025"
+                                    value={blockedDates}
+                                    onChange={(e) => setBlockedDates(e.target.value)}
+                                    className="form-input"
+                                />
+                            </div>
+                            <div className="form-actions" style={{ justifyContent: 'space-between' }}>
+                                <button onClick={handleSaveMonthlyConfig} className="btn-secondary">Salvar Mês</button>
+                                <button onClick={handleApplyToLiveAvailability} className="btn-primary">Aplicar ao Vivo</button>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
@@ -514,14 +675,16 @@ const AdminBalcaoDashboard = () => {
         handleCloseModal();
     };
 
-    const handleSaveAvailability = async (availabilityConfig, blockedDatesConfig) => {
+    const handleSaveAvailability = async (availabilityConfig, blockedDatesConfig, options = {}) => {
         const availabilityRef = doc(firestore, 'balcao-config', 'availability');
         const blockedDatesRef = doc(firestore, 'balcao-config', 'blockedDates');
         try {
             await setDoc(availabilityRef, availabilityConfig);
             await setDoc(blockedDatesRef, { dates: blockedDatesConfig });
-            alert('Disponibilidade salva com sucesso!');
-            setIsAvailabilityModalOpen(false);
+            alert(options.successMessage || 'Disponibilidade salva com sucesso!');
+            if (options.closeModal !== false) {
+                setIsAvailabilityModalOpen(false);
+            }
         } catch (error) {
             console.error("Erro ao salvar disponibilidade:", error);
             alert('Falha ao salvar a disponibilidade.');
