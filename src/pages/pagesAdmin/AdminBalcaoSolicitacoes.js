@@ -274,6 +274,7 @@ const AdminBalcaoSolicitacoes = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('Todas');
     const [filterAssunto, setFilterAssunto] = useState('Todos');
+    const [filterBeneficiario, setFilterBeneficiario] = useState('');
     const [filterDateFrom, setFilterDateFrom] = useState('');
     const [filterDateTo, setFilterDateTo] = useState('');
     const [showFilters, setShowFilters] = useState(false);
@@ -283,7 +284,7 @@ const AdminBalcaoSolicitacoes = () => {
     const [cursors, setCursors] = useState([null]); // Histórico de cursores para navegação
     const itemsPerPage = 15; 
     const [isLastPage, setIsLastPage] = useState(false);
-    const hasActiveFilters = !!(searchTerm || filterStatus !== 'Todas' || filterAssunto !== 'Todos' || filterDateFrom || filterDateTo);
+    const hasActiveFilters = !!(searchTerm || filterStatus !== 'Todas' || filterAssunto !== 'Todos' || filterBeneficiario || filterDateFrom || filterDateTo);
 
     // Cache para perfis de usuários
     const [userProfilesCache, setUserProfilesCache] = useState({});
@@ -394,6 +395,7 @@ const AdminBalcaoSolicitacoes = () => {
         setSearchTerm('');
         setFilterStatus('Todas');
         setFilterAssunto('Todos');
+        setFilterBeneficiario('');
         fetchSolicitacoes(null);
     };
 
@@ -408,18 +410,22 @@ const AdminBalcaoSolicitacoes = () => {
         const matchesSearch =
             (item.dadosSolicitacao?.assunto?.toLowerCase() || '').includes(searchLower) ||
             (item.dadosUsuario?.name?.toLowerCase() || '').includes(searchLower) ||
+            (item.dadosBeneficiario?.name?.toLowerCase() || '').includes(searchLower) ||
+            (item.dadosBeneficiario?.cpf?.toLowerCase() || '').includes(searchLower) ||
             (item.id?.toLowerCase() || '').includes(searchLower);
 
         // Filtros de Status e Assunto (Garante funcionamento mesmo sem índice no Firestore)
         const matchesStatus = filterStatus === 'Todas' || item.status === filterStatus;
         const matchesAssunto = filterAssunto === 'Todos' || item.dadosSolicitacao?.assunto === filterAssunto;
+        const beneficiarioText = `${item.dadosBeneficiario?.name || ''} ${item.dadosUsuario?.name || ''}`;
+        const matchesBeneficiario = !filterBeneficiario || beneficiarioText.toLowerCase().includes(filterBeneficiario.toLowerCase());
 
         // Filtro de Data Local (para evitar erros de índice composto no Firestore)
         const itemTime = item.timestamp;
         const matchesDateFrom = !filterDateFrom || itemTime >= new Date(filterDateFrom + "T00:00:00").getTime();
         const matchesDateTo = !filterDateTo || itemTime <= new Date(filterDateTo + "T23:59:59").getTime();
 
-        return matchesSearch && matchesStatus && matchesAssunto && matchesDateFrom && matchesDateTo;
+        return matchesSearch && matchesStatus && matchesAssunto && matchesBeneficiario && matchesDateFrom && matchesDateTo;
     });
 
     const paginatedFilteredSolicitacoes = filteredSolicitacoes;
@@ -591,6 +597,7 @@ const AdminBalcaoSolicitacoes = () => {
         setSearchTerm('');
         setFilterStatus('Todas');
         setFilterAssunto('Todos');
+        setFilterBeneficiario('');
         setFilterDateFrom('');
         setFilterDateTo('');
         setCurrentPage(1);
@@ -635,7 +642,7 @@ const AdminBalcaoSolicitacoes = () => {
                             <LiaSearchSolid style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888' }} size={20} />
                             <input
                                 type="text"
-                                placeholder="Buscar por assunto, nome ou protocolo..."
+                                placeholder="Buscar por assunto, solicitante, beneficiário, CPF ou protocolo..."
                                 value={searchTerm}
                                 onChange={(e) => { setSearchTerm(e.target.value); }}
                                 className="form-input"
@@ -685,6 +692,18 @@ const AdminBalcaoSolicitacoes = () => {
                                 >
                                     {assuntosList.map(a => <option key={a} value={a}>{a}</option>)}
                                 </select>
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Beneficiário</label>
+                                <input
+                                    type="text"
+                                    placeholder="Nome do beneficiário"
+                                    value={filterBeneficiario}
+                                    onChange={(e) => { setFilterBeneficiario(e.target.value); }}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                />
                             </div>
 
                             <div className="form-group" style={{ marginBottom: 0 }}>

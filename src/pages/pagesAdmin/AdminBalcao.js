@@ -9,7 +9,10 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
-import { LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane, LiaPaperclipSolid, LiaDownloadSolid } from "react-icons/lia";
+import {
+    LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane,
+    LiaPaperclipSolid, LiaDownloadSolid, LiaSearchSolid, LiaFilterSolid
+} from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
 // Lightbox para visualizar arquivos inline
@@ -513,8 +516,14 @@ const AdminBalcaoDashboard = () => {
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [loading, setLoading] = useState(true);
     const [statusCounts, setStatusCounts] = useState({});
+    const [solicitacoes, setSolicitacoes] = useState([]);
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterBeneficiario, setFilterBeneficiario] = useState('');
+    const [filterStatus, setFilterStatus] = useState('Todos');
+    const [filterAssunto, setFilterAssunto] = useState('Todos');
+    const [showFilters, setShowFilters] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -545,6 +554,7 @@ const AdminBalcaoDashboard = () => {
                     ? doc.data().dataSolicitacao.toMillis() 
                     : new Date(doc.data().dataSolicitacao).getTime()
             }));
+            setSolicitacoes(fetchedData);
 
             const counts = fetchedData.reduce((acc, item) => {
                 const status = item.status || 'Cancelado';
@@ -564,6 +574,35 @@ const AdminBalcaoDashboard = () => {
             setLoading(false);
         }
     }, [isAuthReady]);
+
+    const hasActiveFilters = !!(searchTerm || filterBeneficiario || filterStatus !== 'Todos' || filterAssunto !== 'Todos');
+    const statusList = ['Todos', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Concluído', 'Cancelado'];
+    const assuntosList = ['Todos', 'Informações Gerais', 'Emissão de Documentos', 'Agendamento', 'Outros'];
+
+    const filteredSolicitacoes = solicitacoes.filter(item => {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch =
+            !searchTerm ||
+            (item.dadosSolicitacao?.assunto?.toLowerCase() || '').includes(searchLower) ||
+            (item.dadosUsuario?.name?.toLowerCase() || '').includes(searchLower) ||
+            (item.dadosBeneficiario?.name?.toLowerCase() || '').includes(searchLower) ||
+            (item.dadosBeneficiario?.cpf?.toLowerCase() || '').includes(searchLower) ||
+            (item.id?.toLowerCase() || '').includes(searchLower);
+
+        const beneficiarioText = `${item.dadosBeneficiario?.name || ''} ${item.dadosUsuario?.name || ''}`.toLowerCase();
+        const matchesBeneficiario = !filterBeneficiario || beneficiarioText.includes(filterBeneficiario.toLowerCase());
+        const matchesStatus = filterStatus === 'Todos' || item.status === filterStatus;
+        const matchesAssunto = filterAssunto === 'Todos' || item.dadosSolicitacao?.assunto === filterAssunto;
+
+        return matchesSearch && matchesBeneficiario && matchesStatus && matchesAssunto;
+    });
+
+    const clearFilters = () => {
+        setSearchTerm('');
+        setFilterBeneficiario('');
+        setFilterStatus('Todos');
+        setFilterAssunto('Todos');
+    };
 
     useEffect(() => {
         fetchData(); // Chama a função uma vez ao montar
@@ -820,6 +859,117 @@ const AdminBalcaoDashboard = () => {
                             {loading ? <p>Carregando...</p> : <canvas ref={chartRef}></canvas>}
                         </div>
                     </div>
+                </div>
+
+                <div className="data-card" style={{ width: '95%', marginTop: '24px' }}>
+                    <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        <div>
+                            <h3>Busca de Solicitações</h3>
+                            <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                                {filteredSolicitacoes.length} resultado{filteredSolicitacoes.length === 1 ? '' : 's'} nos últimos registros carregados
+                            </span>
+                        </div>
+                        {hasActiveFilters && (
+                            <button onClick={clearFilters} className="btn-secondary" style={{ fontSize: '0.85rem' }}>
+                                Limpar filtros
+                            </button>
+                        )}
+                    </div>
+
+                    <div style={{ padding: '16px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
+                            <LiaSearchSolid style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888' }} size={20} />
+                            <input
+                                type="text"
+                                placeholder="Buscar por solicitante, beneficiário, CPF ou protocolo..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="form-input"
+                                style={{ paddingLeft: '42px', margin: 0 }}
+                            />
+                        </div>
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className={showFilters ? 'btn-primary' : 'btn-secondary'}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                        >
+                            <LiaFilterSolid size={18} />
+                            Filtros
+                        </button>
+                    </div>
+
+                    {showFilters && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', padding: '0 16px 16px' }}>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Beneficiário</label>
+                                <input
+                                    type="text"
+                                    placeholder="Nome do beneficiário"
+                                    value={filterBeneficiario}
+                                    onChange={(e) => setFilterBeneficiario(e.target.value)}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Status</label>
+                                <select
+                                    value={filterStatus}
+                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                >
+                                    {statusList.map(status => <option key={status} value={status}>{status}</option>)}
+                                </select>
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Assunto</label>
+                                <select
+                                    value={filterAssunto}
+                                    onChange={(e) => setFilterAssunto(e.target.value)}
+                                    className="form-input"
+                                    style={{ margin: 0 }}
+                                >
+                                    {assuntosList.map(assunto => <option key={assunto} value={assunto}>{assunto}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    )}
+
+                    {!loading && filteredSolicitacoes.length === 0 && (
+                        <p style={{ padding: '16px', color: '#6b7280' }}>Nenhuma solicitação encontrada.</p>
+                    )}
+
+                    <ul className="data-list">
+                        {filteredSolicitacoes.slice(0, 20).map(item => {
+                            const beneficiario = item.dadosBeneficiario?.name || item.dadosUsuario?.name || 'Beneficiário não informado';
+                            return (
+                                <li
+                                    key={item.id}
+                                    className="data-list-item"
+                                    onClick={() => setSelectedSolicitacao(item)}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    <div className="item-main-info">
+                                        <strong>{beneficiario}</strong>
+                                        {item.dadosUsuario?.name && item.dadosUsuario.name !== beneficiario && (
+                                            <span style={{ fontSize: '0.8rem', color: '#6b7280', display: 'block' }}>
+                                                Solicitante: {item.dadosUsuario.name}
+                                            </span>
+                                        )}
+                                        <span style={{ color: '#4b5563', fontSize: '0.9rem', display: 'block' }}>
+                                            {item.dadosSolicitacao?.assunto || 'Sem assunto'} · Protocolo: {item.id}
+                                        </span>
+                                    </div>
+                                    <div className="item-status">
+                                        <span className={`status-badge status-${item.status?.toLowerCase().replace(/\s/g, '-') || 'pending'}`}>
+                                            {item.status || 'Pendente'}
+                                        </span>
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
                 </div>
 
                 <SolicitacaoBalcaoModal

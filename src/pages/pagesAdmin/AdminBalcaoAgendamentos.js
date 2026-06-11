@@ -360,13 +360,14 @@ const AdminBalcaoAgendamentos = () => {
             (item.dadosSolicitacao?.assunto?.toLowerCase() || '').includes(searchLower) ||
             (item.dadosUsuario?.name?.toLowerCase() || '').includes(searchLower) ||
             (item.dadosBeneficiario?.name?.toLowerCase() || '').includes(searchLower) ||
+            (item.dadosBeneficiario?.cpf?.toLowerCase() || '').includes(searchLower) ||
             (item.id?.toLowerCase() || '').includes(searchLower);
 
         // Adicionando filtros locais para consistência
         const matchesAssunto = filterAssunto === 'Todos' || (item.dadosSolicitacao?.assunto || item.assunto) === filterAssunto;
 
         // Filtro por Beneficiário
-        const beneficiarioName = (item.dadosBeneficiario?.id === 'outro' ? item.dadosBeneficiario?.name : item.dadosUsuario?.name) || '';
+        const beneficiarioName = `${item.dadosBeneficiario?.name || ''} ${item.dadosUsuario?.name || ''}`;
         const matchesBeneficiario = !filterBeneficiario || beneficiarioName.toLowerCase().includes(filterBeneficiario.toLowerCase());
 
         // Filtro por Parentesco
@@ -661,7 +662,7 @@ const AdminBalcaoAgendamentos = () => {
                             <LiaSearchSolid style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888' }} size={20} />
                             <input
                                 type="text"
-                                placeholder="Buscar por nome ou protocolo..."
+                                placeholder="Buscar por solicitante, beneficiário, CPF ou protocolo..."
                                 value={searchTerm}
                                 onChange={(e) => { setSearchTerm(e.target.value); handleFilterChange(); }}
                                 className="form-input"

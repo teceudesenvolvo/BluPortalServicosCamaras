@@ -13,6 +13,14 @@ import { uploadFileToStorage, deleteFileFromStorage } from '../../utils/firebase
 // Ícones
 import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane, LiaPaperclipSolid, LiaUploadSolid, LiaTrashAltSolid } from "react-icons/lia";
 
+const getTodayDateInputValue = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 // Componente para Agendamento
 const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
     const [formData, setFormData] = useState({ appointmentDate: '', appointmentTime: '' });
@@ -22,6 +30,7 @@ const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
     const [availableTimes, setAvailableTimes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const todayDate = getTodayDateInputValue();
 
     useEffect(() => {
         const fetchConfig = async () => {
@@ -82,6 +91,12 @@ const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
         const date = e.target.value;
         setFormData({ appointmentDate: date, appointmentTime: '' });
 
+        if (date && date < todayDate) {
+            setAvailableTimes([]);
+            setError('Não é possível agendar para uma data anterior a hoje.');
+            return;
+        }
+
         // Converter a data do input (AAAA-MM-DD) para o formato brasileiro (DD/MM/AAAA) para verificação
         let dateBR = date;
         if (date) {
@@ -115,6 +130,10 @@ const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
             setError('Por favor, selecione data e hora.');
             return;
         }
+        if (formData.appointmentDate < todayDate) {
+            setError('Não é possível agendar para uma data anterior a hoje.');
+            return;
+        }
         onScheduled(solicitacaoId, formData.appointmentDate, formData.appointmentTime);
     };
 
@@ -126,7 +145,7 @@ const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
             <div className="form-row">
                 <div className="form-group">
                     <label>Data</label>
-                    <input type="date" value={formData.appointmentDate} onChange={handleDateChange} className="form-input" />
+                    <input type="date" value={formData.appointmentDate} min={todayDate} onChange={handleDateChange} className="form-input" />
                 </div>
                 <div className="form-group">
                     <label>Horário</label>
@@ -468,6 +487,10 @@ const BalcaoCidadao = () => {
         const bookedSlotRef = doc(firestore, 'balcao-config', 'bookedSlots');
 
         try {
+            if (date < getTodayDateInputValue()) {
+                throw new Error("Não é possível agendar para uma data anterior a hoje.");
+            }
+
             await runTransaction(firestore, async (transaction) => {
                 const bookedSnap = await transaction.get(bookedSlotRef);
                 const currentBookings = bookedSnap.exists() ? (bookedSnap.data()[date] || []) : [];
