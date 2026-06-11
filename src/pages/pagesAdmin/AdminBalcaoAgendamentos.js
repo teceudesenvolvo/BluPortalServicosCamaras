@@ -14,6 +14,28 @@ import {
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
+const normalizeAppointmentDate = (dateValue) => {
+    if (!dateValue) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) return dateValue;
+
+    const brDateMatch = dateValue.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (brDateMatch) {
+        const [, day, month, year] = brDateMatch;
+        return `${year}-${month}-${day}`;
+    }
+
+    return dateValue;
+};
+
+const formatAppointmentDate = (dateValue) => {
+    const normalizedDate = normalizeAppointmentDate(dateValue);
+    if (!normalizedDate) return 'Sem data';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
+        return normalizedDate.split('-').reverse().join('/');
+    }
+    return dateValue;
+};
+
 // Lightbox para visualizar arquivos inline
 const FileViewerModal = ({ file, onClose }) => {
     if (!file) return null;
@@ -300,18 +322,20 @@ const AdminBalcaoAgendamentos = () => {
                 ? snapshot.docs
                     .map(doc => {
                         const data = doc.data();
+                        const appointmentDate = data.appointmentDate || data.dadosSolicitacao?.appointmentDate;
                         return {
                             id: doc.id,
                             ...data,
                             // Extraímos a data e hora de agendamento aqui para que o .filter abaixo funcione
-                            appointmentDate: data.appointmentDate || data.dadosSolicitacao?.appointmentDate,
+                            appointmentDate,
+                            appointmentDateNormalized: normalizeAppointmentDate(appointmentDate),
                             appointmentTime: data.appointmentTime || data.dadosSolicitacao?.appointmentTime
                         };
                     })
                     .sort((a, b) => {
                         // Ordenação local (JS) para garantir que os mais recentes apareçam primeiro
-                        const dateTimeA = `${a.appointmentDate || '0000-00-00'}T${a.appointmentTime || '00:00'}`;
-                        const dateTimeB = `${b.appointmentDate || '0000-00-00'}T${b.appointmentTime || '00:00'}`;
+                        const dateTimeA = `${a.appointmentDateNormalized || '0000-00-00'}T${a.appointmentTime || '00:00'}`;
+                        const dateTimeB = `${b.appointmentDateNormalized || '0000-00-00'}T${b.appointmentTime || '00:00'}`;
                         return dateTimeB.localeCompare(dateTimeA);
                     })
                 : [];
@@ -374,7 +398,7 @@ const AdminBalcaoAgendamentos = () => {
         // Filtro por Data Agendada
         let matchesDate = true;
         if (filterDateFrom || filterDateTo) {
-            const dateStr = item.appointmentDate;
+            const dateStr = item.appointmentDateNormalized;
             if (dateStr) {
                 if (filterDateFrom && dateStr < filterDateFrom) matchesDate = false;
                 if (filterDateTo && dateStr > filterDateTo) matchesDate = false;
@@ -837,8 +861,9 @@ const AdminBalcaoAgendamentos = () => {
                     <ul className="data-list">
                         {paginatedItems.map((item, index) => {
                             const dateStr = item.appointmentDate;
+                            const normalizedDateStr = item.appointmentDateNormalized;
                             const timeStr = item.appointmentTime;
-                            const isPast = dateStr && new Date(dateStr + "T00:00:00") < new Date(new Date().setHours(0, 0, 0, 0));
+                            const isPast = normalizedDateStr && new Date(normalizedDateStr + "T00:00:00") < new Date(new Date().setHours(0, 0, 0, 0));
 
                             return (
                                 <li
@@ -861,7 +886,7 @@ const AdminBalcaoAgendamentos = () => {
                                             background: 'var(--primary-color, #2563eb)', color: '#fff',
                                             padding: '8px 12px', borderRadius: '8px', minWidth: '80px', textAlign: 'center'
                                         }}>
-                                            <strong style={{ fontSize: '1.1rem', lineHeight: '1' }}>{dateStr?.split('-').reverse().join('/') || 'Sem data'}</strong>
+                                            <strong style={{ fontSize: '1.1rem', lineHeight: '1' }}>{formatAppointmentDate(dateStr)}</strong>
                                             <span style={{ fontSize: '0.8rem', fontWeight: '500', opacity: 0.9, marginTop: '4px' }}>{timeStr || '--:--'}</span>
                                         </div>
 
