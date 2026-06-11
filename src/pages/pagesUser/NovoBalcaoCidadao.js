@@ -510,6 +510,7 @@ const NovoBalcaoCidadao = () => {
                                         <option value="Filho(a)">Filho(a)</option>
                                         <option value="Tio/Tia">Tio/Tia</option>
                                         <option value="Avô/Avó">Avô/Avó</option>
+                                        <option value="Avô/Avó">Outros</option>
                                     </select>
                                 </div>
                                 <div className="form-group">
