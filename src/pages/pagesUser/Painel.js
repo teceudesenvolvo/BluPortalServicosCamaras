@@ -8,6 +8,7 @@ import {
     LiaUserFriendsSolid,
     LiaUserAstronautSolid,
     LiaFemaleSolid,
+    LiaTvSolid,
 } from "react-icons/lia";
 
 // --- Componente: Card de Serviço no Grid ---
@@ -47,6 +48,7 @@ const DashboardPage = () => {
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/balcao' },
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/ouvidoria' },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/procuradoria' },
+        { title: 'TV Câmara', icon: <LiaTvSolid />, path: '/tv-camara' },
         // { title: 'Vereadores', icon: <LiaUsersSolid />, path: '/vereadores' },
         // Pode adicionar mais se necessário
     ];

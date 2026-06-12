@@ -33,6 +33,7 @@ import SolicitacoesVereadores from './pages/pagesUser/SolicitacoesVereadores';
 import Piel from './pages/pagesUser/Piel';
 import NovaSolicitacaoVereador from './pages/pagesUser/NovaSolicitacaoVereador';
 import AdminBalcaoAgendamentos from './pages/pagesAdmin/AdminBalcaoAgendamentos';
+import TvCamara from './pages/pagesUser/TvCamara';
 
 import AdminPiel from './pages/pagesAdmin/AdminPiel';
 import AdminProcon from './pages/pagesAdmin/AdminProcon';
@@ -80,6 +81,7 @@ function App() {
           <Route path="/vereadores" element={<SolicitacoesVereadores />} />
           <Route path="/vereadores/nova" element={<NovaSolicitacaoVereador />} />
           <Route path="/piel" element={<Piel />} />
+          <Route path="/tv-camara" element={<TvCamara />} />
 
           {/* Com Login - Admin */}
           <Route path="/admin-procon" element={<AdminProcon />} />
