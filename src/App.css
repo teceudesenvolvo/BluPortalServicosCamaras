@@ -221,6 +221,231 @@ body{
   font-size: 1.5rem;
 }
 
+.home-tv-camara-section {
+  margin: 70px auto 0;
+  max-width: 1200px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr);
+  gap: 30px;
+  align-items: center;
+  padding: 34px;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(2, 90, 161, 0.12) 0%, rgba(255, 193, 7, 0.1) 42%, rgba(255, 255, 255, 0.94) 78%),
+    repeating-linear-gradient(90deg, rgba(2, 90, 161, 0.045) 0 1px, transparent 1px 84px),
+    #eef5fb;
+  border: 1px solid #dbe3ee;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+}
+
+.home-tv-camara-copy {
+  min-width: 0;
+}
+
+.home-tv-camara-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #025AA1;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.home-tv-camara-eyebrow svg {
+  font-size: 1.2rem;
+}
+
+.home-tv-camara-copy h2 {
+  margin: 12px 0 0;
+  color: #025AA1;
+  font-size: 2rem;
+  line-height: 1.14;
+}
+
+.home-tv-camara-copy p {
+  margin: 14px 0 0;
+  color: #4b5563;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.home-tv-camara-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+.home-tv-camara-actions .btn-nav-signup {
+  border-radius: 8px;
+  padding: 11px 18px;
+}
+
+.home-tv-camara-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #025AA1;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.home-tv-camara-link:hover {
+  text-decoration: underline;
+}
+
+.home-tv-camara-card {
+  overflow: hidden;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #dbe3ee;
+  box-shadow: 0 16px 32px rgba(2, 90, 161, 0.12);
+}
+
+.home-tv-camara-player {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #030712;
+}
+
+.home-tv-camara-player iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.home-tv-camara-state {
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  padding: 26px;
+  color: #dbeafe;
+  text-align: center;
+}
+
+.home-tv-camara-state svg {
+  font-size: 2.4rem;
+}
+
+.home-tv-camara-meta {
+  padding: 16px 18px 18px;
+  text-align: left;
+}
+
+.home-tv-camara-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.home-tv-camara-meta strong {
+  display: block;
+  margin-top: 7px;
+  color: #1f2937;
+  font-size: 1.02rem;
+  line-height: 1.35;
+}
+
+.noticias-cards-container {
+  width: 100%;
+}
+
+.noticias-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 22px;
+}
+
+.noticia-card-home {
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.noticia-card-home:hover {
+  transform: translateY(-3px);
+  border-color: #025AA1;
+  box-shadow: 0 16px 30px rgba(2, 90, 161, 0.14);
+}
+
+.noticia-card-image {
+  aspect-ratio: 16 / 10;
+  background: #eef5fb;
+  overflow: hidden;
+}
+
+.noticia-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+.noticia-card-home:hover .noticia-card-image img {
+  transform: scale(1.04);
+}
+
+.noticia-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+}
+
+.noticia-card-content {
+  padding: 18px;
+  text-align: left;
+}
+
+.noticia-card-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #025AA1;
+  font-size: 0.82rem;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.noticia-card-content h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.08rem;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.noticia-card-content p {
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 
 /* 3. Slider de Vereadores */
 .vereadores-slider-section {
@@ -537,12 +762,21 @@ body{
   .hero-section h1 {
     font-size: 2.5rem;
   }
-  .services-container-modern {
+	  .services-container-modern {
+	    grid-template-columns: 1fr;
+	  }
+
+  .home-tv-camara-section {
     grid-template-columns: 1fr;
+    padding: 24px;
   }
 
-  .login-container {
-    flex-direction: column;
+  .home-tv-camara-copy h2 {
+    font-size: 1.6rem;
+  }
+
+	  .login-container {
+	    flex-direction: column;
   }
 
   .login-left-panel {
