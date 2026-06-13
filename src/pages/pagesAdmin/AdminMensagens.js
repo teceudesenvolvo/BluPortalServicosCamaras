@@ -93,6 +93,12 @@ const getInitials = (name = '') => {
     return parts.slice(0, 2).map(part => part[0]).join('').toUpperCase();
 };
 
+const getMessagePreview = (message) => {
+    if (!message) return 'Sem prévia';
+    if (message.deletedByAdmin) return 'Mensagem apagada';
+    return message.text || 'Sem prévia';
+};
+
 const AdminMensagens = () => {
     const navigate = useNavigate();
     const [isAuthReady, setIsAuthReady] = useState(false);
@@ -112,6 +118,10 @@ const AdminMensagens = () => {
     });
     const [replyText, setReplyText] = useState('');
     const [sending, setSending] = useState(false);
+    const [actionMenuMessageId, setActionMenuMessageId] = useState('');
+    const [editingMessage, setEditingMessage] = useState(null);
+    const [forwardingMessage, setForwardingMessage] = useState(null);
+    const [forwardSearchTerm, setForwardSearchTerm] = useState('');
     const messagesEndRef = useRef(null);
 
     useEffect(() => {
@@ -234,6 +244,21 @@ const AdminMensagens = () => {
     }, [conversationFilter, favoriteIds, searchTerm, threads]);
 
     const unreadTotal = threads.reduce((total, thread) => total + thread.unreadCount, 0);
+    const pinnedMessages = selectedThread?.messages.filter(message => message.pinnedByAdmin && !message.deletedByAdmin) || [];
+    const forwardableThreads = useMemo(() => {
+        const search = forwardSearchTerm.trim().toLowerCase();
+
+        return threads
+            .filter(thread => !(thread.id === selectedThread?.id && thread.collectionName === selectedThread?.collectionName))
+            .filter(thread => !search || [
+                thread.requester,
+                thread.requesterEmail,
+                thread.areaTitle,
+                thread.subject,
+                thread.id,
+                thread.status,
+            ].some(value => String(value || '').toLowerCase().includes(search)));
+    }, [forwardSearchTerm, selectedThread?.collectionName, selectedThread?.id, threads]);
 
     const handleMarkAsRead = async (thread) => {
         const updates = buildReadMessagesUpdate(
@@ -311,6 +336,87 @@ const AdminMensagens = () => {
             alert('Erro ao enviar mensagem.');
         } finally {
             setSending(false);
+        }
+    };
+
+    const handleEditMessage = async () => {
+        const text = editingMessage?.text?.trim();
+        if (!text || !selectedThread || !editingMessage) return;
+
+        try {
+            await updateDoc(doc(firestore, selectedThread.collectionName, selectedThread.id), {
+                [`messages.${editingMessage.id}.text`]: text,
+                [`messages.${editingMessage.id}.editedAt`]: new Date().toISOString(),
+            });
+            setEditingMessage(null);
+            setActionMenuMessageId('');
+            await fetchMessages();
+        } catch (error) {
+            console.error('Erro ao editar mensagem:', error);
+            alert('Erro ao editar mensagem.');
+        }
+    };
+
+    const handleDeleteMessage = async (message) => {
+        setActionMenuMessageId('');
+        if (!selectedThread || !window.confirm('Apagar esta mensagem?')) return;
+
+        try {
+            await updateDoc(doc(firestore, selectedThread.collectionName, selectedThread.id), {
+                [`messages.${message.id}.text`]: '',
+                [`messages.${message.id}.deletedByAdmin`]: true,
+                [`messages.${message.id}.deletedAt`]: new Date().toISOString(),
+                [`messages.${message.id}.pinnedByAdmin`]: false,
+            });
+            await fetchMessages();
+        } catch (error) {
+            console.error('Erro ao apagar mensagem:', error);
+            alert('Erro ao apagar mensagem.');
+        }
+    };
+
+    const handleTogglePinnedMessage = async (message) => {
+        if (!selectedThread) return;
+
+        try {
+            await updateDoc(doc(firestore, selectedThread.collectionName, selectedThread.id), {
+                [`messages.${message.id}.pinnedByAdmin`]: !message.pinnedByAdmin,
+                [`messages.${message.id}.pinnedAt`]: !message.pinnedByAdmin ? new Date().toISOString() : null,
+            });
+            setActionMenuMessageId('');
+            await fetchMessages();
+        } catch (error) {
+            console.error('Erro ao fixar mensagem:', error);
+            alert('Erro ao fixar mensagem.');
+        }
+    };
+
+    const handleForwardMessage = async (targetThread) => {
+        if (!forwardingMessage || !targetThread) return;
+
+        try {
+            const newMessageId = Date.now().toString();
+            const forwardedText = forwardingMessage.deletedByAdmin ? '' : forwardingMessage.text;
+            await updateDoc(doc(firestore, targetThread.collectionName, targetThread.id), {
+                [`messages.${newMessageId}`]: {
+                    text: forwardedText,
+                    sender: 'admin',
+                    timestamp: new Date().toISOString(),
+                    forwarded: true,
+                    forwardedFrom: {
+                        threadId: selectedThread?.id || '',
+                        collectionName: selectedThread?.collectionName || '',
+                        messageId: forwardingMessage.id,
+                    },
+                },
+            });
+            setForwardingMessage(null);
+            setForwardSearchTerm('');
+            setActionMenuMessageId('');
+            await fetchMessages();
+        } catch (error) {
+            console.error('Erro ao encaminhar mensagem:', error);
+            alert('Erro ao encaminhar mensagem.');
         }
     };
 
@@ -407,7 +513,7 @@ const AdminMensagens = () => {
                                             <span className="admin-chat-thread-subtitle">{thread.subject}</span>
                                             <span className="admin-chat-thread-last">
                                                 {thread.lastMessage?.sender === 'admin' && <LiaCheckDoubleSolid size={14} />}
-                                                {thread.lastMessage?.text || 'Sem prévia'}
+                                                {getMessagePreview(thread.lastMessage)}
                                             </span>
                                         </span>
                                         <span className="admin-chat-thread-actions">
@@ -461,13 +567,80 @@ const AdminMensagens = () => {
                                     <span>Última atividade: {formatDateTime(selectedThread.lastMessage?.timestamp)}</span>
                                 </div>
 
+                                {pinnedMessages.length > 0 && (
+                                    <div className="admin-chat-pinned">
+                                        <strong>Mensagem fixada</strong>
+                                        <span>{getMessagePreview(pinnedMessages[pinnedMessages.length - 1])}</span>
+                                    </div>
+                                )}
+
                                 <div className="admin-chat-messages">
                                     {selectedThread.messages.map(message => (
-                                        <div key={message.id} className={`admin-chat-bubble-row ${message.sender === 'admin' ? 'admin' : 'user'}`}>
-                                            <div className="admin-chat-bubble">
-                                                <p>{message.text}</p>
+                                        <div key={message.id} className={`admin-chat-bubble-row ${message.sender === 'admin' ? 'admin' : 'user'} ${message.pinnedByAdmin ? 'pinned' : ''}`}>
+                                            <div className={`admin-chat-bubble ${message.deletedByAdmin ? 'deleted' : ''}`}>
+                                                <button
+                                                    className="admin-chat-message-menu-button"
+                                                    onClick={() => setActionMenuMessageId(prev => prev === message.id ? '' : message.id)}
+                                                    title="Ações da mensagem"
+                                                >
+                                                    ...
+                                                </button>
+                                                {actionMenuMessageId === message.id && (
+                                                    <div className="admin-chat-message-menu">
+                                                        {message.sender === 'admin' && !message.deletedByAdmin && (
+                                                            <button onClick={() => {
+                                                                setActionMenuMessageId('');
+                                                                setEditingMessage({ id: message.id, text: message.text || '' });
+                                                            }}>Editar</button>
+                                                        )}
+                                                        {!message.deletedByAdmin && (
+                                                            <>
+                                                                <button onClick={() => {
+                                                                    setActionMenuMessageId('');
+                                                                    setForwardingMessage(message);
+                                                                    setForwardSearchTerm('');
+                                                                }}>Encaminhar</button>
+                                                                <button onClick={() => {
+                                                                    setActionMenuMessageId('');
+                                                                    handleTogglePinnedMessage(message);
+                                                                }}>
+                                                                    {message.pinnedByAdmin ? 'Desafixar' : 'Fixar'}
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                        <button onClick={() => handleDeleteMessage(message)}>Apagar</button>
+                                                    </div>
+                                                )}
+
+                                                {editingMessage?.id === message.id ? (
+                                                    <div className="admin-chat-edit-box">
+                                                        <textarea
+                                                            value={editingMessage.text}
+                                                            onChange={(event) => setEditingMessage(prev => ({ ...prev, text: event.target.value }))}
+                                                            onKeyDown={(event) => {
+                                                                if (event.key === 'Enter' && !event.shiftKey) {
+                                                                    event.preventDefault();
+                                                                    handleEditMessage();
+                                                                }
+                                                            }}
+                                                            rows="3"
+                                                            autoFocus
+                                                        />
+                                                        <div>
+                                                            <button onClick={() => setEditingMessage(null)}>Cancelar</button>
+                                                            <button onClick={handleEditMessage}>Salvar</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        {message.forwarded && <span className="admin-chat-forwarded-label">Encaminhada</span>}
+                                                        {message.pinnedByAdmin && <span className="admin-chat-pinned-label">Fixada</span>}
+                                                        <p>{message.deletedByAdmin ? 'Mensagem apagada' : message.text}</p>
+                                                    </>
+                                                )}
                                                 <small>
                                                     {formatMessageTime(message.timestamp)}
+                                                    {message.editedAt && !message.deletedByAdmin && <span>Editada</span>}
                                                     {message.sender === 'admin' && <LiaCheckDoubleSolid size={14} />}
                                                 </small>
                                             </div>
@@ -503,6 +676,47 @@ const AdminMensagens = () => {
                         )}
                     </section>
                 </div>
+
+                {forwardingMessage && (
+                    <div className="admin-chat-forward-modal">
+                        <div className="admin-chat-forward-card">
+                            <header>
+                                <div>
+                                    <strong>Encaminhar mensagem</strong>
+                                    <span>{getMessagePreview(forwardingMessage)}</span>
+                                </div>
+                                <button onClick={() => {
+                                    setForwardingMessage(null);
+                                    setForwardSearchTerm('');
+                                }}>Fechar</button>
+                            </header>
+                            <div className="admin-chat-forward-search">
+                                <LiaSearchSolid size={18} />
+                                <input
+                                    value={forwardSearchTerm}
+                                    onChange={(event) => setForwardSearchTerm(event.target.value)}
+                                    placeholder="Pesquisar conversa"
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="admin-chat-forward-list">
+                                {forwardableThreads.length === 0 && (
+                                    <div className="admin-chat-forward-empty">Nenhuma conversa encontrada.</div>
+                                )}
+
+                                {forwardableThreads.map(thread => (
+                                    <button key={`${thread.collectionName}-${thread.id}`} onClick={() => handleForwardMessage(thread)}>
+                                        <span className="admin-chat-avatar">{getInitials(thread.requester)}</span>
+                                        <span>
+                                            <strong>{thread.requester}</strong>
+                                            <small>{thread.areaTitle} · {thread.subject}</small>
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

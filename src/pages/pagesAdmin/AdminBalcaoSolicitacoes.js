@@ -776,16 +776,19 @@ const AdminBalcaoSolicitacoes = () => {
                     )}
 
                     <ul className="data-list">
-                        {paginatedFilteredSolicitacoes.map((item, index) => (
+                        {paginatedFilteredSolicitacoes.map((item, index) => {
+                            const unreadCount = countUnreadAdminMessages(item.messages);
+
+                            return (
                             <li
                                 key={item.id}
                                 className="data-list-item"
                                 onClick={() => handleOpenSolicitacao(item)}
                                 style={{ cursor: 'pointer', position: 'relative' }}
                             >
-                                {countUnreadAdminMessages(item.messages) > 0 && (
+                                {unreadCount > 0 && (
                                     <span className="admin-card-unread-badge">
-                                        {countUnreadAdminMessages(item.messages)}
+                                        {unreadCount}
                                     </span>
                                 )}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
@@ -816,7 +819,8 @@ const AdminBalcaoSolicitacoes = () => {
                                     </span>
                                 </div>
                             </li>
-                        ))}
+                            );
+                        })}
                     </ul>
 
                     {/* Paginação Unificada (Server-side via Firestore) */}

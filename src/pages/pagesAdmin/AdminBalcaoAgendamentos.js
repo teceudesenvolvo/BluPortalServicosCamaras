@@ -13,6 +13,7 @@ import {
     LiaPaperclipSolid, LiaSearchSolid, LiaArrowLeftSolid, LiaFilterSolid, LiaDownloadSolid
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
+import { buildReadMessagesUpdate, countUnreadAdminMessages } from '../../utils/adminMessages';
 
 const normalizeAppointmentDate = (dateValue) => {
     if (!dateValue) return '';
@@ -280,6 +281,7 @@ const AdminBalcaoAgendamentos = () => {
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [selectedItems, setSelectedItems] = useState([]);
     const [bulkStatus, setBulkStatus] = useState('');
+    const [selectionMode, setSelectionMode] = useState(false);
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
@@ -532,6 +534,7 @@ const AdminBalcaoAgendamentos = () => {
             alert('Status atualizado com sucesso!');
             setSelectedItems([]);
             setBulkStatus('');
+            setSelectionMode(false);
             fetchAgendamentos();
         } catch (error) {
             console.error('Erro na atualização em massa:', error);
@@ -550,6 +553,30 @@ const AdminBalcaoAgendamentos = () => {
 
         await sendNotification({ ...selectedSolicitacao, id });
         alert('Mensagem enviada!');
+    };
+
+    const handleOpenAgendamento = async (item) => {
+        setSelectedSolicitacao(item);
+
+        const updates = buildReadMessagesUpdate(item.messages);
+        if (Object.keys(updates).length === 0) return;
+
+        try {
+            await updateDoc(doc(firestore, 'balcao-cidadao', item.id), updates);
+            setAgendamentos(prev => prev.map(agendamento => (
+                agendamento.id === item.id
+                    ? {
+                        ...agendamento,
+                        messages: Object.entries(agendamento.messages || {}).reduce((acc, [id, message]) => {
+                            acc[id] = message.sender !== 'admin' ? { ...message, readByAdmin: true } : message;
+                            return acc;
+                        }, {}),
+                    }
+                    : agendamento
+            )));
+        } catch (error) {
+            console.error('Erro ao marcar mensagens do agendamento como lidas:', error);
+        }
     };
 
     const handleNotifyUser = async (solicitacao) => {
@@ -808,33 +835,50 @@ const AdminBalcaoAgendamentos = () => {
                                 Página {currentPage} {hasActiveFilters && '(Resultados filtrados)'}
                             </span>
                         </div>
-                        {selectedItems.length > 0 && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f3f4f6', padding: '8px 12px', borderRadius: '8px' }}>
-                                <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{selectedItems.length} selecionado(s)</span>
-                                <select 
-                                    value={bulkStatus} 
-                                    onChange={(e) => setBulkStatus(e.target.value)} 
-                                    className="form-input" 
-                                    style={{ margin: 0, minWidth: '180px', padding: '6px 10px', height: 'auto' }}
-                                >
-                                    <option value="">Alterar status para...</option>
-                                    <option value="Agendamento Liberado">Agendamento Liberado</option>
-                                    <option value="Agendado">Agendado</option>
-                                    <option value="Aguardando Atendimento">Aguardando Atendimento</option>
-                                    <option value="Em Análise">Em Análise</option>
-                                    <option value="Concluído">Concluído</option>
-                                    <option value="Documentação Reprovada">Documentação Reprovada</option>
-                                    <option value="Documentação Reenviada">Documentação Reenviada</option>
-                                    <option value="Cancelado">Cancelado</option>
-                                </select>
-                                <button onClick={handleBulkStatusChange} className="btn-primary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
-                                    Aplicar
-                                </button>
-                            </div>
-                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            {selectionMode && selectedItems.length > 0 && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f3f4f6', padding: '8px 12px', borderRadius: '8px' }}>
+                                    <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{selectedItems.length} selecionado(s)</span>
+                                    <select 
+                                        value={bulkStatus} 
+                                        onChange={(e) => setBulkStatus(e.target.value)} 
+                                        className="form-input" 
+                                        style={{ margin: 0, minWidth: '180px', padding: '6px 10px', height: 'auto' }}
+                                    >
+                                        <option value="">Alterar status para...</option>
+                                        <option value="Agendamento Liberado">Agendamento Liberado</option>
+                                        <option value="Agendado">Agendado</option>
+                                        <option value="Aguardando Atendimento">Aguardando Atendimento</option>
+                                        <option value="Em Análise">Em Análise</option>
+                                        <option value="Concluído">Concluído</option>
+                                        <option value="Documentação Reprovada">Documentação Reprovada</option>
+                                        <option value="Documentação Reenviada">Documentação Reenviada</option>
+                                        <option value="Cancelado">Cancelado</option>
+                                    </select>
+                                    <button onClick={handleBulkStatusChange} className="btn-primary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
+                                        Aplicar
+                                    </button>
+                                </div>
+                            )}
+                            <button
+                                className={selectionMode ? 'btn-secondary' : 'btn-primary'}
+                                onClick={() => {
+                                    setSelectionMode(prev => {
+                                        if (prev) {
+                                            setSelectedItems([]);
+                                            setBulkStatus('');
+                                        }
+                                        return !prev;
+                                    });
+                                }}
+                                style={{ padding: '8px 14px', fontSize: '0.85rem' }}
+                            >
+                                {selectionMode ? 'Cancelar seleção' : 'Selecionar'}
+                            </button>
+                        </div>
                     </div>
 
-                    {!loading && paginatedItems.length > 0 && (
+                    {selectionMode && !loading && paginatedItems.length > 0 && (
                         <div style={{ padding: '10px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <input 
                                 type="checkbox" 
@@ -865,22 +909,30 @@ const AdminBalcaoAgendamentos = () => {
                             const normalizedDateStr = item.appointmentDateNormalized;
                             const timeStr = item.appointmentTime;
                             const isPast = normalizedDateStr && new Date(normalizedDateStr + "T00:00:00") < new Date(new Date().setHours(0, 0, 0, 0));
+                            const unreadCount = countUnreadAdminMessages(item.messages);
 
                             return (
                                 <li
                                     key={item.id}
                                     className="data-list-item"
-                                    onClick={() => setSelectedSolicitacao(item)}
-                                    style={{ cursor: 'pointer', opacity: isPast ? 0.6 : 1, display: 'flex', alignItems: 'center' }}
+                                    onClick={() => handleOpenAgendamento(item)}
+                                    style={{ cursor: 'pointer', opacity: isPast ? 0.6 : 1, display: 'flex', alignItems: 'center', position: 'relative' }}
                                 >
-                                    <div style={{ marginRight: '16px' }} onClick={(e) => e.stopPropagation()}>
-                                        <input 
-                                            type="checkbox"
-                                            checked={selectedItems.includes(item.id)}
-                                            onChange={() => handleSelectItem(item.id)}
-                                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                                        />
-                                    </div>
+                                    {unreadCount > 0 && (
+                                        <span className="admin-card-unread-badge">
+                                            {unreadCount}
+                                        </span>
+                                    )}
+                                    {selectionMode && (
+                                        <div style={{ marginRight: '16px' }} onClick={(e) => e.stopPropagation()}>
+                                            <input 
+                                                type="checkbox"
+                                                checked={selectedItems.includes(item.id)}
+                                                onChange={() => handleSelectItem(item.id)}
+                                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                            />
+                                        </div>
+                                    )}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
                                         <div style={{
                                             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
