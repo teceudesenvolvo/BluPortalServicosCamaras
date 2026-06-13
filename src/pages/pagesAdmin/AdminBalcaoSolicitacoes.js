@@ -13,6 +13,7 @@ import {
     LiaPaperclipSolid, LiaSearchSolid, LiaArrowLeftSolid, LiaFilterSolid, LiaDownloadSolid
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
+import { buildReadMessagesUpdate, countUnreadAdminMessages } from '../../utils/adminMessages';
 
 // Lightbox para visualizar arquivos inline
 const FileViewerModal = ({ file, onClose }) => {
@@ -429,6 +430,30 @@ const AdminBalcaoSolicitacoes = () => {
     });
 
     const paginatedFilteredSolicitacoes = filteredSolicitacoes;
+
+    const handleOpenSolicitacao = async (item) => {
+        setSelectedSolicitacao(item);
+
+        const updates = buildReadMessagesUpdate(item.messages);
+        if (Object.keys(updates).length === 0) return;
+
+        try {
+            await updateDoc(doc(firestore, 'balcao-cidadao', item.id), updates);
+            setSolicitacoes(prev => prev.map(solicitacao => (
+                solicitacao.id === item.id
+                    ? {
+                        ...solicitacao,
+                        messages: Object.entries(solicitacao.messages || {}).reduce((acc, [id, message]) => {
+                            acc[id] = message.sender !== 'admin' ? { ...message, readByAdmin: true } : message;
+                            return acc;
+                        }, {}),
+                    }
+                    : solicitacao
+            )));
+        } catch (error) {
+            console.error('Erro ao marcar mensagens como lidas:', error);
+        }
+    };
     const sendNotification = async (solicitacao, customMessage) => {
         if (!solicitacao.userId || solicitacao.userId === "anonimo" || !solicitacao.dadosUsuario?.email) {
             console.log("Usuário anônimo ou sem e-mail, notificação não enviada.");
@@ -755,9 +780,14 @@ const AdminBalcaoSolicitacoes = () => {
                             <li
                                 key={item.id}
                                 className="data-list-item"
-                                onClick={() => setSelectedSolicitacao(item)}
-                                style={{ cursor: 'pointer' }}
+                                onClick={() => handleOpenSolicitacao(item)}
+                                style={{ cursor: 'pointer', position: 'relative' }}
                             >
+                                {countUnreadAdminMessages(item.messages) > 0 && (
+                                    <span className="admin-card-unread-badge">
+                                        {countUnreadAdminMessages(item.messages)}
+                                    </span>
+                                )}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                     <span style={{
                                         minWidth: '32px', height: '32px', borderRadius: '50%',

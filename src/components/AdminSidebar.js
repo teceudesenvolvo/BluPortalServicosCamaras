@@ -12,20 +12,34 @@ import {
     LiaUsersSolid,
     LiaCloudDownloadAltSolid,
     LiaBellSolid,
-    LiaNewspaperSolid
+    LiaNewspaperSolid,
+    LiaCommentsSolid
 } from "react-icons/lia";
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, firestore } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, query } from 'firebase/firestore';
+import { countUnreadAdminMessages } from '../utils/adminMessages';
+
+const MESSAGE_MENU_AREAS = [
+    { role: 'Balcão', collectionName: 'balcao-cidadao' },
+    { role: 'Ouvidoria', collectionName: 'ouvidoria' },
+    { role: 'Procuradoria', collectionName: 'procuradoria-mulher' },
+];
 
 // --- Componente: Ítem do Menu Lateral (interno ao Sidebar) ---
-const AdminSidebarItem = ({ icon, title, path, isActive, onClick }) => (
+const AdminSidebarItem = ({ badge, icon, title, path, isActive, onClick }) => (
     <div
         className={`sidebar-item ${isActive ? 'active' : ''}`}
         onClick={() => onClick(path)}
     >
-        <span className="sidebar-icon">{icon}</span>
-        <span className="sidebar-title">{title}</span>
+        <span className="sidebar-icon">
+            {icon}
+            {badge > 0 && <span className="sidebar-icon-badge">{badge > 99 ? '99+' : badge}</span>}
+        </span>
+        <span className="sidebar-title">
+            {title}
+            {badge > 0 && <span className="sidebar-title-badge">{badge > 99 ? '99+' : badge}</span>}
+        </span>
     </div>
 );
 
@@ -38,6 +52,7 @@ const AdminSidebar = () => {
     const [loadingRoles, setLoadingRoles] = useState(true);
     const [userType, setUserType] = useState(null);
     const [userEmail, setUserEmail] = useState(null);
+    const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -66,10 +81,48 @@ const AdminSidebar = () => {
         return () => unsubscribe(); // Limpa o listener ao desmontar o componente
     }, []); // O array vazio faz com que o efeito rode apenas uma vez
 
+    useEffect(() => {
+        const fetchUnreadMessagesCount = async () => {
+            if (!userType || userType === 'Cidadão') {
+                setUnreadMessagesCount(0);
+                return;
+            }
+
+            const visibleAreas = userType === 'Admin'
+                ? MESSAGE_MENU_AREAS
+                : MESSAGE_MENU_AREAS.filter(area => area.role === userType);
+
+            if (visibleAreas.length === 0) {
+                setUnreadMessagesCount(0);
+                return;
+            }
+
+            try {
+                const snapshots = await Promise.all(
+                    visibleAreas.map(area => getDocs(query(collection(firestore, area.collectionName), limit(300)))),
+                );
+
+                const total = snapshots.reduce((sum, snapshot) => (
+                    sum + snapshot.docs.reduce((areaSum, docSnap) => (
+                        areaSum + countUnreadAdminMessages(docSnap.data().messages)
+                    ), 0)
+                ), 0);
+
+                setUnreadMessagesCount(total);
+            } catch (error) {
+                console.error('Erro ao buscar mensagens não lidas do menu:', error);
+                setUnreadMessagesCount(0);
+            }
+        };
+
+        fetchUnreadMessagesCount();
+    }, [userType]);
+
     const allMenuItems = [
         // { title: 'Procon', icon: <LiaTachometerAltSolid />, path: '/admin-procon', roles: ['Admin', 'Procon'] },
         // { title: 'Atendimentos Jurídicos', icon: <LiaGavelSolid />, path: '/admin-juridico', roles: ['Admin', 'Juridico'] },
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/admin-balcao', roles: ['Admin', 'Balcão'] },
+        { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/admin-mensagens', roles: ['Admin', 'Balcão', 'Ouvidoria', 'Procuradoria'] },
         { title: 'Notícias do Site', icon: <LiaNewspaperSolid />, path: '/admin-noticias', roles: ['Admin'] },
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/admin-ouvidoria', roles: ['Admin', 'Ouvidoria'] },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/admin-procuradoria', roles: ['Admin', 'Procuradoria'] },
@@ -140,6 +193,7 @@ const AdminSidebar = () => {
                 ) : (
                     visibleMenuItems.map((item) => (
                         <AdminSidebarItem
+                            badge={item.path === '/admin-mensagens' ? unreadMessagesCount : 0}
                             key={item.title}
                             icon={item.icon}
                             title={item.title}

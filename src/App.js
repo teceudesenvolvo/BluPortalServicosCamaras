@@ -48,6 +48,7 @@ import AdminUsers from './pages/pagesAdmin/AdminUsers';
 import AdminMigration from './pages/pagesAdmin/AdminMigration';
 import AdminMail from './pages/pagesAdmin/AdminMail';
 import AdminNotifications from './pages/pagesAdmin/AdminNotifications';
+import AdminMensagens from './pages/pagesAdmin/AdminMensagens';
 
 
 function App() {
@@ -97,6 +98,7 @@ function App() {
           <Route path="/admin-balcao/agendamentos" element={<AdminBalcaoAgendamentos />} />
           <Route path="/admin-mail" element={<AdminMail />} />
           <Route path="/admin-notifications" element={<AdminNotifications />} />
+          <Route path="/admin-mensagens" element={<AdminMensagens />} />
           <Route path="/admin-migration" element={<AdminMigration />} />
 
         </Routes>
