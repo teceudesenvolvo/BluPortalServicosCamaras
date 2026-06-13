@@ -11,7 +11,8 @@ import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import {
     LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane,
-    LiaPaperclipSolid, LiaDownloadSolid, LiaSearchSolid, LiaFilterSolid
+    LiaPaperclipSolid, LiaDownloadSolid, LiaSearchSolid, LiaFilterSolid,
+    LiaCogSolid, LiaCalendarCheckSolid, LiaClipboardListSolid
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
@@ -75,6 +76,37 @@ const formatConfigForForm = (data = {}) => {
         }
     }
     return { ...getDefaultDailyAvailability(), ...formattedData };
+};
+
+const FIXED_STATUSES = ['Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Concluído', 'Cancelado'];
+
+const STATUS_COLORS = {
+    'Aguardando Atendimento': '#f59e0b',
+    'Agendamento Liberado': '#0ea5e9',
+    Agendado: '#2563eb',
+    'Em Análise': '#8b5cf6',
+    'Documentação Reprovada': '#ef4444',
+    'Documentação Reenviada': '#14b8a6',
+    Concluído: '#22c55e',
+    Cancelado: '#64748b',
+};
+
+const getSolicitationTime = (value) => {
+    if (!value) return 0;
+    if (value.toMillis) return value.toMillis();
+    if (value instanceof Date) return value.getTime();
+    const time = new Date(value).getTime();
+    return Number.isNaN(time) ? 0 : time;
+};
+
+const formatChartDateKey = (time) => {
+    const date = new Date(time);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
+const formatChartDateLabel = (dateKey) => {
+    const [year, month, day] = dateKey.split('-');
+    return `${day}/${month}`;
 };
 
 // Modal for Availability Configuration

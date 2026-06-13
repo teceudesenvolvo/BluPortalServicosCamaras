@@ -162,6 +162,14 @@ const AdminSidebar = () => {
 
     return (
         <>
+            <button
+                className={`mobile-sidebar-trigger ${isMobileExpanded ? 'hidden' : ''}`}
+                onClick={toggleMobileMenu}
+                aria-label={isMobileExpanded ? 'Fechar menu' : 'Abrir menu'}
+            >
+                <LiaBarsSolid size={24} />
+            </button>
+
             {/* Overlay para fechar o menu ao clicar fora no mobile */}
             {isMobileExpanded && (
                 <div className="sidebar-overlay" onClick={toggleMobileMenu} />

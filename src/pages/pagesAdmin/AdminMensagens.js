@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
+    LiaArrowLeftSolid,
     LiaCheckDoubleSolid,
     LiaCommentsSolid,
     LiaPaperPlane,
@@ -122,6 +123,7 @@ const AdminMensagens = () => {
     const [editingMessage, setEditingMessage] = useState(null);
     const [forwardingMessage, setForwardingMessage] = useState(null);
     const [forwardSearchTerm, setForwardSearchTerm] = useState('');
+    const [mobileChatOpen, setMobileChatOpen] = useState(false);
     const messagesEndRef = useRef(null);
 
     useEffect(() => {
@@ -277,6 +279,7 @@ const AdminMensagens = () => {
     const handleSelectThread = async (thread) => {
         setSelectedThreadId(thread.id);
         setReplyText('');
+        setMobileChatOpen(true);
         if (thread.unreadCount > 0) {
             await handleMarkAsRead(thread);
         }
@@ -439,7 +442,7 @@ const AdminMensagens = () => {
     return (
         <div className="dashboard-layout">
             <AdminSidebar />
-            <div className="dashboard-content admin-chat-page">
+            <div className={`dashboard-content admin-chat-page ${mobileChatOpen ? 'mobile-chat-open' : 'mobile-chat-list'}`}>
                 <div className="admin-chat-shell">
                     <aside className="admin-chat-sidebar">
                         <div className="admin-chat-sidebar-header">
@@ -548,6 +551,13 @@ const AdminMensagens = () => {
                         {selectedThread ? (
                             <>
                                 <header className="admin-chat-panel-header">
+                                    <button
+                                        className="admin-chat-back-button"
+                                        onClick={() => setMobileChatOpen(false)}
+                                        title="Voltar para conversas"
+                                    >
+                                        <LiaArrowLeftSolid size={22} />
+                                    </button>
                                     <div className="admin-chat-avatar large">{getInitials(selectedThread.requester)}</div>
                                     <div>
                                         <h2>{selectedThread.requester}</h2>
