@@ -1,9 +1,20 @@
 @import '@splidejs/react-splide/css';
+:root {
+  --portal-page-bg:
+    radial-gradient(circle at top left, rgba(2, 90, 161, 0.10), transparent 34rem),
+    radial-gradient(circle at top right, rgba(255, 192, 9, 0.10), transparent 28rem),
+    linear-gradient(135deg, #f8fbff 0%, #eef5fb 48%, #f7fbf6 100%);
+}
+
 body{
   overflow-x: hidden;
+  background: var(--portal-page-bg);
+  background-attachment: fixed;
 }
 .App {
   text-align: center;
+  min-height: 100vh;
+  background: var(--portal-page-bg);
 }
 
 .App-logo {
@@ -16,7 +27,7 @@ body{
    ========================================================================== */
 
 .home-page-modern {
-  background-color: #f5f5f7; /* Cinza claro, típico da Apple */
+  background: var(--portal-page-bg);
   color: #1d1d1f; /* Texto principal escuro */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -1271,6 +1282,7 @@ body{
 .login-container {
   display: flex;
   min-height: 100vh;
+  background: var(--portal-page-bg);
 }
 
 @media (max-width: 768px) {
@@ -1325,7 +1337,9 @@ body{
 /* Coluna Direita (Branca) */
 .login-right-panel {
   flex: 1;
-  background-color: white;
+  background: rgba(255, 255, 255, 0.68);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1564,6 +1578,7 @@ body{
 .dashboard-layout {
   display: flex;
   min-height: 100vh;
+  background: var(--portal-page-bg);
 }
 
 /* 1. Sidebar Fixo (Menu Lateral) */
@@ -1737,8 +1752,7 @@ body{
   transition: margin-left 0.3s ease; /* Acompanha a expansão da sidebar */
   flex-grow: 1;
   padding: 30px;
-  background-color: #f0f2f5;
-  /* Fundo cinza claro */
+  background: var(--portal-page-bg);
   display: flex;
   flex-direction: column;
 }
@@ -2530,7 +2544,7 @@ body{
 .dashboard-content {
     flex-grow: 1;
     padding: 30px;
-    background-color: #f4f6f9;
+    background: var(--portal-page-bg);
 }
 
 /*
@@ -2751,6 +2765,7 @@ body{
 .dashboard-layout {
     display: flex;
     min-height: 100vh;
+    background: var(--portal-page-bg);
 }
 .btn-send-solicita {
     background-color: #007bff; /* Azul principal */
@@ -2823,6 +2838,288 @@ body{
 .page-actions-buttons{
     display: flex;
     gap: 10px;
+}
+
+.admin-header-gear-button {
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 14px;
+    background: #025AA1;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 12px 28px rgba(2, 90, 161, 0.22);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    flex-shrink: 0;
+}
+
+.admin-header-gear-button:hover {
+    background: #014a86;
+    transform: translateY(-1px);
+    box-shadow: 0 16px 34px rgba(2, 90, 161, 0.28);
+}
+
+.admin-balcao-page-header {
+    align-items: center;
+    gap: 20px;
+}
+
+.admin-balcao-dashboard-content {
+    padding: 40px;
+}
+
+.admin-balcao-refresh-button {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    width: auto;
+}
+
+.admin-balcao-user-profile {
+    padding: 8px 0;
+}
+
+.admin-balcao-action-cards {
+    width: 95%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin: 0 0 24px;
+}
+
+.admin-balcao-action-card {
+    position: relative;
+    min-height: 132px;
+    border: 0;
+    border-radius: 16px;
+    padding: 24px;
+    color: #fff;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+    box-shadow: 0 18px 38px rgba(15, 23, 42, 0.14);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-balcao-action-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 24px 46px rgba(15, 23, 42, 0.18);
+}
+
+.admin-balcao-action-card::after {
+    content: "";
+    position: absolute;
+    inset: auto -45px -70px auto;
+    width: 190px;
+    height: 190px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.admin-balcao-action-card.appointments {
+    background: linear-gradient(135deg, #f59e0b 0%, #ffc009 52%, #fde047 100%);
+}
+
+.admin-balcao-action-card.requests {
+    background: linear-gradient(135deg, #025AA1 0%, #2563eb 58%, #22c55e 120%);
+}
+
+.admin-balcao-action-main {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    min-width: 0;
+    z-index: 1;
+}
+
+.admin-balcao-action-icon {
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.18);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+    z-index: 1;
+}
+
+.admin-balcao-action-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1;
+    min-width: 0;
+}
+
+.admin-balcao-action-copy strong {
+    font-size: 1.25rem;
+    line-height: 1.2;
+}
+
+.admin-balcao-action-copy small {
+    color: rgba(255, 255, 255, 0.86);
+    font-size: 0.92rem;
+}
+
+.admin-balcao-action-metrics {
+    display: grid;
+    gap: 10px;
+    z-index: 1;
+    min-width: 230px;
+}
+
+.admin-balcao-action-metric {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+    color: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.admin-balcao-action-metric span {
+    font-size: 0.82rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.admin-balcao-action-metric strong {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #0f172a;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+}
+
+.admin-balcao-new-badge {
+    position: absolute;
+    top: -10px;
+    right: 18px;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.9rem;
+    border: 3px solid #f0f2f5;
+    box-shadow: 0 10px 24px rgba(239, 68, 68, 0.28);
+    z-index: 2;
+}
+
+.admin-balcao-chart-card {
+    width: 95%;
+}
+
+.admin-balcao-main-chart {
+    height: 320px;
+    width: 100%;
+}
+
+.admin-balcao-card-header {
+    align-items: flex-start;
+}
+
+.admin-balcao-card-header span {
+    display: block;
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.admin-balcao-status-grid {
+    width: 95%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.admin-balcao-status-card {
+    background: #fff;
+    border: 1px solid #e5edf7;
+    border-top: 4px solid var(--status-color);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    min-width: 0;
+}
+
+.admin-balcao-status-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.admin-balcao-status-label {
+    display: block;
+    color: #475569;
+    font-size: 0.88rem;
+    font-weight: 700;
+    min-height: 2.2em;
+}
+
+.admin-balcao-status-total {
+    display: block;
+    color: #0f172a;
+    font-size: 2rem;
+    line-height: 1.05;
+    margin-top: 8px;
+}
+
+.admin-balcao-status-percent {
+    color: var(--status-color);
+    background: color-mix(in srgb, var(--status-color) 12%, white);
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-weight: 800;
+    font-size: 0.82rem;
+    flex-shrink: 0;
+}
+
+.admin-balcao-status-meta {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: #64748b;
+    font-size: 0.8rem;
+}
+
+.admin-balcao-status-meta span:first-child {
+    color: var(--status-color);
+    font-weight: 800;
+}
+
+.admin-balcao-mini-chart {
+    height: 112px;
+    margin-top: 12px;
 }
 
 .data-list-container {
@@ -3527,15 +3824,14 @@ body{
    ========================================================================== */
 
 .tv-camara-layout {
-  background: #eef5fb;
+  background: var(--portal-page-bg);
   min-height: 100vh;
 }
 
 .tv-camara-page {
   background:
-    linear-gradient(135deg, rgba(2, 90, 161, 0.12) 0%, rgba(255, 193, 7, 0.1) 42%, rgba(240, 242, 245, 0.96) 78%),
-    repeating-linear-gradient(90deg, rgba(2, 90, 161, 0.045) 0 1px, transparent 1px 84px),
-    #eef5fb;
+    linear-gradient(135deg, rgba(2, 90, 161, 0.08) 0%, rgba(255, 193, 7, 0.07) 42%, rgba(248, 251, 255, 0.82) 78%),
+    var(--portal-page-bg);
   color: #1f2937;
   min-height: 100vh;
   padding: 36px;
@@ -4019,6 +4315,71 @@ button {
     display: flex !important;
   }
 
+  .admin-balcao-page-header {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding-top: 0;
+  }
+
+  .dashboard-content.admin-balcao-dashboard-content {
+    padding: 76px 14px 24px;
+  }
+
+  .admin-balcao-page-header .header-title-section {
+    width: 100%;
+  }
+
+  .admin-balcao-page-header .header-title-section h1 {
+    font-size: clamp(2rem, 9vw, 3rem);
+    line-height: 1.05;
+  }
+
+  .admin-balcao-page-header .header-title-section p {
+    font-size: 1.2rem;
+    line-height: 1.25;
+  }
+
+  .admin-balcao-refresh-button {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+    font-size: 0.95rem;
+  }
+
+  .admin-balcao-user-profile {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+  }
+
+  .admin-balcao-user-profile .admin-header-gear-button {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .admin-balcao-user-profile .user-text {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    text-align: left;
+    margin-right: 0;
+  }
+
+  .admin-balcao-user-profile .user-name-display {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .admin-balcao-user-profile .user-avatar {
+    display: none;
+  }
+
   .data-card {
     padding: 16px;
     border-radius: 8px;
@@ -4065,6 +4426,57 @@ button {
   .data-list-container,
   .page-actions-bar {
     padding: 14px 0;
+  }
+
+  .admin-header-gear-button {
+    width: 44px;
+    min-width: 44px;
+  }
+
+  .admin-balcao-action-cards,
+  .admin-balcao-chart-card,
+  .admin-balcao-status-grid {
+    width: 100%;
+  }
+
+  .admin-balcao-action-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .admin-balcao-action-card {
+    min-height: 118px;
+    padding: 18px;
+    border-radius: 14px;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-balcao-action-main {
+    gap: 14px;
+  }
+
+  .admin-balcao-action-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+  }
+
+  .admin-balcao-action-copy strong {
+    font-size: 1.08rem;
+  }
+
+  .admin-balcao-action-metrics {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .admin-balcao-main-chart {
+    height: 260px;
+  }
+
+  .admin-balcao-status-grid {
+    grid-template-columns: 1fr;
+    margin-top: 16px;
   }
 
   .data-list {

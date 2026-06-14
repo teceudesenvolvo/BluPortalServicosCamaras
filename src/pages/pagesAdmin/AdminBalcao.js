@@ -11,8 +11,9 @@ import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import {
     LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane,
-    LiaPaperclipSolid, LiaDownloadSolid, LiaSearchSolid, LiaFilterSolid,
-    LiaCogSolid, LiaCalendarCheckSolid, LiaClipboardListSolid
+    LiaPaperclipSolid, LiaDownloadSolid,
+    LiaCogSolid, LiaCalendarCheckSolid, LiaClipboardListSolid,
+    LiaClockSolid, LiaHourglassHalfSolid, LiaRedoAltSolid
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
@@ -105,8 +106,32 @@ const formatChartDateKey = (time) => {
 };
 
 const formatChartDateLabel = (dateKey) => {
-    const [year, month, day] = dateKey.split('-');
+    const [, month, day] = dateKey.split('-');
     return `${day}/${month}`;
+};
+
+const formatTodayLabel = () => {
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = today.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+    return `Hoje ${day} de ${month}`;
+};
+
+const normalizeDateString = (value) => {
+    if (!value) return '';
+    if (value.toDate) return formatChartDateKey(value.toDate().getTime());
+    if (value.toMillis) return formatChartDateKey(value.toMillis());
+    if (value instanceof Date) return formatChartDateKey(value.getTime());
+
+    const text = String(value).trim();
+    const brDateMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (brDateMatch) {
+        const [, day, month, year] = brDateMatch;
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+
+    const time = new Date(text).getTime();
+    return Number.isNaN(time) ? text : formatChartDateKey(time);
 };
 
 // Modal for Availability Configuration
@@ -544,18 +569,16 @@ const AdminBalcaoDashboard = () => {
     const navigate = useNavigate();
     const chartRef = useRef(null);
     const chartInstance = useRef(null);
+    const statusChartRefs = useRef({});
+    const statusChartInstances = useRef({});
 
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [loading, setLoading] = useState(true);
     const [statusCounts, setStatusCounts] = useState({});
+    const [statusGrowthData, setStatusGrowthData] = useState({ labels: [], datasets: [] });
     const [solicitacoes, setSolicitacoes] = useState([]);
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterBeneficiario, setFilterBeneficiario] = useState('');
-    const [filterStatus, setFilterStatus] = useState('Todos');
-    const [filterAssunto, setFilterAssunto] = useState('Todos');
-    const [showFilters, setShowFilters] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -582,9 +605,7 @@ const AdminBalcaoDashboard = () => {
                 id: doc.id, 
                 ...doc.data(),
                 // Normalizar a data
-                timestamp: doc.data().dataSolicitacao?.toMillis 
-                    ? doc.data().dataSolicitacao.toMillis() 
-                    : new Date(doc.data().dataSolicitacao).getTime()
+                timestamp: getSolicitationTime(doc.data().dataSolicitacao)
             }));
             setSolicitacoes(fetchedData);
 
@@ -594,12 +615,53 @@ const AdminBalcaoDashboard = () => {
                 return acc;
             }, {});
 
-            const fixedStatuses = ['Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Concluído', 'Cancelado'];
             const orderedCounts = {};
-            fixedStatuses.forEach(status => {
+            FIXED_STATUSES.forEach(status => {
                 orderedCounts[status] = counts[status] || 0;
             });
             setStatusCounts(orderedCounts);
+
+            const dateKeys = [...new Set(
+                fetchedData
+                    .filter(item => item.timestamp)
+                    .map(item => formatChartDateKey(item.timestamp))
+            )].sort();
+
+            const dailyCountsByStatus = FIXED_STATUSES.reduce((acc, status) => {
+                acc[status] = {};
+                return acc;
+            }, {});
+
+            fetchedData.forEach((item) => {
+                if (!item.timestamp) return;
+                const status = item.status || 'Cancelado';
+                if (!dailyCountsByStatus[status]) dailyCountsByStatus[status] = {};
+                const dateKey = formatChartDateKey(item.timestamp);
+                dailyCountsByStatus[status][dateKey] = (dailyCountsByStatus[status][dateKey] || 0) + 1;
+            });
+
+            const datasets = FIXED_STATUSES.map((status) => {
+                let cumulativeTotal = 0;
+                return {
+                    label: status,
+                    data: dateKeys.map((dateKey) => {
+                        cumulativeTotal += dailyCountsByStatus[status]?.[dateKey] || 0;
+                        return cumulativeTotal;
+                    }),
+                    borderColor: STATUS_COLORS[status] || '#2563eb',
+                    backgroundColor: `${STATUS_COLORS[status] || '#2563eb'}22`,
+                    tension: 0.35,
+                    fill: false,
+                    pointRadius: 3,
+                    pointHoverRadius: 6,
+                    borderWidth: 2.5,
+                };
+            }).filter(dataset => dataset.data.some(value => value > 0));
+
+            setStatusGrowthData({
+                labels: dateKeys.map(formatChartDateLabel),
+                datasets,
+            });
         } catch (error) {
             console.error('Erro ao buscar solicitações:', error);
         } finally {
@@ -607,41 +669,12 @@ const AdminBalcaoDashboard = () => {
         }
     }, [isAuthReady]);
 
-    const hasActiveFilters = !!(searchTerm || filterBeneficiario || filterStatus !== 'Todos' || filterAssunto !== 'Todos');
-    const statusList = ['Todos', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Concluído', 'Cancelado'];
-    const assuntosList = ['Todos', 'Informações Gerais', 'Emissão de Documentos', 'Agendamento', 'Outros'];
-
-    const filteredSolicitacoes = solicitacoes.filter(item => {
-        const searchLower = searchTerm.toLowerCase();
-        const matchesSearch =
-            !searchTerm ||
-            (item.dadosSolicitacao?.assunto?.toLowerCase() || '').includes(searchLower) ||
-            (item.dadosUsuario?.name?.toLowerCase() || '').includes(searchLower) ||
-            (item.dadosBeneficiario?.name?.toLowerCase() || '').includes(searchLower) ||
-            (item.dadosBeneficiario?.cpf?.toLowerCase() || '').includes(searchLower) ||
-            (item.id?.toLowerCase() || '').includes(searchLower);
-
-        const beneficiarioText = `${item.dadosBeneficiario?.name || ''} ${item.dadosUsuario?.name || ''}`.toLowerCase();
-        const matchesBeneficiario = !filterBeneficiario || beneficiarioText.includes(filterBeneficiario.toLowerCase());
-        const matchesStatus = filterStatus === 'Todos' || item.status === filterStatus;
-        const matchesAssunto = filterAssunto === 'Todos' || item.dadosSolicitacao?.assunto === filterAssunto;
-
-        return matchesSearch && matchesBeneficiario && matchesStatus && matchesAssunto;
-    });
-
-    const clearFilters = () => {
-        setSearchTerm('');
-        setFilterBeneficiario('');
-        setFilterStatus('Todos');
-        setFilterAssunto('Todos');
-    };
-
     useEffect(() => {
         fetchData(); // Chama a função uma vez ao montar
     }, [fetchData]);
 
     useEffect(() => {
-        if (!chartRef.current || Object.keys(statusCounts).length === 0) return;
+        if (!chartRef.current || statusGrowthData.labels.length === 0) return;
 
         if (chartInstance.current) chartInstance.current.destroy();
 
@@ -649,19 +682,8 @@ const AdminBalcaoDashboard = () => {
         chartInstance.current = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: Object.keys(statusCounts),
-                datasets: [{
-                    label: 'Total de Solicitações',
-                    data: Object.values(statusCounts),
-                    borderColor: '#2563eb',
-                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                    tension: 0.4,
-                    fill: true,
-                    pointRadius: 6,
-                    pointHoverRadius: 8,
-                    pointBackgroundColor: '#1d4ed8',
-                    borderWidth: 3
-                }]
+                labels: statusGrowthData.labels,
+                datasets: statusGrowthData.datasets
             },
             options: {
                 responsive: true,
@@ -677,18 +699,81 @@ const AdminBalcaoDashboard = () => {
                         grid: { color: 'rgba(0, 0, 0, 0.05)' }
                     },
                     x: {
-                        grid: { display: false }
+                        grid: { display: false },
+                        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }
                     }
                 },
                 plugins: {
-                    legend: { display: false },
-                    title: { display: true, text: 'Solicitações por Status', font: { size: 16, weight: '600' } }
+                    legend: {
+                        display: true,
+                        position: 'bottom',
+                        labels: { usePointStyle: true, boxWidth: 8, padding: 16 }
+                    },
+                    title: { display: true, text: 'Crescimento por Status e Data', font: { size: 16, weight: '600' } },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `${context.dataset.label}: ${context.parsed.y} solicitação${context.parsed.y === 1 ? '' : 'ões'}`
+                        }
+                    }
                 }
             }
         });
 
         return () => { if (chartInstance.current) chartInstance.current.destroy(); };
-    }, [statusCounts]);
+    }, [statusGrowthData]);
+
+    useEffect(() => {
+        Object.values(statusChartInstances.current).forEach(instance => instance?.destroy());
+        statusChartInstances.current = {};
+
+        if (statusGrowthData.labels.length === 0) return undefined;
+
+        statusGrowthData.datasets.forEach((dataset) => {
+            const canvas = statusChartRefs.current[dataset.label];
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            statusChartInstances.current[dataset.label] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: statusGrowthData.labels,
+                    datasets: [{
+                        ...dataset,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        borderWidth: 2.5,
+                        backgroundColor: `${dataset.borderColor}18`,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 900, easing: 'easeOutQuart' },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => `${context.parsed.y} solicitação${context.parsed.y === 1 ? '' : 'ões'} acumulada${context.parsed.y === 1 ? '' : 's'}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { display: false },
+                        y: { display: false, beginAtZero: true }
+                    },
+                    elements: {
+                        line: { tension: 0.4 }
+                    }
+                }
+            });
+        });
+
+        return () => {
+            Object.values(statusChartInstances.current).forEach(instance => instance?.destroy());
+            statusChartInstances.current = {};
+        };
+    }, [statusGrowthData]);
 
     const handleCloseModal = () => setSelectedSolicitacao(null);
 
@@ -857,19 +942,46 @@ const AdminBalcaoDashboard = () => {
 
     if (!isAuthReady) return <div className="loading-screen">Carregando...</div>;
 
+    const newRequestsCount = statusCounts['Aguardando Atendimento'] || 0;
+    const resentDocumentsCount = statusCounts['Documentação Reenviada'] || 0;
+    const scheduledCount = statusCounts.Agendado || 0;
+    const todayKey = formatChartDateKey(Date.now());
+    const todayLabel = formatTodayLabel();
+    const todayAppointmentsCount = solicitacoes.filter((item) => {
+        const appointmentDate = item.appointmentDate || item.dadosSolicitacao?.appointmentDate || item.dadosSolicitacao?.dataAgendamento;
+        return (item.status || '') === 'Agendado' && normalizeDateString(appointmentDate) === todayKey;
+    }).length;
+    const totalSolicitacoes = solicitacoes.length;
+    const statusCharts = statusGrowthData.datasets.map((dataset) => {
+        const total = dataset.data[dataset.data.length - 1] || 0;
+        const first = dataset.data[0] || 0;
+        const growth = Math.max(total - first, 0);
+        const percentage = totalSolicitacoes ? Math.round((total / totalSolicitacoes) * 100) : 0;
+        return { dataset, total, growth, percentage };
+    });
+
     return (
         <div className="dashboard-layout">
             <AdminSidebar />
-            <div className="dashboard-content" style={{ padding: '40px' }}>
-                <header className="page-header-container">
+            <div className="dashboard-content admin-balcao-dashboard-content">
+                <header className="page-header-container admin-balcao-page-header">
                     <div className="header-title-section">
                         <h1>Admin Balcão do Cidadão</h1>
                         <p>Visão geral das solicitações</p>
-                        <button onClick={fetchData} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.8rem' }}>
+                        <button onClick={fetchData} className="btn-secondary admin-balcao-refresh-button" disabled={loading}>
                             ↻ Atualizar lista
                         </button>
                     </div>
-                    <div className="user-profile">
+                    <div className="user-profile admin-balcao-user-profile">
+                        <button
+                            type="button"
+                            onClick={() => setIsAvailabilityModalOpen(true)}
+                            className="admin-header-gear-button"
+                            aria-label="Configurar horários"
+                            title="Configurar horários"
+                        >
+                            <LiaCogSolid size={24} />
+                        </button>
                         <div className="user-text">
                             <p className="user-name-display">{auth.currentUser?.email || 'Admin'}</p>
                             <p className="user-type-display">Administrador</p>
@@ -878,131 +990,90 @@ const AdminBalcaoDashboard = () => {
                     </div>
                 </header>
 
-                <div className="page-actions-bar">
-                    <button onClick={() => setIsAvailabilityModalOpen(true)} className="btn-secondary">Configurar Horários</button>
-                    <button onClick={() => navigate('/admin-balcao/agendamentos')} className="btn-secondary" style={{background: "#ffc009", borderColor: "#ffc009", textAlign: "center"}}>Visualizar Agendamentos</button>
-                    <button onClick={() => navigate('/admin-balcao/solicitacoes')} className="btn-primary" >Visualizar Solicitações</button>
+                <div className="admin-balcao-action-cards">
+                    <button type="button" onClick={() => navigate('/admin-balcao/agendamentos')} className="admin-balcao-action-card appointments">
+                        <span className="admin-balcao-action-main">
+                            <span className="admin-balcao-action-icon"><LiaCalendarCheckSolid size={30} /></span>
+                            <span className="admin-balcao-action-copy">
+                                <strong>Visualizar Agendamentos</strong>
+                                <small>{scheduledCount} agendamento{scheduledCount === 1 ? '' : 's'} ativo{scheduledCount === 1 ? '' : 's'}</small>
+                            </span>
+                        </span>
+                        <span className="admin-balcao-action-metrics">
+                            <span className="admin-balcao-action-metric">
+                                <LiaClockSolid size={21} />
+                                <span>{todayLabel}</span>
+                                <strong>{todayAppointmentsCount}</strong>
+                            </span>
+                        </span>
+                    </button>
+                    <button type="button" onClick={() => navigate('/admin-balcao/solicitacoes')} className="admin-balcao-action-card requests">
+                        <span className="admin-balcao-action-main">
+                            <span className="admin-balcao-action-icon"><LiaClipboardListSolid size={30} /></span>
+                            <span className="admin-balcao-action-copy">
+                                <strong>Visualizar Solicitações</strong>
+                                <small>{newRequestsCount} {newRequestsCount === 1 ? 'nova solicitação' : 'novas solicitações'}</small>
+                            </span>
+                        </span>
+                        <span className="admin-balcao-action-metrics">
+                            <span className="admin-balcao-action-metric">
+                                <LiaHourglassHalfSolid size={21} />
+                                <span>Aguardando Atendimento</span>
+                                <strong>{newRequestsCount}</strong>
+                            </span>
+                            <span className="admin-balcao-action-metric">
+                                <LiaRedoAltSolid size={21} />
+                                <span>Documentação Reenviada</span>
+                                <strong>{resentDocumentsCount}</strong>
+                            </span>
+                        </span>
+                    </button>
                 </div>
 
-                <div className="data-card" style={{ width: '95%' }}>
-                    <div className="card-header"><h3>Atendimentos</h3></div>
+                <div className="data-card admin-balcao-chart-card">
+                    <div className="card-header admin-balcao-card-header">
+                        <div>
+                            <h3>Evolução dos Atendimentos</h3>
+                            <span>Crescimento acumulado por status nos últimos registros carregados</span>
+                        </div>
+                    </div>
                     <div className="chart-container">
-                        <div style={{ height: '450px', width: '100%' }}>
+                        <div className="admin-balcao-main-chart">
                             {loading ? <p>Carregando...</p> : <canvas ref={chartRef}></canvas>}
                         </div>
                     </div>
                 </div>
 
-                <div className="data-card" style={{ width: '95%', marginTop: '24px' }}>
-                    <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                        <div>
-                            <h3>Busca de Solicitações</h3>
-                            <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
-                                {filteredSolicitacoes.length} resultado{filteredSolicitacoes.length === 1 ? '' : 's'} nos últimos registros carregados
-                            </span>
-                        </div>
-                        {hasActiveFilters && (
-                            <button onClick={clearFilters} className="btn-secondary" style={{ fontSize: '0.85rem' }}>
-                                Limpar filtros
-                            </button>
-                        )}
-                    </div>
-
-                    <div style={{ padding: '16px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
-                            <LiaSearchSolid style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888' }} size={20} />
-                            <input
-                                type="text"
-                                placeholder="Buscar por solicitante, beneficiário, CPF ou protocolo..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="form-input"
-                                style={{ paddingLeft: '42px', margin: 0 }}
-                            />
-                        </div>
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={showFilters ? 'btn-primary' : 'btn-secondary'}
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
-                        >
-                            <LiaFilterSolid size={18} />
-                            Filtros
-                        </button>
-                    </div>
-
-                    {showFilters && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', padding: '0 16px 16px' }}>
-                            <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label>Beneficiário</label>
-                                <input
-                                    type="text"
-                                    placeholder="Nome do beneficiário"
-                                    value={filterBeneficiario}
-                                    onChange={(e) => setFilterBeneficiario(e.target.value)}
-                                    className="form-input"
-                                    style={{ margin: 0 }}
-                                />
-                            </div>
-                            <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label>Status</label>
-                                <select
-                                    value={filterStatus}
-                                    onChange={(e) => setFilterStatus(e.target.value)}
-                                    className="form-input"
-                                    style={{ margin: 0 }}
-                                >
-                                    {statusList.map(status => <option key={status} value={status}>{status}</option>)}
-                                </select>
-                            </div>
-                            <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label>Assunto</label>
-                                <select
-                                    value={filterAssunto}
-                                    onChange={(e) => setFilterAssunto(e.target.value)}
-                                    className="form-input"
-                                    style={{ margin: 0 }}
-                                >
-                                    {assuntosList.map(assunto => <option key={assunto} value={assunto}>{assunto}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                    )}
-
-                    {!loading && filteredSolicitacoes.length === 0 && (
-                        <p style={{ padding: '16px', color: '#6b7280' }}>Nenhuma solicitação encontrada.</p>
-                    )}
-
-                    <ul className="data-list">
-                        {filteredSolicitacoes.slice(0, 20).map(item => {
-                            const beneficiario = item.dadosBeneficiario?.name || item.dadosUsuario?.name || 'Beneficiário não informado';
-                            return (
-                                <li
-                                    key={item.id}
-                                    className="data-list-item"
-                                    onClick={() => setSelectedSolicitacao(item)}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    <div className="item-main-info">
-                                        <strong>{beneficiario}</strong>
-                                        {item.dadosUsuario?.name && item.dadosUsuario.name !== beneficiario && (
-                                            <span style={{ fontSize: '0.8rem', color: '#6b7280', display: 'block' }}>
-                                                Solicitante: {item.dadosUsuario.name}
-                                            </span>
-                                        )}
-                                        <span style={{ color: '#4b5563', fontSize: '0.9rem', display: 'block' }}>
-                                            {item.dadosSolicitacao?.assunto || 'Sem assunto'} · Protocolo: {item.id}
-                                        </span>
+                {!loading && statusCharts.length > 0 && (
+                    <div className="admin-balcao-status-grid">
+                        {statusCharts.map(({ dataset, total, growth, percentage }) => (
+                            <article
+                                key={dataset.label}
+                                className="admin-balcao-status-card"
+                                style={{ '--status-color': dataset.borderColor }}
+                            >
+                                <div className="admin-balcao-status-top">
+                                    <div>
+                                        <span className="admin-balcao-status-label">{dataset.label}</span>
+                                        <strong className="admin-balcao-status-total">{total}</strong>
                                     </div>
-                                    <div className="item-status">
-                                        <span className={`status-badge status-${item.status?.toLowerCase().replace(/\s/g, '-') || 'pending'}`}>
-                                            {item.status || 'Pendente'}
-                                        </span>
-                                    </div>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                </div>
+                                    <span className="admin-balcao-status-percent">{percentage}%</span>
+                                </div>
+                                <div className="admin-balcao-status-meta">
+                                    <span>+{growth} no período</span>
+                                    <span>{statusGrowthData.labels.length} dia{statusGrowthData.labels.length === 1 ? '' : 's'} analisado{statusGrowthData.labels.length === 1 ? '' : 's'}</span>
+                                </div>
+                                <div className="admin-balcao-mini-chart">
+                                    <canvas
+                                        ref={(node) => {
+                                            if (node) statusChartRefs.current[dataset.label] = node;
+                                        }}
+                                    />
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                )}
 
                 <SolicitacaoBalcaoModal
                     solicitacao={selectedSolicitacao}
