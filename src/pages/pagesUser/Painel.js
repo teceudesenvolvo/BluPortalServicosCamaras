@@ -9,17 +9,25 @@ import {
     LiaUserAstronautSolid,
     LiaFemaleSolid,
     LiaTvSolid,
+    LiaArrowRightSolid,
+    LiaBellSolid,
+    LiaShieldAltSolid,
 } from "react-icons/lia";
 
 // --- Componente: Card de Serviço no Grid ---
-const ServiceCard = ({ icon, title, path, navigate }) => {
+const ServiceCard = ({ icon, title, description, path, navigate, accent }) => {
     return (
         <div 
             className="service-card-dashboard" 
+            style={{ '--service-accent': accent }}
             onClick={() => navigate(path)}
         >
             <span className="card-icon-dashboard">{icon}</span>
-            <p className="card-title-dashboard">{title}</p>
+            <div className="service-card-dashboard-copy">
+                <p className="card-title-dashboard">{title}</p>
+                <span>{description}</span>
+            </div>
+            <span className="service-card-dashboard-action"><LiaArrowRightSolid size={18} /></span>
         </div>
     );
 };
@@ -45,10 +53,10 @@ const DashboardPage = () => {
     const serviceGridItems = [
         // { title: 'Procon', icon: <LiaBookOpenSolid />, path: '/procon-atendimentos' },
         // { title: 'Atendimento Jurídico', icon: <LiaBalanceScaleLeftSolid />, path: '/juridico' },
-        { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/balcao' },
-        { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/ouvidoria' },
-        { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/procuradoria' },
-        { title: 'TV Câmara', icon: <LiaTvSolid />, path: '/tv-camara' },
+        { title: 'Balcão do Cidadão', description: 'Solicite documentos, acompanhe pedidos e agendamentos.', icon: <LiaUserFriendsSolid />, path: '/balcao', accent: '#025AA1' },
+        { title: 'Ouvidoria', description: 'Envie manifestações, dúvidas, elogios e reclamações.', icon: <LiaUserAstronautSolid />, path: '/ouvidoria', accent: '#0f766e' },
+        { title: 'Procuradoria da Mulher', description: 'Acesse atendimento e acolhimento especializado.', icon: <LiaFemaleSolid />, path: '/procuradoria', accent: '#8b5cf6' },
+        { title: 'TV Câmara', description: 'Assista aos conteúdos e transmissões da Câmara.', icon: <LiaTvSolid />, path: '/tv-camara', accent: '#f59e0b' },
         // { title: 'Vereadores', icon: <LiaUsersSolid />, path: '/vereadores' },
         // Pode adicionar mais se necessário
     ];
@@ -114,13 +122,14 @@ const DashboardPage = () => {
             <Sidebar onItemClick={handleMenuItemClick} />
 
             {/* 2. Conteúdo Principal */}
-            <div className="dashboard-content">
+            <div className="dashboard-content user-dashboard-content">
                {/* Cabeçalho da Imagem */}
-                <header className="page-header-container">
+                <header className="page-header-container user-dashboard-hero">
                     
                     <div className="header-title-section">
+                        <span className="user-dashboard-eyebrow">Portal de Serviços</span>
                         <h1>Câmara Municipal de Paraipaba</h1>
-                        <p>Seja bem-vindo ao Portal de Serviços</p>
+                        <p>Olá, {loggedInUserData?.nome?.split(' ')[0] || 'cidadão'}. Resolva seus atendimentos de forma simples, acompanhe solicitações e acesse os serviços digitais da Câmara.</p>
                     </div>
                     <div className="user-profile">
                         <div className="user-text">
@@ -138,13 +147,39 @@ const DashboardPage = () => {
                     
                 </header>
 
+                <section className="user-dashboard-summary">
+                    <button type="button" className="user-dashboard-summary-card" onClick={() => navigate('/balcao')}>
+                        <LiaBellSolid size={24} />
+                        <span>
+                            <strong>Meus atendimentos</strong>
+                            <small>Acompanhe solicitações e mensagens recentes</small>
+                        </span>
+                    </button>
+                    <button type="button" className="user-dashboard-summary-card" onClick={() => navigate('/perfil')}>
+                        <LiaShieldAltSolid size={24} />
+                        <span>
+                            <strong>Perfil e segurança</strong>
+                            <small>Atualize seus dados e preferências</small>
+                        </span>
+                    </button>
+                </section>
+
+                <div className="user-dashboard-section-heading">
+                    <div>
+                        <h2>Serviços disponíveis</h2>
+                        <p>Escolha uma área para iniciar ou acompanhar seu atendimento.</p>
+                    </div>
+                </div>
+
                 <main className="services-grid-main">
                     {serviceGridItems.map((item) => (
                         <ServiceCard 
                             key={item.title}
                             icon={item.icon}
                             title={item.title}
+                            description={item.description}
                             path={item.path}
+                            accent={item.accent}
                             navigate={navigate}
                         />
                     ))}

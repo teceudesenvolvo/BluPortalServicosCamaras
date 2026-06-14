@@ -55,6 +55,14 @@ const Sidebar = ({ onItemClick }) => {
 
     return (
         <>
+            <button
+                className={`mobile-sidebar-trigger ${isMobileExpanded ? 'hidden' : ''}`}
+                onClick={toggleMobileMenu}
+                aria-label={isMobileExpanded ? 'Fechar menu' : 'Abrir menu'}
+            >
+                <LiaBarsSolid size={24} />
+            </button>
+
             {/* Overlay para fechar o menu ao clicar fora no mobile */}
             {isMobileExpanded && (
                 <div className="sidebar-overlay" onClick={toggleMobileMenu} />
@@ -99,12 +107,14 @@ const Sidebar = ({ onItemClick }) => {
             </div>
 
             <div className="sidebar-app-download">
-                {/* <p className="sidebar-app-title">Baixe o aplicativo</p> */}
-                <div className="sidebar-app-icons">
-                    {/* Adicione os links para as lojas de aplicativos aqui */}
-                    {/* <a href="#!" className="app-icon-link"><FaApple size={32} /></a>
-                    <a href="#!" className="app-icon-link"><FaGooglePlay size={32} /></a> */}
-                </div>
+                <a
+                    href="https://blu-tecnologias-site.vercel.app"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="sidebar-dev-link"
+                >
+                    Desenvolvido por Blu Tecnologias
+                </a>
             </div>
 
         </div>

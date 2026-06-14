@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Splide, SplideSlide } from '@splidejs/react-splide';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { firestore } from '../firebase';
-import { LiaUser } from 'react-icons/lia'; // Ícone de usuário padrão
+import { LiaArrowRightSolid, LiaUser, LiaUsersSolid } from 'react-icons/lia';
 
 // Componente: Card do Vereador (agora parte deste módulo)
 const VereadorCard = ({ nome, nomeParlamentar, foto }) => (
@@ -15,9 +15,13 @@ const VereadorCard = ({ nome, nomeParlamentar, foto }) => (
             )}
         </div>
         <div className="vereador-info">
-            <p className="vereador-nome">{nome}</p>
-            <p className="vereador-titulo">{nomeParlamentar}</p>
+            <span className="vereador-kicker">Mandato legislativo</span>
+            <h4 className="vereador-nome">{nome}</h4>
+            <p className="vereador-titulo">{nomeParlamentar || 'Vereador(a)'}</p>
         </div>
+        <span className="vereador-card-mark" aria-hidden="true">
+            <LiaArrowRightSolid />
+        </span>
     </div>
 );
 
@@ -77,12 +81,15 @@ const VereadoresSlider = () => {
     const splideOptions = {
         type: 'slide',
         perPage: 3,
-        gap: '0.1%',
-        padding: '2rem',
+        gap: '1rem',
+        padding: { left: '0.25rem', right: '0.25rem' },
         arrows: true,
         pagination: false,
+        drag: true,
+        speed: 650,
         breakpoints: {
-            1024: { perPage: 4 },
+            1180: { perPage: 3 },
+            980: { perPage: 2 },
             768: { perPage: 2, gap: '1rem' },
             480: { perPage: 1 },
         },
@@ -90,9 +97,16 @@ const VereadoresSlider = () => {
 
     return (
         <div className="vereadores-section">
-            <h3 className="section-title">Nossos Vereadores</h3>
+            <div className="vereadores-section-header">
+                <span className="vereadores-eyebrow">
+                    <LiaUsersSolid />
+                    Legislativo municipal
+                </span>
+                <h3 className="section-title">Nossos Vereadores</h3>
+                <p>Conheça os representantes que compõem a Câmara Municipal de Paraipaba.</p>
+            </div>
             {vereadores && Array.isArray(vereadores) && vereadores.length > 0 && (
-            <Splide options={splideOptions}>  
+            <Splide options={splideOptions} className="vereadores-splide">  
                 {vereadores.map((v, index) => (
                     <SplideSlide key={index}>
                         <VereadorCard

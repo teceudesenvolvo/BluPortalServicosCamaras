@@ -212,6 +212,16 @@ const AdminSidebar = () => {
                     ))
                 )}
             </div>
+            <div className="sidebar-app-download">
+                <a
+                    href="https://blu-tecnologias-site.vercel.app"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="sidebar-dev-link"
+                >
+                    Desenvolvido por Blu Tecnologias
+                </a>
+            </div>
         </div>
         </>
     );

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     collection, doc, getDocs, query, orderBy, limit, getDoc, 
-    updateDoc, setDoc, addDoc, serverTimestamp
+    updateDoc, setDoc, addDoc, serverTimestamp, writeBatch
 } from 'firebase/firestore';
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -13,7 +13,7 @@ import {
     LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane,
     LiaPaperclipSolid, LiaDownloadSolid,
     LiaCogSolid, LiaCalendarCheckSolid, LiaClipboardListSolid,
-    LiaClockSolid, LiaHourglassHalfSolid, LiaRedoAltSolid
+    LiaClockSolid, LiaHourglassHalfSolid, LiaRedoAltSolid, LiaBullhornSolid
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
@@ -132,6 +132,80 @@ const normalizeDateString = (value) => {
 
     const time = new Date(text).getTime();
     return Number.isNaN(time) ? text : formatChartDateKey(time);
+};
+
+const InstantNotificationModal = ({ onClose, onSend }) => {
+    const [title, setTitle] = useState('Aviso importante da Câmara Municipal');
+    const [description, setDescription] = useState('');
+    const [sending, setSending] = useState(false);
+
+    const handleSend = async () => {
+        if (!title.trim() || !description.trim()) {
+            alert('Informe o título e a mensagem da notificação.');
+            return;
+        }
+
+        if (!window.confirm('Enviar esta notificação instantânea para todos os usuários por 1 dia?')) {
+            return;
+        }
+
+        setSending(true);
+        try {
+            const total = await onSend(title.trim(), description.trim());
+            alert(`Notificação enviada para ${total} usuário${total === 1 ? '' : 's'}.`);
+            onClose();
+        } catch (error) {
+            console.error('Erro ao enviar notificação instantânea:', error);
+            alert('Erro ao enviar a notificação instantânea.');
+        } finally {
+            setSending(false);
+        }
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content admin-instant-notification-modal" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <div>
+                        <h3>Notificação instantânea</h3>
+                        <p>Envio para todos os usuários com duração de 1 dia.</p>
+                    </div>
+                    <button type="button" onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button>
+                </div>
+                <div className="modal-body">
+                    <div className="form-group">
+                        <label>Título</label>
+                        <input
+                            type="text"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            className="form-input"
+                            maxLength={90}
+                            placeholder="Ex: Aviso importante"
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>Mensagem</label>
+                        <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            className="form-input"
+                            rows="5"
+                            maxLength={260}
+                            placeholder="Digite a mensagem que aparecerá para os usuários..."
+                        />
+                    </div>
+                    <div className="admin-instant-notification-note">
+                        <LiaClockSolid size={20} />
+                        <span>Essa notificação ficará válida por 24 horas após o envio.</span>
+                    </div>
+                    <button type="button" onClick={handleSend} className="btn-primary" disabled={sending}>
+                        {sending ? 'Enviando...' : <><LiaBullhornSolid size={20} /> Enviar para todos</>}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 // Modal for Availability Configuration
@@ -579,6 +653,7 @@ const AdminBalcaoDashboard = () => {
     const [solicitacoes, setSolicitacoes] = useState([]);
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
+    const [isInstantNotificationModalOpen, setIsInstantNotificationModalOpen] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -695,21 +770,21 @@ const AdminBalcaoDashboard = () => {
                 scales: { 
                     y: { 
                         beginAtZero: true, 
-                        ticks: { stepSize: 1 },
-                        grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                        ticks: { stepSize: 1, color: '#5f6f86' },
+                        grid: { color: 'rgba(15, 23, 42, 0.08)' }
                     },
                     x: {
                         grid: { display: false },
-                        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }
+                        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10, color: '#5f6f86' }
                     }
                 },
                 plugins: {
                     legend: {
                         display: true,
                         position: 'bottom',
-                        labels: { usePointStyle: true, boxWidth: 8, padding: 16 }
+                        labels: { usePointStyle: true, boxWidth: 8, padding: 16, color: '#334155' }
                     },
-                    title: { display: true, text: 'Crescimento por Status e Data', font: { size: 16, weight: '600' } },
+                    title: { display: true, text: 'Crescimento por Status e Data', color: '#10233f', font: { size: 16, weight: '600' } },
                     tooltip: {
                         callbacks: {
                             label: (context) => `${context.dataset.label}: ${context.parsed.y} solicitação${context.parsed.y === 1 ? '' : 'ões'}`
@@ -847,6 +922,48 @@ const AdminBalcaoDashboard = () => {
         }
     };
 
+    const handleSendInstantNotification = async (title, description) => {
+        const usersSnapshot = await getDocs(collection(firestore, 'users'));
+        const users = usersSnapshot.docs
+            .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
+            .filter(user => user.email || user.uid || user.id);
+
+        if (users.length === 0) {
+            throw new Error('Nenhum usuário encontrado.');
+        }
+
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const cityName = config.cityCollection.charAt(0).toUpperCase() + config.cityCollection.slice(1);
+        const notificationsRef = collection(firestore, 'notifications');
+        const chunkSize = 450;
+
+        for (let i = 0; i < users.length; i += chunkSize) {
+            const batch = writeBatch(firestore);
+            users.slice(i, i + chunkSize).forEach((user) => {
+                const targetUserId = user.uid || user.id;
+                const notificationRef = doc(notificationsRef);
+                batch.set(notificationRef, {
+                    isRead: false,
+                    instant: true,
+                    durationHours: 24,
+                    expiresAt,
+                    targetAudience: 'all',
+                    targetUserId,
+                    timestamp: serverTimestamp(),
+                    tituloNotification: title,
+                    descricaoNotification: description,
+                    userEmail: user.email || '',
+                    userId: targetUserId,
+                    protocolo: 'ADMIN-INSTANT',
+                    cityName,
+                });
+            });
+            await batch.commit();
+        }
+
+        return users.length;
+    };
+
     const handleSendMessage = async (id, text) => {
         const itemRef = doc(firestore, 'balcao-cidadao', id);
         const docSnap = await getDoc(itemRef);
@@ -975,6 +1092,15 @@ const AdminBalcaoDashboard = () => {
                     <div className="user-profile admin-balcao-user-profile">
                         <button
                             type="button"
+                            onClick={() => setIsInstantNotificationModalOpen(true)}
+                            className="admin-header-notification-button"
+                            aria-label="Enviar notificação instantânea"
+                            title="Enviar notificação instantânea"
+                        >
+                            <LiaBullhornSolid size={23} />
+                        </button>
+                        <button
+                            type="button"
                             onClick={() => setIsAvailabilityModalOpen(true)}
                             className="admin-header-gear-button"
                             aria-label="Configurar horários"
@@ -1088,6 +1214,12 @@ const AdminBalcaoDashboard = () => {
                     onClose={() => setIsAvailabilityModalOpen(false)}
                     onSave={handleSaveAvailability}
                 />}
+                {isInstantNotificationModalOpen && (
+                    <InstantNotificationModal
+                        onClose={() => setIsInstantNotificationModalOpen(false)}
+                        onSend={handleSendInstantNotification}
+                    />
+                )}
             </div>
         </div>
     );

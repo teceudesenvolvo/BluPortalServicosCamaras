@@ -13,7 +13,9 @@ import { uploadFileToStorage } from '../utils/firebaseStorageUtils'; // Novo imp
 
 // Ícones
 import {
-    LiaUser, LiaLongArrowAltUpSolid, LiaLockSolid
+    LiaUser, LiaLongArrowAltUpSolid, LiaLockSolid, LiaEditSolid,
+    LiaEnvelopeSolid, LiaPhoneSolid, LiaIdCardSolid, LiaMapMarkedAltSolid,
+    LiaSaveSolid, LiaTimesSolid, LiaCameraSolid
 } from "react-icons/lia";
 
 // *******************
@@ -187,13 +189,14 @@ const Perfil = () => {
             ) : (
                 <Sidebar onItemClick={handleNavigation} />
             )}
-            <div className="dashboard-content">
+            <div className="dashboard-content profile-page-content">
                 
-                <header className="content-header">
+                <header className="content-header profile-page-header">
                     <div className="header-title-section">
                         {/* Aqui pode ir a logo da Paraipaba */}
+                        <span className="user-dashboard-eyebrow">Minha conta</span>
                         <h1>Câmara Municipal de Paraipaba</h1>
-                        <p>Portal de Serviços</p>
+                        <p>Gerencie seus dados, segurança e preferências do Portal de Serviços.</p>
                     </div>
                 </header>
 
@@ -206,7 +209,7 @@ const Perfil = () => {
                     </div>
                 ) : isEditing ? (
                     // MODO DE EDIÇÃO
-                    <div className="profile-container">
+                    <div className="profile-container modern-profile-container editing">
                         <div className="profile-summary">
                             <div className="profile-info">
                                 <div className="profile-avatar">
@@ -215,7 +218,7 @@ const Perfil = () => {
                                     ) : (
                                         <LiaUser />
                                     )}
-                                    <label htmlFor="avatar-upload" className="btn-edit-avatar">Alterar</label>
+                                    <label htmlFor="avatar-upload" className="btn-edit-avatar"><LiaCameraSolid size={16} /> Alterar</label>
                                     <input id="avatar-upload" type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
                                 </div>
                                 <div className="profile-text">
@@ -245,13 +248,13 @@ const Perfil = () => {
                             </div>
                         </div>
                         <div className="profile-actions">
-                            <button className="btn-secondary" onClick={handleCancelEdit}>Cancelar</button>
-                            <button className="btn-primary" onClick={handleSave}>Salvar Alterações</button>
+                            <button className="btn-secondary" onClick={handleCancelEdit}><LiaTimesSolid size={18} /> Cancelar</button>
+                            <button className="btn-primary" onClick={handleSave}><LiaSaveSolid size={18} /> Salvar Alterações</button>
                         </div>
                     </div>
                 ) : (
                     // MODO DE VISUALIZAÇÃO
-                    <div className="profile-container">
+                    <div className="profile-container modern-profile-container">
                         {/* Sumário do Perfil */}
                         <div className="profile-summary">
                             <div className="profile-info">
@@ -265,12 +268,44 @@ const Perfil = () => {
                                 <div className="profile-text">
                                     <h2>{profileData.name}</h2>
                                     <p>{profileData.tipo}</p>
+                                    <span>{profileData.email}</span>
                                 </div>
                             </div>
                             <button className="btn-edit" onClick={handleEdit}>
-                                Editar
+                                <LiaEditSolid size={18} /> Editar Perfil
                             </button>
                         </div>
+
+                        <section className="profile-quick-grid">
+                            <article>
+                                <LiaEnvelopeSolid size={22} />
+                                <span>
+                                    <small>Email</small>
+                                    <strong>{profileData.email || 'N/A'}</strong>
+                                </span>
+                            </article>
+                            <article>
+                                <LiaPhoneSolid size={22} />
+                                <span>
+                                    <small>Telefone</small>
+                                    <strong>{profileData.phone || 'Não informado'}</strong>
+                                </span>
+                            </article>
+                            <article>
+                                <LiaIdCardSolid size={22} />
+                                <span>
+                                    <small>CPF</small>
+                                    <strong>{profileData.cpf || 'Não informado'}</strong>
+                                </span>
+                            </article>
+                            <article>
+                                <LiaMapMarkedAltSolid size={22} />
+                                <span>
+                                    <small>Cidade</small>
+                                    <strong>{profileData.city || 'Não informada'}</strong>
+                                </span>
+                            </article>
+                        </section>
 
                         {/* Dados Detalhados */}
                         <div className="data-sections-grid">

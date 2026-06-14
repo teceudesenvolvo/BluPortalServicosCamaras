@@ -8,6 +8,13 @@ import {
     LiaExternalLinkAltSolid,
     LiaPlayCircleSolid,
     LiaTvSolid,
+    LiaShieldAltSolid,
+    LiaCalendarCheckSolid,
+    LiaBellSolid,
+    LiaMobileAltSolid,
+    LiaNewspaperSolid,
+    LiaCommentsSolid,
+    LiaMapMarkedAltSolid,
 } from "react-icons/lia";
 
 
@@ -50,14 +57,14 @@ const formatVideoDate = (value) => {
     }).format(date);
 };
 
-// Componente: Card de Serviço Moderno
-const ServiceCard = ({ icon, title, description, onClick }) => {
+const ServiceCard = ({ icon, title, description, tag, onClick }) => {
     return (
         <div className="service-card" onClick={onClick}>
             <div className="service-card-icon-background">
                 {icon}
             </div>
             <div className="service-card-content">
+                <span>{tag}</span>
                 <h3>{title}</h3>
                 <p>{description}</p>
             </div>
@@ -147,22 +154,41 @@ const HomePage = () => {
         {
             icon: <LiaUserFriendsSolid />,
             title: "Balcão do Cidadão",
+            tag: "Atendimento digital",
             description: "Solicite documentos e agende atendimentos de forma rápida.",
             action: () => navigate('/login'),
         },
         {
             icon: <LiaVoteYeaSolid />,
             title: "Ponto de Inclusão Eleitoral (PIEL)",
+            tag: "Cidadania",
             description: "Consulte informativos sobre seu título de eleitor, local de votação e mais.",
             action: () => navigate('/piel'),
         },
         {
             icon: <LiaUserAstronautSolid />,
             title: "Ouvidoria",
+            tag: "Comunicação direta",
             description: "Envie suas sugestões, reclamações, elogios ou críticas.",
             action: () => window.open('https://esic.camaraparaipaba.ce.gov.br/ouvidoria', '_blank', 'noopener,noreferrer'),
         }
     ];
+
+    const quickAccessItems = [
+        { icon: <LiaCalendarCheckSolid />, title: 'Agendamentos', text: 'Acompanhe datas e retornos', path: '/login' },
+        { icon: <LiaCommentsSolid />, title: 'Mensagens', text: 'Fale com os setores da Câmara', path: '/login' },
+        { icon: <LiaNewspaperSolid />, title: 'Notícias', text: 'Veja avisos e publicações', path: '#noticias' },
+        { icon: <LiaTvSolid />, title: 'TV Câmara', text: 'Assista sessões e vídeos', path: '/tv-camara' },
+    ];
+
+    const handleQuickAccess = (path) => {
+        if (path === '#noticias') {
+            document.getElementById('noticias')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+
+        navigate(path);
+    };
 
     return (
         <div className="home-page-modern">
@@ -181,13 +207,13 @@ const HomePage = () => {
                     </div>
                 </div>
             )}
-            <header className="home-header-modern" style={{ backgroundImage: `url(${HeroBackground})` }}>
+            <header className="home-header-modern landing-home-premium" style={{ backgroundImage: `url(${HeroBackground})` }}>
                 <div className="header-blur-overlay"></div>
                 <div className="nav-container">
                     <nav className="home-nav">
                         <div className="nav-logo">
                             <img src={Logo} alt="Logo Câmara Municipal de Paraipaba" />
-                            <span>Portal de Serviços</span>
+                            <span>Câmara Municipal de Paraipaba</span>
                         </div>
                         <div className="nav-actions">
                             <button className="btn-nav-login" onClick={() => navigate('/login')}>Entrar</button>
@@ -196,16 +222,76 @@ const HomePage = () => {
                     </nav>
                 </div>
                 <div className="hero-section">
-                    <h1>O poder legislativo, <br />agora na palma da sua mão.</h1>
-                    <p>Acesse serviços, acompanhe solicitações e fale com a Câmara Municipal de Paraipaba de onde estiver.</p>
+                    <div className="hero-content-premium">
+                        <span className="hero-eyebrow">
+                            <LiaShieldAltSolid />
+                            Portal oficial de serviços digitais
+                        </span>
+                        <h1>Câmara Municipal de Paraipaba mais próxima de você.</h1>
+                        <p>Acesse atendimentos, acompanhe solicitações, assista à TV Câmara e receba informações oficiais em uma experiência moderna, simples e segura.</p>
+
+                        <div className="hero-actions-premium">
+                            <button className="btn-hero-primary" onClick={() => navigate('/cadastro')}>
+                                Criar acesso
+                                <LiaArrowRightSolid />
+                            </button>
+                            <button className="btn-hero-secondary" onClick={() => navigate('/login')}>
+                                Entrar no portal
+                            </button>
+                        </div>
+
+                        <div className="hero-trust-row">
+                            <span><LiaBellSolid /> Serviços públicos online</span>
+                            <span><LiaMobileAltSolid /> App oficial disponível</span>
+                            <span><LiaMapMarkedAltSolid /> Paraipaba - CE</span>
+                        </div>
+                    </div>
+
+                    <div className="hero-panel-premium">
+                        <div className="hero-panel-header">
+                            <img src={Logo} alt="Câmara Municipal de Paraipaba" />
+                            <span>
+                                <strong>Portal de Serviços</strong>
+                                <small>Atendimento integrado</small>
+                            </span>
+                        </div>
+                        <div className="hero-panel-grid">
+                            {quickAccessItems.map((item) => (
+                                <button key={item.title} type="button" onClick={() => handleQuickAccess(item.path)}>
+                                    {item.icon}
+                                    <span>
+                                        <strong>{item.title}</strong>
+                                        <small>{item.text}</small>
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </header>
 
             <main className="home-main-content">
-               
+                <section className="landing-stats-section" aria-label="Destaques do portal">
+                    <article>
+                        <strong>24h</strong>
+                        <span>Portal disponível para iniciar solicitações</span>
+                    </article>
+                    <article>
+                        <strong>4</strong>
+                        <span>Canais digitais em um só lugar</span>
+                    </article>
+                    <article>
+                        <strong>100%</strong>
+                        <span>Foco em transparência e acompanhamento</span>
+                    </article>
+                </section>
 
                 <section className="services-section-modern">
-                    <h2>Nossos Serviços</h2>
+                    <div className="landing-section-heading">
+                        <span>Resolva online</span>
+                        <h2>Serviços essenciais com poucos cliques</h2>
+                        <p>Uma central digital para iniciar atendimentos, acompanhar retornos e manter contato com a Câmara.</p>
+                    </div>
                     <div className="services-container-modern">
                         {services.map(service => (
                             <ServiceCard
@@ -213,6 +299,7 @@ const HomePage = () => {
                                 icon={service.icon}
                                 title={service.title}
                                 description={service.description}
+                                tag={service.tag}
                                 onClick={service.action}
                             />
                         ))}
@@ -225,8 +312,8 @@ const HomePage = () => {
                             <LiaTvSolid />
                             TV Câmara
                         </span>
-                        <h2>Acompanhe as sessões e vídeos da Câmara</h2>
-                        <p>Veja o conteúdo mais recente da TV Câmara direto pelo portal.</p>
+                        <h2>Acompanhe sessões, pronunciamentos e conteúdos oficiais</h2>
+                        <p>A TV Câmara fica integrada ao portal para aproximar o cidadão das discussões, notícias e transmissões do legislativo.</p>
 
                         <div className="home-tv-camara-actions">
                             <button className="btn-nav-signup" onClick={() => navigate('/tv-camara')}>
@@ -278,7 +365,7 @@ const HomePage = () => {
                     </div>
                 </section>
 
-                 <section className="noticias-section-modern" style={{ padding: '40px 0 0 0', maxWidth: '1200px', margin: '0 auto' }}>
+                 <section id="noticias" className="noticias-section-modern">
                     <NoticiasSlider />
                 </section>
 
