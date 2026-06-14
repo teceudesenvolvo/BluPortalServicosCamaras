@@ -934,7 +934,7 @@ const AdminBalcaoAgendamentos = () => {
                                         </div>
                                     )}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
-                                        <div style={{
+                                        <div className="appointment-date-pill" style={{
                                             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                                             background: 'var(--primary-color, #2563eb)', color: '#fff',
                                             padding: '8px 12px', borderRadius: '8px', minWidth: '80px', textAlign: 'center'

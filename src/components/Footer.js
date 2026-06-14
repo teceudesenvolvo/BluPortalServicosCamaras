@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Logo from '../assets/logo-paraipaba.png';
-import AppStore from '../assets/AppStore.png';
-import GooglePlay from '../assets/GooglePlay.png';
 import {
     LiaArrowRightSolid,
     LiaEnvelopeSolid,
@@ -89,11 +87,11 @@ const Footer = () => {
                     <p>Baixe o aplicativo da Câmara e acompanhe suas solicitações com mais praticidade.</p>
                 </div>
                 <div className="app-badges">
-                    <a href="https://apps.apple.com/br/app/cm-paraipaba/id6769832252" target="_blank" rel="noopener noreferrer">
-                        <img src={AppStore} alt="App Store" />
+                    <a className="app-badge app-badge--apple" href="https://apps.apple.com/br/app/cm-paraipaba/id6769832252" target="_blank" rel="noopener noreferrer">
+                        Baixar na App Store
                     </a>
-                    <a href="https://play.google.com/store/apps/details?id=com.blutecnologias.appcamara&pcampaignid=web_share" target="_blank" rel="noopener noreferrer">
-                        <img src={GooglePlay} alt="Google Play" />
+                    <a className="app-badge app-badge--google" href="https://play.google.com/store/apps/details?id=com.blutecnologias.appcamara&pcampaignid=web_share" target="_blank" rel="noopener noreferrer">
+                        Disponível no Google Play
                     </a>
                 </div>
             </div>

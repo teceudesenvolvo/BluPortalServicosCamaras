@@ -79,7 +79,6 @@ const ServiceCard = ({ icon, title, description, tag, onClick }) => {
 const HomePage = () => {
     const navigate = useNavigate();
     const [showAppPopup, setShowAppPopup] = useState(false);
-    const [appLink, setAppLink] = useState('');
     const [tvVideos, setTvVideos] = useState([]);
     const [tvLoading, setTvLoading] = useState(true);
     const [tvError, setTvError] = useState('');
@@ -88,20 +87,7 @@ const HomePage = () => {
     const featuredPlayerUrl = buildPlayerUrl(featuredVideo?.videoId);
 
     useEffect(() => {
-        // Verifica se o popup já foi exibido/fechado anteriormente
-        const hasBeenShown = localStorage.getItem('app-popup-shown');
-        if (hasBeenShown) return;
-
-        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-
-        // Identificação do dispositivo mobile
-        if (/android/i.test(userAgent)) {
-            setAppLink('https://play.google.com/store/apps/details?id=com.blutecnologias.appcamara&pcampaignid=web_share');
-            setShowAppPopup(true);
-        } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
-            setAppLink('https://apps.apple.com/br/app/cm-paraipaba/id6769832252');
-            setShowAppPopup(true);
-        }
+        setShowAppPopup(true);
     }, []);
 
     useEffect(() => {
@@ -199,8 +185,11 @@ const HomePage = () => {
                         <h2 style={popupStyles.title}>Baixe nosso App!</h2>
                         <p style={popupStyles.text}>Acesse os serviços da Câmara Municipal direto do seu celular com muito mais praticidade.</p>
                         <div style={popupStyles.buttonContainer}>
-                            <a href={appLink} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                                <button style={popupStyles.downloadButton} onClick={handleDismissPopup}>Baixar Agora</button>
+                            <a href="https://apps.apple.com/br/app/cm-paraipaba/id6769832252" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                                <button style={popupStyles.downloadButton}>App Store</button>
+                            </a>
+                            <a href="https://play.google.com/store/apps/details?id=com.blutecnologias.appcamara&pcampaignid=web_share" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                                <button style={popupStyles.downloadButton}>Google Play</button>
                             </a>
                             <button style={popupStyles.dismissButton} onClick={handleDismissPopup}>Agora não</button>
                         </div>

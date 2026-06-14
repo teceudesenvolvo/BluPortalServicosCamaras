@@ -794,7 +794,7 @@ const AdminBalcaoSolicitacoes = () => {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                     <span style={{
                                         minWidth: '32px', height: '32px', borderRadius: '50%',
-                                        background: 'var(--primary-color, #2563eb)', color: '#fff',
+                                        background: 'var(--primary-color, #fff)', color: '#fff !important',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         fontSize: '0.8rem', fontWeight: '600', flexShrink: 0
                                     }}>

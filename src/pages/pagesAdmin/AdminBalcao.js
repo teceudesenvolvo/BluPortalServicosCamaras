@@ -124,6 +124,8 @@ const normalizeDateString = (value) => {
     if (value instanceof Date) return formatChartDateKey(value.getTime());
 
     const text = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+
     const brDateMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     if (brDateMatch) {
         const [, day, month, year] = brDateMatch;
