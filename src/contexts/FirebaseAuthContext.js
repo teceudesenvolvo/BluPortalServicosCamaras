@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase'; // Importa a instância do auth
+import PreLoader from '../components/PreLoader';
 
 // 1. Cria o Contexto
 const AuthContext = React.createContext();
@@ -33,7 +34,7 @@ export function AuthProvider({ children }) {
     }), [currentUser, loading]);
 
     if (loading) {
-        return <div className="loading-full-screen">Carregando...</div>;
+        return <PreLoader />;
     }
 
     return (
