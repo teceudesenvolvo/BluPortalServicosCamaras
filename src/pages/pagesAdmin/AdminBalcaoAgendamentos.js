@@ -292,12 +292,16 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                 <label>Alterar Status</label>
                                 <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="form-input">
                                     <option value="Agendamento Liberado">Agendamento Liberado</option>
+                                    <option value="Documento sendo preparado">Documento sendo preparado</option>
+                                    <option value="Documento Pronto">Documento Pronto</option>
                                     <option value="Agendado">Agendado</option>
                                     <option value="Aguardando Atendimento">Aguardando Atendimento</option>
                                     <option value="Em Análise">Em Análise</option>
                                     <option value="Concluído">Concluído</option>
                                     <option value="Documentação Reprovada">Documentação Reprovada</option>
                                     <option value="Documentação Reenviada">Documentação Reenviada</option>
+                                    <option value="Documento sendo preparado">Documento sendo preparado</option>
+                                    <option value="Documento Pronto">Documento Pronto</option>
                                     <option value="Cancelado">Cancelado</option>
                                 </select>
                             </div>
@@ -575,6 +579,10 @@ const AdminBalcaoAgendamentos = () => {
     const handleStatusChange = async (id, newStatus) => {
         const itemRef = doc(firestore, 'balcao-cidadao', id);
         let updateData = { status: newStatus };
+        if (newStatus === 'Documento Pronto') {
+            updateData['dadosSolicitacao.assunto'] = 'Entrega de Documentos';
+            updateData['dadosSolicitacao.entregaDeDocumentos'] = true;
+        }
         if (newStatus === 'Concluído' || newStatus === 'Cancelado') {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000; // Agenda para 5 dias
         } else {

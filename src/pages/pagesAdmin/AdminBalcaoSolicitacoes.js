@@ -449,6 +449,8 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                 <option value="Concluído">Concluído</option>
                                 <option value="Documentação Reprovada">Documentação Reprovada</option>
                                 <option value="Documentação Reenviada">Documentação Reenviada</option>
+                                <option value="Documento sendo preparado">Documento sendo preparado</option>
+                                <option value="Documento Pronto">Documento Pronto</option>
                                 <option value="Cancelado">Cancelado</option>
                             </select>
                         </div>
@@ -764,6 +766,11 @@ const AdminBalcaoSolicitacoes = () => {
         try {
             const itemRef = doc(firestore, 'balcao-cidadao', id);
             let updateData = { status: newStatus };
+            if (newStatus === 'Documento Pronto') {
+                updateData['dadosSolicitacao.assunto'] = 'Entrega de Documentos';
+                updateData['dadosSolicitacao.entregaDeDocumentos'] = true;
+                updateData.status = 'Agendamento Liberado';
+            }
             if (newStatus === 'Concluído' || newStatus === 'Cancelado') {
                 updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
             } else {

@@ -11,26 +11,51 @@ import { LiaArrowLeftSolid, LiaSearchSolid, LiaBellSolid, LiaPlusSolid, LiaTimes
 const SendNotificationModal = ({ onClose, onSend }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [users, setUsers] = useState([]);
-    const [selectedUser, setSelectedUser] = useState(null);
+    const [selectedUsers, setSelectedUsers] = useState([]);
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [loadingUsers, setLoadingUsers] = useState(false);
     const [sending, setSending] = useState(false);
 
-    const searchUsers = async () => {
-        if (searchTerm.length < 3) return;
+    const searchUsers = async (term) => {
+        const trimmedTerm = term.trim();
+        if (trimmedTerm.length < 3) {
+            setUsers([]);
+            return;
+        }
+        const normalizedTerm = trimmedTerm.toLowerCase();
+        const digitTerm = trimmedTerm.replace(/\D/g, '');
+
         setLoadingUsers(true);
         try {
             const usersRef = collection(firestore, 'users');
             // Nota: Firestore não tem busca por 'contains', então buscamos um lote e filtramos
-            const q = query(usersRef, limit(100));
+            const q = query(usersRef, limit(200));
             const snap = await getDocs(q);
             const results = snap.docs
                 .map(doc => ({ id: doc.id, ...doc.data() }))
-                .filter(u => 
-                    (u.name?.toLowerCase().includes(searchTerm.toLowerCase())) || 
-                    (u.email?.toLowerCase().includes(searchTerm.toLowerCase()))
-                );
+                .filter(u => {
+                    const name = u.name?.toLowerCase() || '';
+                    const email = u.email?.toLowerCase() || '';
+                    const cpf = (u.cpf || u.CPF || '').toLowerCase();
+                    const phone = (u.telefone || u.phone || '').toLowerCase();
+                    const uid = (u.id || '').toLowerCase();
+                    const userNumber = String(u.numero || u.number || '').toLowerCase();
+                    const rawCpf = cpf.replace(/\D/g, '');
+                    const rawPhone = phone.replace(/\D/g, '');
+                    const hasSelected = selectedUsers.some(selected => selected.id === u.id);
+
+                    return !hasSelected && (
+                        name.includes(normalizedTerm) ||
+                        email.includes(normalizedTerm) ||
+                        cpf.includes(normalizedTerm) ||
+                        phone.includes(normalizedTerm) ||
+                        uid.includes(normalizedTerm) ||
+                        userNumber.includes(normalizedTerm) ||
+                        (digitTerm.length >= 2 && (rawCpf.includes(digitTerm) || rawPhone.includes(digitTerm)))
+                    );
+                })
+                .slice(0, 50);
             setUsers(results);
         } catch (error) {
             console.error("Erro ao buscar usuários:", error);
@@ -39,11 +64,26 @@ const SendNotificationModal = ({ onClose, onSend }) => {
         }
     };
 
+    const handleSearchTermChange = (value) => {
+        setSearchTerm(value);
+        searchUsers(value);
+    };
+
+    const addUser = (user) => {
+        if (selectedUsers.some(u => u.id === user.id) || selectedUsers.length >= 10) return;
+        setSelectedUsers(prev => [...prev, user]);
+        setUsers(prev => prev.filter(u => u.id !== user.id));
+    };
+
+    const removeUser = (userId) => {
+        setSelectedUsers(prev => prev.filter(u => u.id !== userId));
+    };
+
     const handleSend = async () => {
-        if (!selectedUser || !title || !description) return alert("Preencha todos os campos e selecione um usuário.");
+        if (selectedUsers.length === 0 || !title || !description) return alert("Preencha todos os campos e selecione ao menos 1 usuário.");
         setSending(true);
         try {
-            await onSend(selectedUser, title, description);
+            await onSend(selectedUsers, title, description);
             onClose();
         } catch (error) {
             alert("Erro ao enviar.");
@@ -61,28 +101,58 @@ const SendNotificationModal = ({ onClose, onSend }) => {
                 </div>
                 <div className="modal-body">
                     <div className="form-group">
-                        <label>Buscar Usuário (Nome ou E-mail)</label>
+                        <label>Buscar Usuário (Nome, E-mail, CPF, Telefone)</label>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="form-input" placeholder="Mínimo 3 caracteres..." />
-                            <button onClick={searchUsers} className="btn-secondary" disabled={loadingUsers}>Pesquisar</button>
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={e => handleSearchTermChange(e.target.value)}
+                                className="form-input"
+                                placeholder="Digite 3 ou mais caracteres"
+                            />
+                            <button onClick={() => searchUsers(searchTerm)} className="btn-secondary" disabled={loadingUsers || searchTerm.trim().length < 3}>
+                                Pesquisar
+                            </button>
                         </div>
+                        <small style={{ color: '#6b7280', marginTop: '8px', display: 'block' }}>
+                            Selecione até 10 usuários para enviar a mesma notificação.
+                        </small>
                     </div>
 
-                    {users.length > 0 && !selectedUser && (
-                        <ul className="data-list" style={{ maxHeight: '150px', overflowY: 'auto', marginBottom: '15px', border: '1px solid #eee' }}>
+                    {selectedUsers.length > 0 && (
+                        <div style={{ marginBottom: '18px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <strong>Fila de Destinatários</strong>
+                                <small style={{ color: '#6b7280' }}>{selectedUsers.length} de 10 selecionados</small>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                {selectedUsers.map(user => (
+                                    <div key={user.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: '#eef2ff', borderRadius: '14px', minWidth: '220px' }}>
+                                        <div>
+                                            <strong style={{ display: 'block' }}>{user.name || user.email || 'Usuário'}</strong>
+                                            <small style={{ color: '#4b5563' }}>
+                                                {user.email ? `${user.email}` : ''}
+                                                {user.cpf || user.CPF ? ` • ${user.cpf || user.CPF}` : ''}
+                                                {user.telefone || user.phone ? ` • ${user.telefone || user.phone}` : ''}
+                                            </small>
+                                        </div>
+                                        <button type="button" onClick={() => removeUser(user.id)} className="btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem' }}>
+                                            Remover
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {users.length > 0 && (
+                        <ul className="data-list" style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '15px', border: '1px solid #eee' }}>
                             {users.map(u => (
-                                <li key={u.id} className="data-list-item" onClick={() => setSelectedUser(u)} style={{ padding: '8px', cursor: 'pointer' }}>
-                                    <small>{u.name} ({u.email})</small>
+                                <li key={u.id} className="data-list-item" onClick={() => addUser(u)} style={{ padding: '8px', cursor: selectedUsers.length >= 10 ? 'not-allowed' : 'pointer' }}>
+                                    <small>{u.name || u.email} {u.email ? `(${u.email})` : ''}</small>
                                 </li>
                             ))}
                         </ul>
-                    )}
-
-                    {selectedUser && (
-                        <div style={{ background: '#f3f4f6', padding: '10px', borderRadius: '8px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span>Para: <strong>{selectedUser.name}</strong></span>
-                            <button onClick={() => setSelectedUser(null)} className="btn-secondary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>Trocar</button>
-                        </div>
                     )}
 
                     <div className="form-group">
@@ -181,32 +251,33 @@ const AdminNotifications = () => {
         (n.protocolo?.toLowerCase() || '').includes(searchTerm.toLowerCase())
     );
 
-    const handleNewNotification = async (user, title, description) => {
+    const handleNewNotification = async (users, title, description) => {
         const cityName = config.cityCollection.charAt(0).toUpperCase() + config.cityCollection.slice(1);
-        
-        // 1. Salvar no Firestore de Notificações
         const notifyRef = collection(firestore, 'notifications');
-        await addDoc(notifyRef, {
-            isRead: false,
-            targetUserId: user.id,
-            timestamp: serverTimestamp(),
-            tituloNotification: title,
-            descricaoNotification: description,
-            userEmail: user.email,
-            userId: user.id,
-            protocolo: 'ADMIN-MANUAL'
-        });
-
-        // 2. Salvar na fila de e-mail
         const mailRef = collection(firestore, 'mail');
-        await addDoc(mailRef, {
-            to: user.email,
-            message: {
-                subject: title,
-                html: `<p><strong>Câmara Municipal de ${cityName}</strong></p><p>${description}</p>`,
-            },
-            timestamp: serverTimestamp()
-        });
+
+        const tasks = users.map(user => Promise.all([
+            addDoc(notifyRef, {
+                isRead: false,
+                targetUserId: user.id,
+                timestamp: serverTimestamp(),
+                tituloNotification: title,
+                descricaoNotification: description,
+                userEmail: user.email,
+                userId: user.id,
+                protocolo: 'ADMIN-MANUAL'
+            }),
+            addDoc(mailRef, {
+                to: user.email,
+                message: {
+                    subject: title,
+                    html: `<p><strong>Câmara Municipal de ${cityName}</strong></p><p>${description}</p>`,
+                },
+                timestamp: serverTimestamp()
+            })
+        ]));
+
+        await Promise.all(tasks);
         fetchNotifications();
     };
 
