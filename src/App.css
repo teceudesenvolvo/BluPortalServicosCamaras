@@ -3198,19 +3198,18 @@ body{
     height: 44px;
     border: 0;
     border-radius: 14px;
-    background: #025AA1;
+    background: linear-gradient(135deg, #01477e 0%, #2563eb 100%);
     color: #fff;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 12px 28px rgba(2, 90, 161, 0.22);
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     flex-shrink: 0;
 }
 
 .admin-header-gear-button:hover {
-    background: #014a86;
+    background: linear-gradient(135deg, #013a66 0%, #1d4ed8 100%);
     transform: translateY(-1px);
     box-shadow: 0 16px 34px rgba(2, 90, 161, 0.28);
 }
@@ -3220,8 +3219,8 @@ body{
     height: 44px;
     border: 0;
     border-radius: 14px;
-    background: linear-gradient(135deg, #ffc009, #f59e0b);
-    color: #0f172a;
+    background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%);
+    color: #ffffff;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -3280,7 +3279,6 @@ body{
 }
 
 .admin-balcao-refresh-button {
-    margin-top: 8px;
     font-size: 0.8rem;
     width: auto;
 }
@@ -4177,6 +4175,422 @@ body{
 .modal-chat-composer button:disabled {
     cursor: not-allowed;
     opacity: 0.48;
+}
+
+.queue-password-card {
+    margin-top: 18px;
+    padding: 24px;
+    border-radius: 20px;
+    text-align: center;
+    background: linear-gradient(135deg, #01477e, #025AA1);
+    color: #ffffff;
+    box-shadow: 0 20px 42px rgba(2, 90, 161, 0.24);
+}
+
+.queue-password-card span {
+    display: block;
+    color: rgba(255, 255, 255, 0.82);
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+}
+
+.queue-password-card strong {
+    display: block;
+    margin-top: 8px;
+    color: #ffffff;
+    font-size: 3rem;
+    line-height: 1;
+}
+
+.queue-panel-page {
+    padding: 40px;
+}
+
+.queue-panel-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 26px;
+    padding: 28px;
+    border-radius: 28px;
+    background: linear-gradient(135deg, rgba(1, 71, 126, 0.96), rgba(2, 90, 161, 0.86));
+    color: #ffffff;
+    box-shadow: 0 24px 60px rgba(2, 90, 161, 0.22);
+}
+
+.queue-panel-hero span,
+.queue-panel-hero p {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.queue-panel-hero h1 {
+    margin: 6px 0;
+    color: #ffffff;
+    font-size: 2.4rem;
+}
+
+.queue-current-card {
+    min-width: 260px;
+    padding: 22px;
+    border-radius: 22px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.queue-current-card strong {
+    display: block;
+    color: #ffffff;
+    font-size: 4rem;
+    line-height: 1;
+}
+
+.queue-current-card p {
+    margin: 8px 0 0;
+    color: #ffffff;
+    font-weight: 900;
+}
+
+.queue-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+    gap: 24px;
+}
+
+.queue-ticket-list {
+    display: grid;
+    gap: 12px;
+}
+
+.queue-ticket {
+    display: grid;
+    grid-template-columns: 88px 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.78);
+}
+
+.queue-ticket strong {
+    display: grid;
+    place-items: center;
+    min-height: 58px;
+    border-radius: 16px;
+    color: #ffffff;
+    font-size: 1.5rem;
+    background: linear-gradient(135deg, #01477e, #025AA1);
+}
+
+.queue-ticket span {
+    display: block;
+    color: #10233f;
+    font-weight: 900;
+}
+
+.queue-ticket small {
+    display: block;
+    margin-top: 3px;
+    color: #64748b;
+    font-weight: 800;
+}
+
+.queue-ticket.calling {
+    background: rgba(220, 252, 231, 0.78);
+}
+
+.admin-balcao-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-wrap: nowrap;
+    margin-left: auto;
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+}
+
+.admin-balcao-header-actions::-webkit-scrollbar {
+    display: none;
+}
+
+.admin-balcao-header-actions .admin-action-button {
+    flex: 0 0 auto;
+    min-height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 18px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 15px;
+    color: #ffffff !important;
+    font-weight: 900;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.admin-balcao-header-actions .admin-action-icon,
+.admin-balcao-header-actions .admin-action-button > svg {
+    flex: 0 0 auto;
+    font-size: 1.14rem;
+}
+
+.admin-balcao-header-actions .admin-action-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: saturate(1.06);
+}
+
+.admin-balcao-header-actions .admin-action-button:disabled {
+    opacity: 0.62;
+    cursor: not-allowed;
+}
+
+.admin-balcao-header-actions .action-refresh {
+    background: linear-gradient(135deg, #0f4c81 0%, #0e7490 100%);
+}
+
+.admin-balcao-header-actions .action-new {
+    background: linear-gradient(135deg, #047857 0%, #16a34a 100%);
+}
+
+.admin-balcao-header-actions .action-reception {
+    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
+}
+
+.admin-balcao-header-actions .action-queue {
+    background: linear-gradient(135deg, #075985 0%, #0891b2 100%);
+}
+
+.admin-balcao-header-actions .btn-primary,
+.admin-balcao-header-actions .btn-secondary {
+    min-height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.admin-balcao-header-actions .admin-header-notification-button,
+.admin-balcao-header-actions .admin-header-gear-button {
+    flex: 0 0 auto;
+}
+
+@media (max-width: 900px) {
+    .queue-panel-page {
+        padding: 120px 18px 24px;
+    }
+
+    .queue-panel-hero,
+    .queue-grid {
+        grid-template-columns: 1fr;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .queue-ticket {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-balcao-header-actions {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+
+    .admin-balcao-header-actions .admin-action-label {
+        display: none;
+    }
+
+    .admin-balcao-header-actions .admin-action-button,
+    .admin-balcao-header-actions .btn-primary,
+    .admin-balcao-header-actions .btn-secondary {
+        width: 48px;
+        min-width: 48px;
+        height: 48px;
+        min-height: 48px;
+        flex: 0 0 48px;
+        padding: 0;
+        border-radius: 16px;
+    }
+}
+
+.reception-kiosk-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
+    gap: 24px;
+    margin-top: 28px;
+}
+
+.reception-kiosk-button {
+    min-height: 250px;
+    border: 0;
+    border-radius: 30px;
+    padding: 34px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 14px;
+    color: #ffffff;
+    cursor: pointer;
+    text-align: left;
+    box-shadow: 0 28px 62px rgba(15, 35, 64, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.reception-kiosk-button:hover {
+    transform: translateY(-3px);
+    filter: saturate(1.06);
+    box-shadow: 0 34px 72px rgba(15, 35, 64, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.reception-kiosk-button svg {
+    width: 58px;
+    height: 58px;
+    padding: 12px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+}
+
+.reception-kiosk-button.confirm {
+    background:
+        radial-gradient(circle at 85% 20%, rgba(125, 211, 252, 0.34), transparent 32%),
+        linear-gradient(135deg, #01477e 0%, #0891b2 100%);
+}
+
+.reception-kiosk-button.create {
+    background:
+        radial-gradient(circle at 85% 20%, rgba(134, 239, 172, 0.3), transparent 32%),
+        linear-gradient(135deg, #047857 0%, #16a34a 100%);
+}
+
+.reception-kiosk-button strong {
+    color: #ffffff;
+    font-size: clamp(1.55rem, 2.4vw, 2rem);
+    line-height: 1.08;
+}
+
+.reception-kiosk-button span {
+    max-width: 520px;
+    color: rgba(255, 255, 255, 0.84) !important;
+    font-weight: 800;
+    line-height: 1.45;
+}
+
+.reception-modal-content {
+    max-width: 920px;
+}
+
+.reception-modal-form {
+    display: grid;
+    gap: 16px;
+}
+
+.reception-search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: end;
+}
+
+.appointment-result-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 16px;
+    max-height: 260px;
+    overflow: auto;
+}
+
+.appointment-result-list button {
+    width: 100%;
+    border: 1px solid rgba(2, 90, 161, 0.18);
+    border-radius: 16px;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.58);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.appointment-result-list button.active {
+    background: linear-gradient(135deg, #01477e, #025AA1);
+    border-color: rgba(2, 90, 161, 0.42);
+}
+
+.appointment-result-list button strong,
+.selected-appointment-card strong {
+    color: #10233f;
+}
+
+.appointment-result-list button span {
+    color: #64748b;
+    font-weight: 800;
+}
+
+.appointment-result-list button.active strong,
+.appointment-result-list button.active span {
+    color: #ffffff !important;
+}
+
+.selected-appointment-card {
+    margin-top: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    border-radius: 22px;
+    padding: 20px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.7), rgba(232, 244, 255, 0.46));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+    display: grid;
+    gap: 9px;
+}
+
+.selected-appointment-card > div:first-child {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.selected-appointment-card span,
+.selected-appointment-card p {
+    color: #475569 !important;
+    font-weight: 800;
+}
+
+.appointment-warning {
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: rgba(254, 226, 226, 0.88);
+    color: #991b1b;
+    font-weight: 900;
+}
+
+@media (max-width: 900px) {
+    .reception-kiosk-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .reception-kiosk-button {
+        min-height: 190px;
+        padding: 26px;
+    }
+
+    .reception-search-row {
+        grid-template-columns: 1fr;
+    }
 }
 
 .tab-button {
@@ -5516,13 +5930,11 @@ color: #fff !important;
 .dashboard-layout .admin-header-gear-button {
   background: linear-gradient(135deg, #012f5c 0%, #025AA1 100%);
   color: #ffffff;
-  box-shadow: 0 14px 34px rgba(2, 90, 161, 0.26);
 }
 
 .dashboard-layout .admin-header-notification-button {
   background: linear-gradient(135deg, #9a6700 0%, #f59e0b 100%);
   color: #ffffff;
-  box-shadow: 0 14px 34px rgba(154, 103, 0, 0.25);
 }
 
 .dashboard-layout .admin-chat-composer button {

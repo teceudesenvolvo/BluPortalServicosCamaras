@@ -72,6 +72,7 @@ const UserEditModal = ({ user, onClose, onSave }) => {
                                 <option value="Procon">Procon</option>
                                 <option value="Ouvidoria">Ouvidoria</option>
                                 <option value="Balcão">Balcão</option>
+                                <option value="Recepção">Recepção</option>
                                 <option value="Cidadão">Cidadão</option>
                             </select>
                         </div>
@@ -368,7 +369,7 @@ const AdminUsersDashboard = () => {
     }
     );
 
-    const tiposList = ['Todos', 'Admin', 'Vereador', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Cidadão'];
+    const tiposList = ['Todos', 'Admin', 'Vereador', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Cidadão'];
 
     if (!isAuthReady) {
         return <div className="loading-screen">Carregando...</div>;

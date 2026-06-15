@@ -43,6 +43,9 @@ const LoginPage = () => {
             case 'Balcão':
                 navigate('/admin-balcao', { replace: true });
                 break;
+            case 'Recepção':
+                navigate('/recepcao', { replace: true });
+                break;
             default: // Cidadão ou tipo não definido
                 navigate('/dashboard', { replace: true });
         }

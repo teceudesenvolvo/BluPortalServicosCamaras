@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     collection, doc, getDocs, query, orderBy, limit, startAfter, 
-    updateDoc, addDoc, where, getDoc, deleteDoc, serverTimestamp, runTransaction
+    updateDoc, addDoc, where, getDoc, deleteDoc, serverTimestamp, runTransaction, setDoc
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
@@ -10,7 +10,7 @@ import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import {
     LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane,
-    LiaPaperclipSolid, LiaSearchSolid, LiaArrowLeftSolid, LiaFilterSolid, LiaDownloadSolid, LiaPrintSolid
+    LiaPaperclipSolid, LiaSearchSolid, LiaArrowLeftSolid, LiaFilterSolid, LiaDownloadSolid, LiaPrintSolid, LiaPlusSolid
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { buildReadMessagesUpdate, countUnreadAdminMessages } from '../../utils/adminMessages';
@@ -229,6 +229,105 @@ const FileViewerModal = ({ file, onClose }) => {
                         </div>
                     )}
                 </div>
+            </div>
+        </div>
+    );
+};
+
+const AdminCreateSolicitacaoModal = ({ onClose, onCreate }) => {
+    const [form, setForm] = useState({
+        assunto: 'Emissão de Documentos',
+        tipoDocumento: '',
+        descricao: '',
+        solicitanteNome: '',
+        solicitanteCpf: '',
+        solicitanteTelefone: '',
+        solicitanteEmail: '',
+        beneficiarioNome: '',
+        beneficiarioCpf: '',
+        beneficiarioTelefone: '',
+        parentesco: 'Próprio solicitante',
+    });
+    const [saving, setSaving] = useState(false);
+
+    const handleChange = (event) => {
+        const { name, value } = event.target;
+        setForm(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        if (!form.solicitanteNome.trim()) return alert('Informe o nome do solicitante.');
+        if (!form.tipoDocumento.trim()) return alert('Informe o tipo de documento.');
+
+        setSaving(true);
+        try {
+            await onCreate(form);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h3>Nova Solicitação Presencial</h3>
+                    <button onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button>
+                </div>
+                <form className="modal-body" onSubmit={handleSubmit}>
+                    <div className="data-card">
+                        <div className="card-header"><h3>Atendimento</h3></div>
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Assunto</label>
+                                <select name="assunto" value={form.assunto} onChange={handleChange} className="form-input">
+                                    <option value="Emissão de Documentos">Emissão de Documentos</option>
+                                    <option value="Entrega de Documentos">Entrega de Documentos</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Tipo de Documento</label>
+                                <input name="tipoDocumento" value={form.tipoDocumento} onChange={handleChange} className="form-input" placeholder="Ex: CIN, CPF, RG..." />
+                            </div>
+                        </div>
+                        <div className="form-group">
+                            <label>Observações</label>
+                            <textarea name="descricao" value={form.descricao} onChange={handleChange} className="form-input" rows="3" placeholder="Detalhes do atendimento presencial" />
+                        </div>
+                    </div>
+
+                    <div className="data-card" style={{ marginTop: 16 }}>
+                        <div className="card-header"><h3>Solicitante</h3></div>
+                        <div className="form-row">
+                            <div className="form-group"><label>Nome</label><input name="solicitanteNome" value={form.solicitanteNome} onChange={handleChange} className="form-input" /></div>
+                            <div className="form-group"><label>CPF</label><input name="solicitanteCpf" value={form.solicitanteCpf} onChange={handleChange} className="form-input" /></div>
+                        </div>
+                        <div className="form-row">
+                            <div className="form-group"><label>Telefone</label><input name="solicitanteTelefone" value={form.solicitanteTelefone} onChange={handleChange} className="form-input" /></div>
+                            <div className="form-group"><label>Email</label><input name="solicitanteEmail" value={form.solicitanteEmail} onChange={handleChange} className="form-input" /></div>
+                        </div>
+                    </div>
+
+                    <div className="data-card" style={{ marginTop: 16 }}>
+                        <div className="card-header"><h3>Beneficiário</h3></div>
+                        <div className="form-row">
+                            <div className="form-group"><label>Nome</label><input name="beneficiarioNome" value={form.beneficiarioNome} onChange={handleChange} className="form-input" placeholder="Em branco usa o solicitante" /></div>
+                            <div className="form-group"><label>CPF</label><input name="beneficiarioCpf" value={form.beneficiarioCpf} onChange={handleChange} className="form-input" /></div>
+                        </div>
+                        <div className="form-row">
+                            <div className="form-group"><label>Telefone</label><input name="beneficiarioTelefone" value={form.beneficiarioTelefone} onChange={handleChange} className="form-input" /></div>
+                            <div className="form-group"><label>Parentesco</label><input name="parentesco" value={form.parentesco} onChange={handleChange} className="form-input" /></div>
+                        </div>
+                    </div>
+
+                    <div className="form-actions" style={{ marginTop: 18 }}>
+                        <button type="button" onClick={onClose} className="btn-secondary">Cancelar</button>
+                        <button type="submit" className="btn-primary btn-save-status" disabled={saving}>
+                            {saving ? 'Criando...' : 'Criar Solicitação'}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );
@@ -521,6 +620,7 @@ const AdminBalcaoSolicitacoes = () => {
     const [solicitacoes, setSolicitacoes] = useState([]);
     const [firstKey, setFirstKey] = useState(null); // Chave do primeiro item da página atual
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
+    const [showCreateModal, setShowCreateModal] = useState(false);
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
@@ -961,6 +1061,77 @@ const AdminBalcaoSolicitacoes = () => {
         fetchSolicitacoes();
     };
 
+    const handleCreateSolicitacao = async (form) => {
+        const docRef = doc(collection(firestore, 'balcao-cidadao'));
+        const beneficiaryName = form.beneficiarioNome.trim() || form.solicitanteNome.trim();
+        const beneficiaryCpf = form.beneficiarioCpf.trim() || form.solicitanteCpf.trim();
+        const beneficiaryPhone = form.beneficiarioTelefone.trim() || form.solicitanteTelefone.trim();
+
+        const payload = {
+            dadosSolicitacao: {
+                assunto: form.assunto,
+                tipoDocumento: form.tipoDocumento,
+                descricao: form.descricao,
+                detalhes: {
+                    origem: 'Atendimento presencial',
+                    criadoPor: auth.currentUser?.email || 'Admin',
+                },
+            },
+            dadosUsuario: {
+                identificacao: 'Presencial',
+                id: 'presencial',
+                name: form.solicitanteNome,
+                cpf: form.solicitanteCpf,
+                telefone: form.solicitanteTelefone,
+                phone: form.solicitanteTelefone,
+                email: form.solicitanteEmail,
+            },
+            dadosBeneficiario: {
+                id: beneficiaryName === form.solicitanteNome ? 'proprio' : 'outro',
+                name: beneficiaryName,
+                cpf: beneficiaryCpf,
+                phone: beneficiaryPhone,
+                parentesco: form.parentesco,
+            },
+            userId: 'presencial',
+            status: 'Aguardando Atendimento',
+            deletionTimestamp: null,
+            dataSolicitacao: new Date(),
+            ultimaAtualizacao: new Date(),
+            origem: 'admin-presencial',
+        };
+
+        await setDoc(docRef, payload);
+
+        printProtocolReceipt({
+            title: 'Comprovante de Solicitação Presencial',
+            protocol: docRef.id,
+            status: payload.status,
+            createdAt: payload.dataSolicitacao,
+            requester: {
+                Nome: payload.dadosUsuario.name,
+                CPF: payload.dadosUsuario.cpf,
+                Telefone: payload.dadosUsuario.telefone,
+                Email: payload.dadosUsuario.email,
+            },
+            beneficiary: {
+                Nome: payload.dadosBeneficiario.name,
+                CPF: payload.dadosBeneficiario.cpf,
+                Telefone: payload.dadosBeneficiario.phone,
+                Parentesco: payload.dadosBeneficiario.parentesco,
+            },
+            details: {
+                Assunto: payload.dadosSolicitacao.assunto,
+                'Tipo de Documento': payload.dadosSolicitacao.tipoDocumento,
+                Observações: payload.dadosSolicitacao.descricao,
+            },
+        });
+
+        setShowCreateModal(false);
+        alert('Solicitação criada com sucesso!');
+        fetchSolicitacoes();
+    };
+
     const clearFilters = () => {
         setSearchTerm('');
         setFilterStatus('Todas');
@@ -989,16 +1160,14 @@ const AdminBalcaoSolicitacoes = () => {
                         </button>
                         <h1>Solicitações Recentes</h1>
                         <p>Balcão do Cidadão — {filteredSolicitacoes.length} solicitaç{filteredSolicitacoes.length === 1 ? 'ão' : 'ões'} encontrada{filteredSolicitacoes.length === 1 ? '' : 's'}</p>
-                        <button onClick={handleResetPagination} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
-                            ↻ Atualizar dados
-                        </button>
                     </div>
-                    <div className="user-profile">
-                        <div className="user-text">
-                            <p className="user-name-display">{auth.currentUser?.email || 'Admin'}</p>
-                            <p className="user-type-display">Administrador</p>
-                        </div>
-                        <div className="user-avatar"></div>
+                    <div className="admin-balcao-header-actions">
+                        <button onClick={handleResetPagination} className="admin-action-button action-refresh" disabled={loading}>
+                            <span className="admin-action-icon">↻</span><span className="admin-action-label">Atualizar dados</span>
+                        </button>
+                        <button onClick={() => setShowCreateModal(true)} className="admin-action-button action-new">
+                            <LiaPlusSolid /><span className="admin-action-label">Nova Solicitação</span>
+                        </button>
                     </div>
                 </header>
 
@@ -1223,6 +1392,13 @@ const AdminBalcaoSolicitacoes = () => {
                     userProfilesCache={userProfilesCache}
                     setUserProfilesCache={setUserProfilesCache}
                 />
+
+                {showCreateModal && (
+                    <AdminCreateSolicitacaoModal
+                        onClose={() => setShowCreateModal(false)}
+                        onCreate={handleCreateSolicitacao}
+                    />
+                )}
             </div>
         </div>
     );

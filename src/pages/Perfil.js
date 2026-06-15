@@ -184,7 +184,7 @@ const Perfil = () => {
     // Renderização do Perfil
     return (
         <div className="dashboard-layout">
-            {['Admin', 'Vereador', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão'].includes(profileData?.tipo) ? (
+            {['Admin', 'Vereador', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção'].includes(profileData?.tipo) ? (
                 <AdminSidebar />
             ) : (
                 <Sidebar onItemClick={handleNavigation} />

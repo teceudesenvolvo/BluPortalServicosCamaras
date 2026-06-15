@@ -13,7 +13,8 @@ import {
     LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane,
     LiaPaperclipSolid, LiaDownloadSolid,
     LiaCogSolid, LiaCalendarCheckSolid, LiaClipboardListSolid,
-    LiaClockSolid, LiaHourglassHalfSolid, LiaRedoAltSolid, LiaBullhornSolid
+    LiaClockSolid, LiaHourglassHalfSolid, LiaRedoAltSolid, LiaBullhornSolid,
+    LiaPlusSolid, LiaUsersSolid
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
@@ -1087,11 +1088,20 @@ const AdminBalcaoDashboard = () => {
                     <div className="header-title-section">
                         <h1>Admin Balcão do Cidadão</h1>
                         <p>Visão geral das solicitações</p>
-                        <button onClick={fetchData} className="btn-secondary admin-balcao-refresh-button" disabled={loading}>
-                            ↻ Atualizar lista
-                        </button>
                     </div>
-                    <div className="user-profile admin-balcao-user-profile">
+                    <div className="admin-balcao-header-actions">
+                        <button onClick={fetchData} className="admin-action-button action-refresh admin-balcao-refresh-button" disabled={loading}>
+                            <span className="admin-action-icon">↻</span><span className="admin-action-label">Atualizar dados</span>
+                        </button>
+                        <button type="button" onClick={() => navigate('/admin-balcao/solicitacoes')} className="admin-action-button action-new">
+                            <LiaPlusSolid /><span className="admin-action-label">Nova Solicitação</span>
+                        </button>
+                        <button type="button" onClick={() => navigate('/recepcao')} className="admin-action-button action-reception">
+                            <LiaUsersSolid /><span className="admin-action-label">Recepção</span>
+                        </button>
+                        <button type="button" onClick={() => navigate('/painel-atendimento')} className="admin-action-button action-queue">
+                            <LiaClipboardListSolid /><span className="admin-action-label">Painel da Fila</span>
+                        </button>
                         <button
                             type="button"
                             onClick={() => setIsInstantNotificationModalOpen(true)}
@@ -1110,11 +1120,6 @@ const AdminBalcaoDashboard = () => {
                         >
                             <LiaCogSolid size={24} />
                         </button>
-                        <div className="user-text">
-                            <p className="user-name-display">{auth.currentUser?.email || 'Admin'}</p>
-                            <p className="user-type-display">Administrador</p>
-                        </div>
-                        <div className="user-avatar"></div>
                     </div>
                 </header>
 

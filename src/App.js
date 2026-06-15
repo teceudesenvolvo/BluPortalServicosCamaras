@@ -50,6 +50,8 @@ import AdminMigration from './pages/pagesAdmin/AdminMigration';
 import AdminMail from './pages/pagesAdmin/AdminMail';
 import AdminNotifications from './pages/pagesAdmin/AdminNotifications';
 import AdminMensagens from './pages/pagesAdmin/AdminMensagens';
+import RecepcaoAtendimento from './pages/pagesAdmin/RecepcaoAtendimento';
+import PainelAtendimento from './pages/pagesAdmin/PainelAtendimento';
 
 
 function App() {
@@ -102,6 +104,8 @@ function App() {
           <Route path="/admin-notifications" element={<AdminNotifications />} />
           <Route path="/admin-mensagens" element={<AdminMensagens />} />
           <Route path="/admin-migration" element={<AdminMigration />} />
+          <Route path="/recepcao" element={<RecepcaoAtendimento />} />
+          <Route path="/painel-atendimento" element={<PainelAtendimento />} />
 
         </Routes>
       </Router>
