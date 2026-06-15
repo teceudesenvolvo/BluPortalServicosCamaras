@@ -95,7 +95,7 @@ const AdminNoticiasSite = () => {
                         setSelectedCapaFile(null);
                         setCapaPreview(null);
                         // Limpa o input para permitir que o usuário selecione outra imagem
-                        event.target.value = null; 
+                        event.target.value = null;
                     }
                 };
                 img.src = readerEvent.target.result;
@@ -149,7 +149,7 @@ const AdminNoticiasSite = () => {
                 data = await response.json();
             } else {
                 const text = await response.text();
-                data = {error: text || `HTTP ${response.status}`};
+                data = { error: text || `HTTP ${response.status}` };
             }
 
             if (!response.ok) {
@@ -203,7 +203,7 @@ const AdminNoticiasSite = () => {
     const handleSubmit = async (statusToSet) => {
         setLoading(true);
         try {
-            let dataToSave = { 
+            let dataToSave = {
                 ...formData,
                 updatedAt: serverTimestamp()
             };
@@ -294,7 +294,7 @@ const AdminNoticiasSite = () => {
                                     </span>
                                 </div>
                                 <div className="item-actions">
-                                    <button onClick={() => handleEdit(noticia)} className="btn-secondary" style={{ marginRight: '8px', marginBottom: '5px', textAlign: 'center !important'  }}><LiaEditSolid size={20} /></button>
+                                    <button onClick={() => handleEdit(noticia)} className="btn-secondary" style={{ marginRight: '8px', marginBottom: '5px', textAlign: 'center !important' }}><LiaEditSolid size={20} /></button>
                                     <button onClick={() => handleDelete(noticia.id)} className="btn-danger"><LiaTrashSolid size={20} /></button>
                                 </div>
                             </li>
@@ -311,14 +311,17 @@ const AdminNoticiasSite = () => {
                             </div>
                             <div className="modal-body">
                                 <form onSubmit={handleSubmit}>
-                                    <div className="form-group">
+                                    <div className="form-group" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                                         <input type="text" name="titulo" value={formData.titulo} onChange={handleInputChange} required className="form-input" placeholder="Título chamativo..." />
+                                    <button type="button" onClick={handleGenerateAI} disabled={generatingAI} className="btn-primary" style={{ padding: '10px 0px', fontSize: '0.75rem', maxWidth: '96%', background: 'linear-gradient(135deg, #6b21a8, #9333ea)', border: 'none' }}>
+                                        {generatingAI ? 'Gerando...' : <><LiaMagicSolid /> Escrever com IA</>}
+                                    </button>
                                     </div>
                                     <div className="form-group" style={{ marginTop: '15px' }}>
                                         <label>Subtítulo / Resumo</label>
                                         <input type="text" name="subtitulo" value={formData.subtitulo} onChange={handleInputChange} className="form-input" placeholder="Uma breve descrição..." />
                                     </div>
-                                    
+
                                     <div className="form-row" style={{ marginTop: '15px' }}>
                                         <div className="form-group">
                                             <label>Autor</label>
@@ -332,37 +335,34 @@ const AdminNoticiasSite = () => {
                                             Imagem de Capa <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>(Recomendado: 1440x720px)</span>
                                             *
                                         </label>
-                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                            <a 
-                                                href="https://canva.link/b9w91b1mkurncmw" 
-                                                target="_blank" 
+                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', width: '97%' }}>
+                                            <a
+                                                href="https://canva.link/b9w91b1mkurncmw"
+                                                target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="btn-secondary"
-                                                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                                                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '5px', width: '10%' }}
                                             >
                                                 <LiaImageSolid /> Criar imagem no Canva
                                             </a>
-                                            <label className="btn-secondary" style={{ cursor: 'pointer', color: '#ffffff !important' }}>
+                                            <label className="btn-secondary" style={{ border: 'none', background: 'linear-gradient(135deg, #f5b236, #d48d1c)', cursor: 'pointer', color: '#ffffff !important', marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '5px', height: '40px', padding: '0 15px', width: '10% !important' }}>
                                                 <LiaUploadSolid /> Enviar Imagem
-                                                <input type="file" hidden accept="image/*" onChange={handleImageChange} style={{color: '#ffffff !important'}} />
+                                                <input type="file" hidden accept="image/*" onChange={handleImageChange} style={{ color: '#ffffff !important' }} />
                                             </label>
-                                            {capaPreview && (
-                                                <img src={capaPreview} alt="Preview" style={{ width: '100px', height: '60px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #ddd' }} />
-                                            )}
                                         </div>
+                                            {capaPreview && (
+                                                <img src={capaPreview} alt="Preview" style={{ width: '97%', height: '150px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #ddd', marginTop: '20px'}} />
+                                            )}
                                     </div>
 
                                     <div className="form-group" style={{ marginTop: '20px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
                                             <label style={{ marginBottom: 0 }}>Conteúdo da Notícia *</label>
-                                            <button type="button" onClick={handleGenerateAI} disabled={generatingAI} className="btn-primary" style={{ padding: '20px 10px', fontSize: '0.75rem', gap: '5px', maxWidth: '300px' }}>
-                                                {generatingAI ? 'Gerando...' : <><LiaMagicSolid /> Escrever com IA</>}
-                                            </button>
                                         </div>
                                         <div style={{ height: '350px', marginBottom: '50px' }}>
-                                            <ReactQuill 
-                                                theme="snow" 
-                                                value={formData.conteudo} 
+                                            <ReactQuill
+                                                theme="snow"
+                                                value={formData.conteudo}
                                                 onChange={handleQuillChange}
                                                 style={{ height: '300px' }}
                                                 placeholder="Escreva sua notícia aqui..."
