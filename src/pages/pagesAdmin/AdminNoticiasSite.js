@@ -294,7 +294,7 @@ const AdminNoticiasSite = () => {
                                     </span>
                                 </div>
                                 <div className="item-actions">
-                                    <button onClick={() => handleEdit(noticia)} className="btn-secondary" style={{ marginRight: '8px' }}><LiaEditSolid size={20} /></button>
+                                    <button onClick={() => handleEdit(noticia)} className="btn-secondary" style={{ marginRight: '8px', marginBottom: '5px', textAlign: 'center !important'  }}><LiaEditSolid size={20} /></button>
                                     <button onClick={() => handleDelete(noticia.id)} className="btn-danger"><LiaTrashSolid size={20} /></button>
                                 </div>
                             </li>
@@ -342,9 +342,9 @@ const AdminNoticiasSite = () => {
                                             >
                                                 <LiaImageSolid /> Criar imagem no Canva
                                             </a>
-                                            <label className="btn-secondary" style={{ cursor: 'pointer' }}>
+                                            <label className="btn-secondary" style={{ cursor: 'pointer', color: '#ffffff !important' }}>
                                                 <LiaUploadSolid /> Enviar Imagem
-                                                <input type="file" hidden accept="image/*" onChange={handleImageChange} />
+                                                <input type="file" hidden accept="image/*" onChange={handleImageChange} style={{color: '#ffffff !important'}} />
                                             </label>
                                             {capaPreview && (
                                                 <img src={capaPreview} alt="Preview" style={{ width: '100px', height: '60px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #ddd' }} />
