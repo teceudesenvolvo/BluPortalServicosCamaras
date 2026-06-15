@@ -9,9 +9,33 @@ import {
 import Sidebar from '../../components/Sidebar';
 import config from '../../config';
 import { uploadFileToStorage, deleteFileFromStorage } from '../../utils/firebaseStorageUtils';
+import { printProtocolReceipt } from '../../utils/printReport';
 
 // Ícones
 import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane, LiaPaperclipSolid, LiaUploadSolid, LiaTrashAltSolid } from "react-icons/lia";
+
+const getMessageTimestamp = (timestamp) => {
+    if (!timestamp) return 0;
+    if (typeof timestamp.toMillis === 'function') return timestamp.toMillis();
+    if (timestamp instanceof Date) return timestamp.getTime();
+    const time = new Date(timestamp).getTime();
+    return Number.isNaN(time) ? 0 : time;
+};
+
+const formatChatTime = (timestamp) => {
+    const time = getMessageTimestamp(timestamp);
+    if (!time) return '';
+    return new Date(time).toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
+
+const getOrderedMessages = (messages = {}) => Object.entries(messages)
+    .map(([id, msg]) => ({ id, ...msg }))
+    .sort((a, b) => getMessageTimestamp(a.timestamp) - getMessageTimestamp(b.timestamp));
 
 const getTodayDateInputValue = () => {
     const today = new Date();
@@ -176,6 +200,11 @@ const FIELD_LABELS = {
 const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmit, onUploadFiles }) => {
     const [message, setMessage] = useState('');
     const [uploading, setUploading] = useState(false);
+    const [activeTab, setActiveTab] = useState('dados');
+
+    useEffect(() => {
+        if (solicitacao) setActiveTab('dados');
+    }, [solicitacao]);
 
     if (!solicitacao) return null;
 
@@ -210,7 +239,14 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmi
                     <h3>Detalhes da Solicitação</h3>
                     <button onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button>
                 </div>
+                <div className="admin-modal-tabs user-modal-tabs">
+                    <button className={activeTab === 'dados' ? 'active' : ''} onClick={() => setActiveTab('dados')}>Dados</button>
+                    <button className={activeTab === 'arquivos' ? 'active' : ''} onClick={() => setActiveTab('arquivos')}>Arquivos</button>
+                    <button className={activeTab === 'chat' ? 'active' : ''} onClick={() => setActiveTab('chat')}>Chat</button>
+                </div>
                 <div className="modal-body">
+                    {activeTab === 'dados' && (
+                    <>
                     <div className="detail-item"><strong>Status:</strong> <span className={`status-badge ${getStatusClass(status)}`}>{status}</span></div>
                     <div className="detail-item"><strong>Data da Solicitação:</strong> {new Date(dataSolicitacao).toLocaleDateString('pt-BR')}</div>
                     {status === 'Agendado' && (
@@ -248,7 +284,11 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmi
                     {status === 'Agendamento Liberado' && (
                         <AgendamentoSection solicitacaoId={solicitacao.id} onScheduled={onScheduleSubmit} />
                     )}
+                    </>
+                    )}
 
+                    {activeTab === 'arquivos' && (
+                    <>
                     <hr />
                     <h4>Documentação e Anexos</h4>
                     <div className="attachments-list" style={{ marginBottom: '15px' }}>
@@ -290,25 +330,50 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmi
                             </label>
                         </div>
                     )}
+                    </>
+                    )}
 
-                    <hr />
-                    <h4>Mensagens</h4>
-                    <div className="message-history">
-                        {messages && Object.values(messages).length > 0 ? (
-                            Object.values(messages).map((msg, index) => (
-                                <div key={index} className={`message-bubble ${msg.sender === 'admin' ? 'admin' : 'user'}`}>
-                                    <p>{msg.text}</p>
-                                    <small>{new Date(msg.timestamp).toLocaleString('pt-BR')}</small>
-                                </div>
-                            ))
-                        ) : (<p>Nenhuma mensagem trocada.</p>)}
+                    {activeTab === 'chat' && (
+                    <>
+                    <div className="modal-chat-shell">
+                        <div className="modal-chat-header">
+                            <div>
+                                <h4>Chat da Solicitação</h4>
+                                <span>Protocolo {solicitacao.id}</span>
+                            </div>
+                        </div>
+                        <div className="message-history whatsapp-history">
+                            {getOrderedMessages(messages).length > 0 ? (
+                                getOrderedMessages(messages).map((msg) => (
+                                    <div key={msg.id} className={`message-bubble ${msg.sender === 'admin' ? 'user' : 'admin'}`}>
+                                        <p>{msg.deletedByAdmin ? 'Mensagem apagada' : msg.text}</p>
+                                        <small>{formatChatTime(msg.timestamp)}</small>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="chat-empty-state">Nenhuma mensagem trocada.</p>
+                            )}
+                        </div>
+                        <div className="modal-chat-composer">
+                            <textarea
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSend();
+                                    }
+                                }}
+                                placeholder="Digite uma mensagem"
+                                rows="1"
+                            />
+                            <button onClick={handleSend} disabled={!message.trim()} title="Enviar mensagem">
+                                <LiaPaperPlane />
+                            </button>
+                        </div>
                     </div>
-                    <div className="form-group" style={{ marginTop: '15px' }}>
-                        <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Digite sua mensagem..." rows="3" className="form-input"></textarea>
-                    </div>
-                    <button onClick={handleSend} className="btn-submit" style={{ width: '100%' }}>
-                        <LiaPaperPlane /> Enviar Mensagem
-                    </button>
+                    </>
+                    )}
                 </div>
             </div>
         </div>
@@ -510,6 +575,32 @@ const BalcaoCidadao = () => {
                 transaction.set(bookedSlotRef, {
                     [date]: [...currentBookings, time]
                 }, { merge: true });
+            });
+
+            const scheduledSolicitacao = solicitacoes.find(item => item.id === solicitacaoId) || selectedSolicitacao;
+            printProtocolReceipt({
+                title: 'Comprovante de Agendamento do Balcão',
+                protocol: solicitacaoId,
+                status: 'Agendado',
+                createdAt: new Date(),
+                requester: {
+                    Nome: scheduledSolicitacao?.dadosUsuario?.name,
+                    Email: scheduledSolicitacao?.dadosUsuario?.email,
+                    CPF: scheduledSolicitacao?.dadosUsuario?.cpf,
+                    Telefone: scheduledSolicitacao?.dadosUsuario?.phone || scheduledSolicitacao?.dadosUsuario?.telefone,
+                },
+                beneficiary: {
+                    Nome: scheduledSolicitacao?.dadosBeneficiario?.name,
+                    CPF: scheduledSolicitacao?.dadosBeneficiario?.cpf,
+                    Telefone: scheduledSolicitacao?.dadosBeneficiario?.phone,
+                    Parentesco: scheduledSolicitacao?.dadosBeneficiario?.parentesco,
+                },
+                details: {
+                    Assunto: scheduledSolicitacao?.dadosSolicitacao?.assunto,
+                    'Data Agendada': date,
+                    'Horário Agendado': time,
+                    Motivo: scheduledSolicitacao?.dadosSolicitacao?.descricao,
+                },
             });
 
             alert('Agendamento confirmado com sucesso!');

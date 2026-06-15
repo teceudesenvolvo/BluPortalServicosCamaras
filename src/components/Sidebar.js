@@ -10,6 +10,7 @@ import {
     LiaBarsSolid,
     LiaTimesSolid,
     LiaTvSolid,
+    LiaCommentsSolid,
 } from "react-icons/lia";
 //  import { FaGooglePlay, FaApple } from "react-icons/fa";
 
@@ -37,6 +38,7 @@ const Sidebar = ({ onItemClick }) => {
         // { title: 'Procon', icon: <LiaBookOpenSolid />, path: '/procon-atendimentos' },
         // { title: 'Atendimento Jurídico', icon: <LiaBalanceScaleLeftSolid />, path: '/juridico' },
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/balcao' },
+        { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/mensagens' },
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/ouvidoria' },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/procuradoria' },
         { title: 'TV Câmara', icon: <LiaTvSolid />, path: '/tv-camara' },

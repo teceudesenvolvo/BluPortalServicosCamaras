@@ -6,6 +6,7 @@ import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase
 import { firestore } from '../../firebase';
 import config from '../../config';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
+import { printProtocolReceipt } from '../../utils/printReport';
 
 // Ícones
 import { LiaPaperPlane, LiaArrowLeftSolid } from "react-icons/lia";
@@ -378,6 +379,31 @@ const NovoBalcaoCidadao = () => {
 
             // Salvar apenas no Firestore
             await saveSolicitacaoToFirestore(docId, payload);
+
+            printProtocolReceipt({
+                title: editId ? 'Comprovante de Atualização do Balcão' : 'Comprovante de Solicitação do Balcão',
+                protocol: docId,
+                status: payload.status,
+                createdAt: payload.ultimaAtualizacao,
+                requester: {
+                    Nome: dadosUsuarioParaSalvar.name,
+                    Email: dadosUsuarioParaSalvar.email,
+                    CPF: dadosUsuarioParaSalvar.cpf,
+                    Telefone: dadosUsuarioParaSalvar.phone || dadosUsuarioParaSalvar.telefone,
+                },
+                beneficiary: {
+                    Nome: dadosBeneficiario?.name,
+                    CPF: dadosBeneficiario?.cpf,
+                    Telefone: dadosBeneficiario?.phone,
+                    Parentesco: dadosBeneficiario?.parentesco,
+                },
+                details: {
+                    Assunto: dadosDaSolicitacao.assunto,
+                    'Tipo de Documento': dadosDaSolicitacao.tipoDocumento,
+                    Descrição: dadosDaSolicitacao.descricao,
+                    Detalhes: dadosDaSolicitacao.detalhes,
+                },
+            });
 
             setSuccess(`Sua solicitação foi ${editId ? 'atualizada' : 'enviada'} com sucesso!`);
             setTimeout(() => navigate('/balcao'), 3000);

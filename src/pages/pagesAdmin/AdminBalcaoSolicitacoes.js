@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     collection, doc, getDocs, query, orderBy, limit, startAfter, 
-    updateDoc, addDoc, where, getDoc, deleteDoc, serverTimestamp
+    updateDoc, addDoc, where, getDoc, deleteDoc, serverTimestamp, runTransaction
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
@@ -10,10 +10,190 @@ import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import {
     LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane,
-    LiaPaperclipSolid, LiaSearchSolid, LiaArrowLeftSolid, LiaFilterSolid, LiaDownloadSolid
+    LiaPaperclipSolid, LiaSearchSolid, LiaArrowLeftSolid, LiaFilterSolid, LiaDownloadSolid, LiaPrintSolid
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { buildReadMessagesUpdate, countUnreadAdminMessages } from '../../utils/adminMessages';
+import { printProtocolReceipt, printTableReport } from '../../utils/printReport';
+
+const getMessageTimestamp = (timestamp) => {
+    if (!timestamp) return 0;
+    if (typeof timestamp.toMillis === 'function') return timestamp.toMillis();
+    if (timestamp instanceof Date) return timestamp.getTime();
+    const time = new Date(timestamp).getTime();
+    return Number.isNaN(time) ? 0 : time;
+};
+
+const formatChatTime = (timestamp) => {
+    const time = getMessageTimestamp(timestamp);
+    if (!time) return '';
+    return new Date(time).toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
+
+const getOrderedMessages = (messages = {}) => Object.entries(messages)
+    .map(([id, msg]) => ({ id, ...msg }))
+    .sort((a, b) => getMessageTimestamp(a.timestamp) - getMessageTimestamp(b.timestamp));
+
+const getTodayDateInputValue = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const toBrazilianDate = (date) => {
+    if (!date) return '';
+    const [year, month, day] = date.split('-');
+    return `${day}/${month}/${year}`;
+};
+
+const AdminAppointmentSection = ({ solicitacao, onCreateAppointment }) => {
+    const [formData, setFormData] = useState({
+        appointmentDate: solicitacao?.appointmentDate || '',
+        appointmentTime: solicitacao?.appointmentTime || '',
+    });
+    const [availability, setAvailability] = useState(null);
+    const [bookedSlots, setBookedSlots] = useState({});
+    const [blockedDates, setBlockedDates] = useState([]);
+    const [availableTimes, setAvailableTimes] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    const todayDate = getTodayDateInputValue();
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            setLoading(true);
+            try {
+                const [availSnap, bookedSnap, blockedSnap] = await Promise.all([
+                    getDoc(doc(firestore, 'balcao-config', 'availability')),
+                    getDoc(doc(firestore, 'balcao-config', 'bookedSlots')),
+                    getDoc(doc(firestore, 'balcao-config', 'blockedDates')),
+                ]);
+
+                const availabilityData = availSnap.exists() ? availSnap.data() : null;
+                const bookedData = bookedSnap.exists() ? bookedSnap.data() : {};
+                const blockedData = blockedSnap.exists() ? blockedSnap.data().dates || [] : [];
+
+                setAvailability(availabilityData);
+                setBookedSlots(bookedData);
+                setBlockedDates(blockedData);
+            } catch (err) {
+                console.error('Erro ao carregar horários:', err);
+                setError('Erro ao carregar horários disponíveis.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchConfig();
+    }, []);
+
+    const updateTimesForDate = (date) => {
+        if (!date) {
+            setAvailableTimes([]);
+            setError('');
+            return;
+        }
+
+        if (date < todayDate) {
+            setAvailableTimes([]);
+            setError('Não é possível agendar para uma data anterior a hoje.');
+            return;
+        }
+
+        const dateBR = toBrazilianDate(date);
+        if (!availability || blockedDates.includes(dateBR)) {
+            setAvailableTimes([]);
+            setError(blockedDates.includes(dateBR) ? 'Este dia está bloqueado para agendamentos.' : 'Nenhuma grade de horários configurada.');
+            return;
+        }
+
+        const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }).toLowerCase();
+        const slots = availability[dayOfWeek] || [];
+        const booked = bookedSlots[date] || [];
+        const freeSlots = slots.filter(slot => !booked.includes(slot) || slot === solicitacao?.appointmentTime);
+
+        setAvailableTimes(freeSlots);
+        setError(freeSlots.length === 0 ? 'Não há horários livres para esta data.' : '');
+    };
+
+    useEffect(() => {
+        if (!loading && formData.appointmentDate) {
+            updateTimesForDate(formData.appointmentDate);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loading]);
+
+    const handleDateChange = (event) => {
+        const date = event.target.value;
+        setFormData({ appointmentDate: date, appointmentTime: '' });
+        updateTimesForDate(date);
+    };
+
+    const handleSubmit = async () => {
+        if (!formData.appointmentDate || !formData.appointmentTime) {
+            setError('Selecione data e horário para criar o agendamento.');
+            return;
+        }
+
+        setSaving(true);
+        setError('');
+        try {
+            await onCreateAppointment(solicitacao, formData.appointmentDate, formData.appointmentTime);
+        } catch (err) {
+            setError(err.message || 'Erro ao criar agendamento.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) return <p>Carregando horários disponíveis...</p>;
+
+    return (
+        <div className="data-card admin-appointment-card">
+            <div className="card-header"><h3>Criar Agendamento</h3></div>
+            <p className="detail-description">Escolha um horário disponível para esta solicitação. Ao confirmar, o comprovante será aberto para impressão.</p>
+
+            <div className="form-row status-management-row">
+                <div className="form-group">
+                    <label>Data</label>
+                    <input
+                        type="date"
+                        value={formData.appointmentDate}
+                        min={todayDate}
+                        onChange={handleDateChange}
+                        className="form-input"
+                    />
+                </div>
+                <div className="form-group">
+                    <label>Horário</label>
+                    <select
+                        value={formData.appointmentTime}
+                        onChange={(event) => setFormData(prev => ({ ...prev, appointmentTime: event.target.value }))}
+                        className="form-input"
+                        disabled={!formData.appointmentDate || availableTimes.length === 0}
+                    >
+                        <option value="">Selecione</option>
+                        {availableTimes.map(time => <option key={time} value={time}>{time}</option>)}
+                    </select>
+                </div>
+            </div>
+
+            {error && <p className="error-message-inline">{error}</p>}
+
+            <button onClick={handleSubmit} className="btn-primary btn-save-status" disabled={saving}>
+                {saving ? 'Criando...' : 'Criar Agendamento e Imprimir'}
+            </button>
+        </div>
+    );
+};
 
 // Lightbox para visualizar arquivos inline
 const FileViewerModal = ({ file, onClose }) => {
@@ -55,16 +235,18 @@ const FileViewerModal = ({ file, onClose }) => {
 };
 
 /* ─── Modal de Detalhes (mesmo componente do AdminBalcao) ─── */
-const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage, onFileUpload, onNotifyUser, userProfilesCache, setUserProfilesCache }) => {
+const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage, onFileUpload, onNotifyUser, onCreateAppointment, userProfilesCache, setUserProfilesCache }) => {
     const [newStatus, setNewStatus] = useState(solicitacao ? solicitacao.status || '' : '');
     const [message, setMessage] = useState('');
     const [consumerProfile, setConsumerProfile] = useState(null);
     const [loadingProfile, setLoadingProfile] = useState(true);
     const [viewingFile, setViewingFile] = useState(null);
+    const [activeTab, setActiveTab] = useState('dados');
 
     useEffect(() => {
         if (solicitacao) {
             setNewStatus(solicitacao.status || '');
+            setActiveTab('dados');
             const fetchConsumerProfile = async () => {
                 const userId = solicitacao.userId;
                 if (!userId) {
@@ -137,6 +319,47 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
         setMessage('');
     };
 
+    const requestFiles = Object.entries(solicitacao.dadosSolicitacao?.anexos || {}).flatMap(([category, files]) =>
+        (Array.isArray(files) ? files : []).map((file, index) => ({ file, category, index, source: 'request' }))
+    );
+    const adminFiles = (Array.isArray(solicitacao.arquivos) ? solicitacao.arquivos : []).map((file, index) => ({
+        file,
+        category: 'Arquivos enviados pela administração',
+        index,
+        source: 'admin'
+    }));
+    const allFiles = [...requestFiles, ...adminFiles];
+
+    const renderFilesSection = () => (
+        <div className="data-card admin-files-card">
+            <div className="card-header"><h3>Arquivos da Solicitação</h3></div>
+            {allFiles.length > 0 ? (
+                <ul className="file-list admin-files-list">
+                    {allFiles.map(({ file, category, index, source }) => (
+                        <li key={`${source}-${category}-${index}`}>
+                            <div>
+                                <button onClick={() => setViewingFile(file)} className="file-link">
+                                    <LiaPaperclipSolid /> {file.name || `Arquivo ${index + 1}`}
+                                </button>
+                                <small>{category}</small>
+                            </div>
+                            {source === 'request' && file.data?.startsWith('data:') && (
+                                <button onClick={() => handleMigrateFile(file, category, index)} className="btn-secondary btn-compact">
+                                    <LiaUploadSolid /> Migrar
+                                </button>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="detail-description">Nenhum arquivo anexado.</p>
+            )}
+            <div className="form-actions admin-files-actions">
+                <label className="btn-secondary"><LiaUploadSolid /> Enviar Arquivo<input type="file" hidden onChange={handleFileUpload} /></label>
+            </div>
+        </div>
+    );
+
     return (
         <>
             <div className="modal-overlay" onClick={onClose}>
@@ -145,7 +368,16 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                     <h3>Detalhes da Solicitação</h3>
                     <button onClick={onClose} className="modal-close-btn"><LiaTimesSolid /></button>
                 </div>
+                <div className="admin-modal-tabs">
+                    <button className={activeTab === 'dados' ? 'active' : ''} onClick={() => setActiveTab('dados')}>Dados</button>
+                    <button className={activeTab === 'situacao' ? 'active' : ''} onClick={() => setActiveTab('situacao')}>Situação</button>
+                    <button className={activeTab === 'agendamento' ? 'active' : ''} onClick={() => setActiveTab('agendamento')}>Agendamento</button>
+                    <button className={activeTab === 'arquivos' ? 'active' : ''} onClick={() => setActiveTab('arquivos')}>Arquivos</button>
+                    <button className={activeTab === 'chat' ? 'active' : ''} onClick={() => setActiveTab('chat')}>Chat</button>
+                </div>
                 <div className="modal-body">
+                    {activeTab === 'dados' && (
+                    <>
                     <div className="data-card">
                         <div className="card-header"><h3>Dados do Solicitante</h3></div>
                         {loadingProfile ? <p>Carregando...</p> : (
@@ -188,34 +420,25 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                         ))}
                                     </>
                                 )}
-                                <div className="detail-item" style={{ marginTop: '10px' }}><strong>Documentos Anexados:</strong></div>
-                                {solicitacao.dadosSolicitacao.anexos && Object.entries(solicitacao.dadosSolicitacao.anexos).length > 0 ? (
-                                    <ul className="file-list" style={{ marginTop: '5px', paddingLeft: '20px' }}>
-                                        {Object.entries(solicitacao.dadosSolicitacao.anexos).map(([category, files]) => 
-                                            files.map((file, index) => (
-                                                <li key={`${category}-${index}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-                                                    <button onClick={() => setViewingFile(file)} className="file-link" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}>
-                                                        <LiaPaperclipSolid /> {file.name}
-                                                    </button>
-                                                    {file.data?.startsWith('data:') && (
-                                                        <button onClick={() => handleMigrateFile(file, category, index)} className="btn-secondary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
-                                                            <LiaUploadSolid /> Migrar para Storage
-                                                        </button>
-                                                    )}
-                                                </li>
-                                            ))
-                                        )}
-                                    </ul>
-                                ) : (<p className="detail-description">Nenhum documento anexado.</p>)}
                             </>
                         ) : (
                             <p className="detail-description">{solicitacao.dadosSolicitacao?.descricao || 'N/A'}</p>
                         )}
                     </div>
+                    </>
+                    )}
 
+                    {activeTab === 'arquivos' && renderFilesSection()}
+
+                    {activeTab === 'agendamento' && (
+                        <AdminAppointmentSection solicitacao={solicitacao} onCreateAppointment={onCreateAppointment} />
+                    )}
+
+                    {activeTab === 'situacao' && (
+                    <>
                     <hr />
                     <h4>Gerenciamento</h4>
-                    <div className="form-row">
+                    <div className="form-row status-management-row">
                         <div className="form-group">
                             <label>Alterar Status</label>
                             <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="form-input">
@@ -229,30 +452,56 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                 <option value="Cancelado">Cancelado</option>
                             </select>
                         </div>
-                        <button onClick={handleStatusSave} className="btn-primary" style={{ alignSelf: 'flex-end', height: '45px' }}>Salvar Status</button>
+                        <button onClick={handleStatusSave} className="btn-primary btn-save-status">Salvar Status</button>
                     </div>
-
-                    <hr />
-                    <h4>Mensagens</h4>
-                    <div className="message-history">
-                        {solicitacao.messages && Object.values(solicitacao.messages).map((msg, index) => (
-                            <div key={index} className={`message-bubble ${msg.sender === 'admin' ? 'admin' : 'user'}`}>
-                                <p>{msg.text}</p>
-                                <small>{new Date(msg.timestamp).toLocaleString('pt-BR')}</small>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="form-group" style={{ marginTop: '15px' }}>
-                        <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Digite sua mensagem..." rows="3" className="form-input"></textarea>
-                    </div>
-                    <button onClick={handleSendMessage} className="btn-primary" style={{ width: '100%' }}>
-                        <LiaPaperPlane /> Enviar Mensagem
-                    </button>
 
                     <div className="form-actions" style={{ marginTop: '20px' }}>
-                        <label className="btn-secondary"><LiaUploadSolid /> Enviar Arquivo<input type="file" hidden onChange={handleFileUpload} /></label>
                         <button onClick={handleNotifyUser} className="btn-submit"><LiaBellSolid /> Notificar Usuário</button>
                     </div>
+                    </>
+                    )}
+
+                    {activeTab === 'chat' && (
+                    <>
+                    <div className="modal-chat-shell">
+                        <div className="modal-chat-header">
+                            <div>
+                                <h4>Chat da Solicitação</h4>
+                                <span>Protocolo {solicitacao.id}</span>
+                            </div>
+                        </div>
+                        <div className="message-history whatsapp-history">
+                            {getOrderedMessages(solicitacao.messages).length > 0 ? (
+                                getOrderedMessages(solicitacao.messages).map((msg) => (
+                                    <div key={msg.id} className={`message-bubble ${msg.sender === 'admin' ? 'admin' : 'user'}`}>
+                                        <p>{msg.deletedByAdmin ? 'Mensagem apagada' : msg.text}</p>
+                                        <small>{formatChatTime(msg.timestamp)}</small>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="chat-empty-state">Nenhuma mensagem trocada.</p>
+                            )}
+                        </div>
+                        <div className="modal-chat-composer">
+                            <textarea
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSendMessage();
+                                    }
+                                }}
+                                placeholder="Digite uma mensagem"
+                                rows="1"
+                            />
+                            <button onClick={handleSendMessage} disabled={!message.trim()} title="Enviar mensagem">
+                                <LiaPaperPlane />
+                            </button>
+                        </div>
+                    </div>
+                    </>
+                    )}
                 </div>
             </div>
         </div>
@@ -430,6 +679,24 @@ const AdminBalcaoSolicitacoes = () => {
     });
 
     const paginatedFilteredSolicitacoes = filteredSolicitacoes;
+
+    const handlePrintFilteredResults = () => {
+        printTableReport({
+            title: 'Relatório de Solicitações do Balcão',
+            subtitle: `Resultados do filtro atual. Status: ${filterStatus}. Assunto: ${filterAssunto}. Beneficiário: ${filterBeneficiario || 'Todos'}.`,
+            columns: [
+                { label: '#', width: '4%', render: (_, index) => index + 1 },
+                { label: 'Protocolo', width: '12%', render: (item) => item.id },
+                { label: 'Solicitante', width: '16%', render: (item) => item.dadosUsuario?.name || 'N/A' },
+                { label: 'Beneficiário', width: '16%', render: (item) => item.dadosBeneficiario?.name || item.dadosUsuario?.name || 'N/A' },
+                { label: 'Assunto', width: '14%', render: (item) => item.dadosSolicitacao?.assunto || 'Sem assunto' },
+                { label: 'Status', width: '13%', render: (item) => item.status || 'Pendente' },
+                { label: 'Data', width: '12%', render: (item) => item.timestamp ? new Date(item.timestamp).toLocaleString('pt-BR') : 'N/A' },
+                { label: 'Observações', width: '13%', render: () => '' },
+            ],
+            rows: filteredSolicitacoes,
+        });
+    };
 
     const handleOpenSolicitacao = async (item) => {
         setSelectedSolicitacao(item);
@@ -618,6 +885,75 @@ const AdminBalcaoSolicitacoes = () => {
         }
     };
 
+    const handleCreateAppointment = async (solicitacao, date, time) => {
+        if (!solicitacao?.id) throw new Error('Solicitação não encontrada.');
+        if (date < getTodayDateInputValue()) throw new Error('Não é possível agendar para uma data anterior a hoje.');
+
+        const solicitacaoRef = doc(firestore, 'balcao-cidadao', solicitacao.id);
+        const bookedSlotRef = doc(firestore, 'balcao-config', 'bookedSlots');
+
+        await runTransaction(firestore, async (transaction) => {
+            const bookedSnap = await transaction.get(bookedSlotRef);
+            const currentBookings = bookedSnap.exists() ? (bookedSnap.data()[date] || []) : [];
+
+            const previousDate = solicitacao.appointmentDate || solicitacao.dadosSolicitacao?.appointmentDate;
+            const previousTime = solicitacao.appointmentTime || solicitacao.dadosSolicitacao?.appointmentTime;
+            const nextBookings = currentBookings.filter(slot => !(previousDate === date && previousTime === slot));
+
+            if (nextBookings.includes(time)) {
+                throw new Error('Este horário acabou de ser ocupado. Escolha outro horário.');
+            }
+
+            transaction.update(solicitacaoRef, {
+                status: 'Agendado',
+                appointmentDate: date,
+                appointmentTime: time,
+                ultimaAtualizacao: new Date(),
+                deletionTimestamp: null,
+            });
+
+            transaction.set(bookedSlotRef, {
+                [date]: [...nextBookings, time],
+            }, { merge: true });
+        });
+
+        printProtocolReceipt({
+            title: 'Comprovante de Agendamento do Balcão',
+            protocol: solicitacao.id,
+            status: 'Agendado',
+            createdAt: new Date(),
+            requester: {
+                Nome: solicitacao.dadosUsuario?.name,
+                Email: solicitacao.dadosUsuario?.email,
+                CPF: solicitacao.dadosUsuario?.cpf,
+                Telefone: solicitacao.dadosUsuario?.phone || solicitacao.dadosUsuario?.telefone,
+            },
+            beneficiary: {
+                Nome: solicitacao.dadosBeneficiario?.name || solicitacao.dadosUsuario?.name,
+                CPF: solicitacao.dadosBeneficiario?.cpf || solicitacao.dadosUsuario?.cpf,
+                Telefone: solicitacao.dadosBeneficiario?.phone || solicitacao.dadosUsuario?.phone || solicitacao.dadosUsuario?.telefone,
+                Parentesco: solicitacao.dadosBeneficiario?.parentesco || 'Próprio solicitante',
+            },
+            details: {
+                Assunto: solicitacao.dadosSolicitacao?.assunto,
+                'Tipo de Documento': solicitacao.dadosSolicitacao?.tipoDocumento,
+                'Data Agendada': toBrazilianDate(date),
+                'Horário Agendado': time,
+                Descrição: solicitacao.dadosSolicitacao?.descricao,
+                Detalhes: solicitacao.dadosSolicitacao?.detalhes,
+            },
+        });
+
+        await sendNotification(
+            { ...solicitacao, status: 'Agendado', appointmentDate: date, appointmentTime: time },
+            { title: 'Agendamento criado pela Câmara', body: `Seu atendimento foi agendado para ${toBrazilianDate(date)} às ${time}. Protocolo: ${solicitacao.id}.` }
+        );
+
+        alert('Agendamento criado com sucesso!');
+        setSelectedSolicitacao(null);
+        fetchSolicitacoes();
+    };
+
     const clearFilters = () => {
         setSearchTerm('');
         setFilterStatus('Todas');
@@ -688,6 +1024,18 @@ const AdminBalcaoSolicitacoes = () => {
                         {hasActiveFilters && (
                             <button onClick={clearFilters} className="btn-secondary" style={{ whiteSpace: 'nowrap' }}>
                                 Limpar filtros
+                            </button>
+                        )}
+
+                        {hasActiveFilters && (
+                            <button
+                                onClick={handlePrintFilteredResults}
+                                className="btn-print-pdf"
+                                disabled={loading}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                            >
+                                <LiaPrintSolid size={18} />
+                                Imprimir/PDF
                             </button>
                         )}
                     </div>
@@ -864,6 +1212,7 @@ const AdminBalcaoSolicitacoes = () => {
                     onSendMessage={handleSendMessage}
                     onFileUpload={handleAdminFileUpload}
                     onNotifyUser={handleNotifyUser}
+                    onCreateAppointment={handleCreateAppointment}
                     userProfilesCache={userProfilesCache}
                     setUserProfilesCache={setUserProfilesCache}
                 />

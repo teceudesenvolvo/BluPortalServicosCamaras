@@ -5,6 +5,7 @@ import Sidebar from '../../components/Sidebar';
 import { firestore } from '../../firebase';
 import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
+import { printProtocolReceipt } from '../../utils/printReport';
 
 // Ícones
 import { LiaPaperPlane, LiaArrowLeftSolid } from "react-icons/lia";
@@ -102,12 +103,43 @@ const NovaProcuradoria = () => {
                 });
             }
 
-            await addDoc(collection(firestore, 'procuradoria-mulher'), {
+            const payload = {
                 dadosSolicitacao: { ...formData, anexos: anexosProcessados },
                 dadosUsuario: dadosUsuarioParaSalvar,
                 userId: formData.identificacao === 'identificado' ? currentUser.uid : 'anonimo',
                 status: 'Recebida',
                 dataSolicitacao: serverTimestamp(),
+            };
+
+            const docRef = await addDoc(collection(firestore, 'procuradoria-mulher'), payload);
+
+            printProtocolReceipt({
+                title: 'Comprovante da Procuradoria da Mulher',
+                protocol: docRef.id,
+                status: payload.status,
+                createdAt: new Date(),
+                requester: {
+                    Identificação: dadosUsuarioParaSalvar.identificacao,
+                    Nome: dadosUsuarioParaSalvar.name,
+                    Email: dadosUsuarioParaSalvar.email,
+                    CPF: dadosUsuarioParaSalvar.cpf,
+                    Telefone: dadosUsuarioParaSalvar.phone,
+                },
+                beneficiary: {
+                    Setor: 'Procuradoria da Mulher',
+                },
+                details: {
+                    'Tipo de Atendimento': formData.tipoAtendimento,
+                    'Tipo de Violência': formData.tipoViolencia,
+                    Assunto: formData.assunto,
+                    Descrição: formData.descricao,
+                    'Data do Fato': formData.dataFato,
+                    'Nome do Agressor': formData.nomeAgressor,
+                    'Relação com o Agressor': formData.relacaoAgressor,
+                    'Relação com a Vítima': formData.relacaoVitima,
+                    'Endereço do Acontecimento': formData.enderecoAcontecimento,
+                    'Ponto de Referência': formData.pontoReferencia,
+                },
             });
 
             setSuccess('Sua solicitação foi enviada com sucesso e será tratada com sigilo e urgência. Você será redirecionada em breve.');

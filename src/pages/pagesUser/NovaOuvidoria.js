@@ -6,6 +6,7 @@ import { firestore } from '../../firebase';
 import config from '../../config';
 import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
+import { printProtocolReceipt } from '../../utils/printReport';
 
 // Ícones
 import { LiaPaperPlane, LiaArrowLeftSolid } from "react-icons/lia";
@@ -98,12 +99,39 @@ const NovaOuvidoria = () => {
                 });
             }
 
-            await addDoc(collection(firestore, 'ouvidoria'), {
+            const payload = {
                 dadosManifestacao: { ...formData, anexos: anexosProcessados },
                 dadosUsuario: dadosUsuarioParaSalvar,
                 userId: formData.identificacao === 'identificado' ? currentUser.uid : 'anonimo',
                 status: 'Recebida',
                 dataManifestacao: serverTimestamp(),
+            };
+
+            const docRef = await addDoc(collection(firestore, 'ouvidoria'), payload);
+
+            printProtocolReceipt({
+                title: 'Comprovante de Manifestação da Ouvidoria',
+                protocol: docRef.id,
+                status: payload.status,
+                createdAt: new Date(),
+                requester: {
+                    Identificação: dadosUsuarioParaSalvar.identificacao,
+                    Nome: dadosUsuarioParaSalvar.name,
+                    Email: dadosUsuarioParaSalvar.email,
+                    CPF: dadosUsuarioParaSalvar.cpf,
+                    Telefone: dadosUsuarioParaSalvar.phone,
+                },
+                beneficiary: {
+                    Setor: 'Ouvidoria',
+                },
+                details: {
+                    'Tipo de Manifestação': formData.tipoManifestacao,
+                    Assunto: formData.assunto,
+                    Descrição: formData.descricao,
+                    'Local do Fato': formData.localFato,
+                    'Data do Fato': formData.dataFato,
+                    Envolvidos: formData.envolvidos,
+                },
             });
 
             setSuccess('Sua manifestação foi enviada com sucesso! Você será redirecionado em breve.');

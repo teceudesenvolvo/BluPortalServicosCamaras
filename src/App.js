@@ -28,6 +28,7 @@ import Ouvidoria from './pages/pagesUser/Ouvidoria';
 import NovaOuvidoria from './pages/pagesUser/NovaOuvidoria';
 import Procuradoria from './pages/pagesUser/Procuradoria';
 import NovaProcuradoria from './pages/pagesUser/NovaProcuradoria';
+import MensagensUsuario from './pages/pagesUser/MensagensUsuario';
 import ConfigurarPanico from './pages/pagesUser/ConfigurarPanico';
 import SolicitacoesVereadores from './pages/pagesUser/SolicitacoesVereadores';
 import Piel from './pages/pagesUser/Piel';
@@ -78,6 +79,7 @@ function App() {
           <Route path="/ouvidoria/nova" element={<NovaOuvidoria />} />
           <Route path="/procuradoria" element={<Procuradoria />} />
           <Route path="/procuradoria/nova" element={<NovaProcuradoria />} />
+          <Route path="/mensagens" element={<MensagensUsuario />} />
           <Route path="/procuradoria/panico-config" element={<ConfigurarPanico />} />
           <Route path="/vereadores" element={<SolicitacoesVereadores />} />
           <Route path="/vereadores/nova" element={<NovaSolicitacaoVereador />} />
