@@ -33,6 +33,7 @@ import {
     tvCamaraLogsCollection,
     tvCamaraPlaylistCollection,
     videosEndpoint,
+    youtubeFunctionInvokerEndpoint,
     youtubeFunctions,
 } from '../../utils/tvCamara';
 
@@ -123,13 +124,17 @@ const AdminTvCamara = () => {
         const startedAt = Date.now();
 
         try {
-            const response = await fetch(youtubeFunction.endpoint, {
-                method: youtubeFunction.method || 'GET',
+            const response = await fetch(youtubeFunctionInvokerEndpoint, {
+                method: 'POST',
                 headers: {
                     Accept: 'application/json, text/plain, */*',
-                    ...(youtubeFunction.method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+                    'Content-Type': 'application/json',
                 },
-                ...(youtubeFunction.method === 'POST' ? { body: JSON.stringify({ source: 'admin-tv-camara', calledAt: new Date().toISOString() }) } : {}),
+                body: JSON.stringify({
+                    functionName: youtubeFunction.name,
+                    source: 'admin-tv-camara',
+                    calledAt: new Date().toISOString(),
+                }),
             });
             const durationMs = Date.now() - startedAt;
             const contentType = response.headers.get('content-type') || '';
@@ -139,29 +144,31 @@ const AdminTvCamara = () => {
                 payload = JSON.parse(responseText);
             }
 
-            if (!response.ok) {
-                throw new Error(`Falha HTTP ${response.status}`);
+            if (!response.ok || payload?.success === false) {
+                throw new Error(payload?.error || payload?.payload?.error || `Falha HTTP ${payload?.httpStatus || response.status}`);
             }
 
-            const videos = Array.isArray(payload?.videos) ? payload.videos : [];
+            const targetPayload = payload?.payload || payload;
+            const videos = Array.isArray(targetPayload?.videos) ? targetPayload.videos : [];
             await registerYoutubeLog({
                 functionId: youtubeFunction.id,
                 status: 'success',
-                httpStatus: response.status,
-                durationMs,
+                httpStatus: payload?.httpStatus || response.status,
+                durationMs: payload?.durationMs || durationMs,
                 videosCount: videos.length || null,
                 endpoint: youtubeFunction.endpoint,
                 message: `${youtubeFunction.name} executada com sucesso${videos.length ? ` com ${videos.length} vídeo(s)` : ''}.`,
                 details: {
                     method: youtubeFunction.method || 'GET',
                     responseType: contentType || 'text/plain',
-                    payloadPreview: typeof payload === 'string' ? payload.slice(0, 500) : Object.keys(payload || {}),
+                    proxyEndpoint: youtubeFunctionInvokerEndpoint,
+                    payloadPreview: typeof targetPayload === 'string' ? targetPayload.slice(0, 500) : Object.keys(targetPayload || {}),
                 },
             });
 
             if (youtubeFunction.id === 'listarVideosTvCamara') {
-                const normalizedVideos = Array.isArray(payload?.videos)
-                    ? payload.videos.map(video => normalizeVideo(video, 'endpoint'))
+                const normalizedVideos = Array.isArray(targetPayload?.videos)
+                    ? targetPayload.videos.map(video => normalizeVideo(video, 'endpoint'))
                     : [];
                 if (normalizedVideos.length) {
                     setEndpointVideos(normalizedVideos);
@@ -170,7 +177,7 @@ const AdminTvCamara = () => {
             }
 
             if (!silent) alert(`${youtubeFunction.name} executada com sucesso.`);
-            return payload;
+            return targetPayload;
         } catch (functionError) {
             const durationMs = Date.now() - startedAt;
             await registerYoutubeLog({

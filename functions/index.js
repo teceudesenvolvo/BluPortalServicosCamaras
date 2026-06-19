@@ -17,6 +17,270 @@ const gmailAppPassword = defineSecret("GMAIL_APP_PASSWORD");
 let genAI;
 let mailTransport;
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type,Authorization",
+};
+
+const youtubeFunctionsBaseUrl =
+    "https://southamerica-east1-blu-app-camara.cloudfunctions.net";
+
+const allowedYoutubeFunctions = {
+  atualizarPlaylistYoutube: {
+    endpoint: `${youtubeFunctionsBaseUrl}/atualizarPlaylistYoutube`,
+    method: "POST",
+    label: "Atualizar playlist do YouTube",
+  },
+  youtubeChannelWebhook: {
+    endpoint: `${youtubeFunctionsBaseUrl}/youtubeChannelWebhook`,
+    method: "GET",
+    label: "Webhook do canal YouTube",
+  },
+  renovarWebhookYoutube: {
+    endpoint: `${youtubeFunctionsBaseUrl}/renovarWebhookYoutube`,
+    method: "POST",
+    label: "Renovar webhook YouTube",
+  },
+  listarVideosTvCamara: {
+    endpoint: `${youtubeFunctionsBaseUrl}/listarVideosTvCamara`,
+    method: "GET",
+    label: "Listar vídeos da TV Câmara",
+  },
+};
+
+/**
+ * Applies CORS headers to HTTP responses.
+ * @param {object} res Express response object
+ */
+function applyCors(res) {
+  Object.entries(corsHeaders).forEach(([key, value]) => res.set(key, value));
+}
+
+/**
+ * Creates app notifications for a published news item.
+ * @param {string} noticiaId News document ID
+ * @param {object} noticiaData News document data
+ * @param {string} source Source identifier for logs/debugging
+ * @return {Promise<object>} Processing summary
+ */
+async function notifyUsersAboutNews(noticiaId, noticiaData, source) {
+  const db = admin.firestore();
+  console.log("Iniciando notificação de notícia: " + noticiaId);
+  const usersSnapshot = await db.collection("users").get();
+  console.log(`Encontrados ${usersSnapshot.size} usuários para processar.`);
+
+  let batch = db.batch();
+  let batchOperations = 0;
+  let created = 0;
+  const title = "📢 " + (noticiaData.titulo || "Nova notícia");
+  const description = noticiaData.subtitulo || "Novidade no app.";
+
+  if (usersSnapshot.empty) {
+    console.warn("Nenhum usuário encontrado para notificação de notícias.");
+  }
+
+  for (const userDoc of usersSnapshot.docs) {
+    const userData = userDoc.data() || {};
+    const notificationRef = db.collection("notifications").doc();
+
+    batch.set(notificationRef, {
+      userId: userDoc.id,
+      flavorId: userData.flavorId || "paraipaba",
+      tituloNotification: title,
+      descricaoNotification: description,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      read: false,
+      isRead: false,
+      protocolo: noticiaId,
+      source: source || "news",
+      data: {
+        screen: "Notificacoes",
+        type: "news",
+        noticiaId: noticiaId,
+        protocolo: noticiaId,
+      },
+    });
+
+    batchOperations += 1;
+    created += 1;
+
+    if (batchOperations >= 450) {
+      await batch.commit();
+      batch = db.batch();
+      batchOperations = 0;
+    }
+  }
+
+  if (batchOperations > 0) {
+    await batch.commit();
+  }
+
+  console.log(`Notificações de notícias processadas: ${created}.`);
+  return {
+    usersCount: usersSnapshot.size,
+    notificationsCount: created,
+  };
+}
+
+/**
+ * Persists a TV Câmara function execution log in Firestore.
+ * @param {object} logData Log payload
+ * @return {Promise<void>}
+ */
+async function saveYoutubeFunctionLog(logData) {
+  await admin.firestore().collection("tv-camara-logs").add({
+    category: "youtube",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdBy: logData.createdBy || "system",
+    ...logData,
+  });
+}
+
+/**
+ * Gets a Google identity token for protected Cloud Run/Functions endpoints.
+ * @param {string} audience Target URL used as token audience
+ * @return {Promise<string>} Identity token
+ */
+async function getGoogleIdentityToken(audience) {
+  const metadataUrl = "http://metadata/computeMetadata/v1/instance/" +
+      "service-accounts/default/identity?audience=" +
+      encodeURIComponent(audience);
+  const response = await fetch(metadataUrl, {
+    headers: {"Metadata-Flavor": "Google"},
+  });
+
+  if (!response.ok) {
+    throw new Error(`Falha ao gerar token Google: HTTP ${response.status}`);
+  }
+
+  return response.text();
+}
+
+/**
+ * Calls target endpoint and retries with a Google identity token on 403/401.
+ * @param {object} target Function target metadata
+ * @param {string} source Invocation source
+ * @return {Promise<object>} HTTP response metadata and payload
+ */
+async function callYoutubeEndpoint(target, source) {
+  const buildOptions = (identityToken = "") => ({
+    method: target.method,
+    headers: {
+      "Accept": "application/json, text/plain, */*",
+      ...(target.method === "POST" ? {"Content-Type": "application/json"} :
+        {}),
+      ...(identityToken ? {"Authorization": `Bearer ${identityToken}`} : {}),
+    },
+    ...(target.method === "POST" ? {
+      body: JSON.stringify({
+        source,
+        calledAt: new Date().toISOString(),
+      }),
+    } : {}),
+  });
+
+  let usedIdentityToken = false;
+  let response = await fetch(target.endpoint, buildOptions());
+
+  if (response.status === 401 || response.status === 403) {
+    try {
+      const identityToken = await getGoogleIdentityToken(target.endpoint);
+      usedIdentityToken = true;
+      response = await fetch(target.endpoint, buildOptions(identityToken));
+    } catch (tokenError) {
+      console.error("Não foi possível obter token Google:", tokenError);
+    }
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  const responseText = await response.text();
+  let payload = responseText;
+
+  if (contentType.includes("application/json") && responseText) {
+    payload = JSON.parse(responseText);
+  }
+
+  return {
+    response,
+    contentType,
+    payload,
+    usedIdentityToken,
+  };
+}
+
+/**
+ * Calls a known YouTube function and records the result.
+ * @param {string} functionName Function key
+ * @param {string} source Invocation source
+ * @return {Promise<object>} Call result
+ */
+async function invokeYoutubeTarget(functionName, source) {
+  const target = allowedYoutubeFunctions[functionName];
+
+  if (!target) {
+    const error = new Error("Função YouTube não permitida.");
+    error.allowed = Object.keys(allowedYoutubeFunctions);
+    throw error;
+  }
+
+  const startedAt = Date.now();
+
+  try {
+    const {response, contentType, payload, usedIdentityToken} =
+        await callYoutubeEndpoint(target, source);
+    const durationMs = Date.now() - startedAt;
+
+    await saveYoutubeFunctionLog({
+      status: response.ok ? "success" : "error",
+      functionId: functionName,
+      functionName,
+      functionLabel: target.label,
+      endpoint: target.endpoint,
+      httpStatus: response.status,
+      durationMs,
+      message: response.ok ?
+        `${functionName} executada automaticamente.` :
+        `${functionName} retornou HTTP ${response.status}.`,
+      details: {
+        source,
+        method: target.method,
+        usedIdentityToken,
+        responseType: contentType || "text/plain",
+        payloadPreview: typeof payload === "string" ?
+          payload.slice(0, 500) : Object.keys(payload || {}),
+      },
+    });
+
+    return {
+      success: response.ok,
+      functionName,
+      endpoint: target.endpoint,
+      method: target.method,
+      httpStatus: response.status,
+      durationMs,
+      payload,
+    };
+  } catch (error) {
+    const durationMs = Date.now() - startedAt;
+    await saveYoutubeFunctionLog({
+      status: "error",
+      functionId: functionName,
+      functionName,
+      functionLabel: target.label,
+      endpoint: target.endpoint,
+      durationMs,
+      message: error.message || `Erro ao executar ${functionName}.`,
+      details: {
+        source,
+        method: target.method,
+        errorName: error.name || "Error",
+      },
+    });
+    throw error;
+  }
+}
+
 exports.sendMailOnNewRequest = onDocumentCreated(
     {
       document: "mail/{mailId}",
@@ -159,79 +423,132 @@ exports.notifyUsersOnNewsPublished = onDocumentWritten(
 
       if (!isNewlyPublished) return null;
 
-      const db = admin.firestore();
-      console.log("Iniciando notificação de nova notícia: " +
-          event.params.noticiaId);
-      const usersSnapshot = await db.collection("users").get();
-      console.log(`Encontrados ${usersSnapshot.size} usuários para processar.`);
+      await notifyUsersAboutNews(event.params.noticiaId, afterData,
+          "news-trigger");
+      return null;
+    },
+);
 
-      const notificationsRef = db.collection("notifications");
-      const mailRef = db.collection("mail");
-      const promises = [];
+exports.notifyNewsNow = onRequest(
+    {},
+    async (req, res) => {
+      applyCors(res);
 
-      if (usersSnapshot.empty) {
-        console.warn("Nenhum usuário encontrado para notificação de notícias.");
+      if (req.method === "OPTIONS") {
+        return res.status(204).send("");
+      }
+      if (req.method !== "POST") {
+        return res.status(405).json({error: "Method Not Allowed"});
       }
 
-      usersSnapshot.forEach((userDoc) => {
-        const userData = userDoc.data() || {};
-        const email = userData.email || userData.userEmail || null;
-        const notificationPayload = {
-          userId: userDoc.id,
-          flavorId: "paraipaba",
-          tituloNotification: "📢 " + afterData.titulo,
-          descricaoNotification: afterData.subtitulo || "Novidade no app.",
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          read: false,
-          isRead: false,
-          data: {
-            protocolo: event.params.noticiaId,
-            type: "news",
-            screen: "Notificacoes",
-          },
-        };
-
-        promises.push(
-            notificationsRef.add(notificationPayload)
-                .then(() => {
-                  console.log("Notificação Firestore criada para " +
-                      userDoc.id);
-                })
-                .catch((error) => {
-                  console.error("Erro ao criar notificação para " +
-                      userDoc.id + ":", error);
-                }),
-        );
-
-        if (email) {
-          promises.push(
-              mailRef.add({
-                to: email,
-                message: {
-                  subject: `Informativo: ${afterData.titulo}`,
-                  html: `<h3>${afterData.titulo}</h3>` +
-                        `<p>${afterData.subtitulo || ""}</p>` +
-                        `<hr><p>Uma nova notícia foi publicada no ` +
-                        `Portal de Serviços da Câmara Municipal de ` +
-                        `Paraipaba.</p><p>Acesse o aplicativo para ler ` +
-                        `o conteúdo completo.</p>`,
-                },
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
-              })
-                  .then(() => console.log(`E-mail enfileirado para ${email}`))
-                  .catch((error) => {
-                    console.error(`Erro ao enfileirar email para ${email}:`,
-                        error);
-                  }),
-          );
-        } else {
-          console.log(`Usuário ${userDoc.id} sem email; ` +
-              "notificação Firestore gravada apenas.");
+      try {
+        const noticiaId = req.body?.noticiaId;
+        if (!noticiaId || typeof noticiaId !== "string") {
+          return res.status(400).json({error: "noticiaId é obrigatório."});
         }
-      });
 
-      await Promise.all(promises);
-      console.log("Notificações de notícias processadas.");
+        const db = admin.firestore();
+        const noticiaSnap = await db.collection("noticias").doc(noticiaId)
+            .get();
+
+        if (!noticiaSnap.exists) {
+          return res.status(404).json({error: "Notícia não encontrada."});
+        }
+
+        const noticiaData = noticiaSnap.data() || {};
+        if (noticiaData.status !== "Publicado") {
+          return res.status(400).json({
+            error: "A notícia precisa estar publicada para notificar.",
+          });
+        }
+
+        const result = await notifyUsersAboutNews(noticiaId, noticiaData,
+            "news-manual");
+        return res.json({success: true, ...result});
+      } catch (error) {
+        console.error("Erro no notifyNewsNow:", error);
+        return res.status(500).json({error: error.message || "Erro interno."});
+      }
+    },
+);
+
+exports.invokeYoutubeFunction = onRequest(
+    {},
+    async (req, res) => {
+      applyCors(res);
+
+      if (req.method === "OPTIONS") {
+        return res.status(204).send("");
+      }
+      if (req.method !== "POST") {
+        return res.status(405).json({error: "Method Not Allowed"});
+      }
+
+      try {
+        const functionName = req.body?.functionName;
+
+        if (!allowedYoutubeFunctions[functionName]) {
+          return res.status(400).json({
+            error: "Função YouTube não permitida.",
+            allowed: Object.keys(allowedYoutubeFunctions),
+          });
+        }
+
+        const result = await invokeYoutubeTarget(functionName,
+            "invokeYoutubeFunction");
+        return res.status(result.success ? 200 : result.httpStatus)
+            .json(result);
+      } catch (error) {
+        console.error("Erro no invokeYoutubeFunction:", error);
+        return res.status(500).json({error: error.message || "Erro interno."});
+      }
+    },
+);
+
+exports.atualizarPlaylistYoutubeAutomatico = onSchedule(
+    {
+      schedule: "every 30 minutes",
+      timeZone: "America/Fortaleza",
+    },
+    async () => {
+      try {
+        await invokeYoutubeTarget("atualizarPlaylistYoutube",
+            "schedule-atualizarPlaylistYoutubeAutomatico");
+      } catch (error) {
+        console.error("Erro no atualizarPlaylistYoutubeAutomatico:", error);
+      }
+      return null;
+    },
+);
+
+exports.renovarWebhookYoutubeAutomatico = onSchedule(
+    {
+      schedule: "every 24 hours",
+      timeZone: "America/Fortaleza",
+    },
+    async () => {
+      try {
+        await invokeYoutubeTarget("renovarWebhookYoutube",
+            "schedule-renovarWebhookYoutubeAutomatico");
+      } catch (error) {
+        console.error("Erro no renovarWebhookYoutubeAutomatico:", error);
+      }
+      return null;
+    },
+);
+
+exports.verificarVideosTvCamaraAutomatico = onSchedule(
+    {
+      schedule: "every 15 minutes",
+      timeZone: "America/Fortaleza",
+    },
+    async () => {
+      try {
+        await invokeYoutubeTarget("listarVideosTvCamara",
+            "schedule-verificarVideosTvCamaraAutomatico");
+      } catch (error) {
+        console.error("Erro no verificarVideosTvCamaraAutomatico:", error);
+      }
       return null;
     },
 );

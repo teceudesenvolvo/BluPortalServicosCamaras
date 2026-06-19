@@ -2,6 +2,9 @@ import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { firestore } from '../firebase';
 
 export const youtubeFunctionsBaseUrl = 'https://southamerica-east1-blu-app-camara.cloudfunctions.net';
+export const appFunctionsBaseUrl = process.env.REACT_APP_FUNCTIONS_BASE_URL?.replace(/\/$/, '') ||
+    'https://us-central1-blu-app-camara.cloudfunctions.net';
+export const youtubeFunctionInvokerEndpoint = `${appFunctionsBaseUrl}/invokeYoutubeFunction`;
 export const videosEndpoint = `${youtubeFunctionsBaseUrl}/listarVideosTvCamara`;
 export const tvCamaraPlaylistCollection = 'tv-camara-playlist';
 export const tvCamaraLogsCollection = 'tv-camara-logs';

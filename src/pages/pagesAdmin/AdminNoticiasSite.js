@@ -15,8 +15,12 @@ import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 // Ícones
 import {
     LiaPlusSolid, LiaEditSolid, LiaTrashSolid, LiaTimesSolid,
-    LiaSaveSolid, LiaUploadSolid, LiaImageSolid, LiaMagicSolid
+    LiaSaveSolid, LiaUploadSolid, LiaImageSolid, LiaMagicSolid,
+    LiaBellSolid
 } from "react-icons/lia";
+
+const FUNCTIONS_BASE_URL = process.env.REACT_APP_FUNCTIONS_BASE_URL?.replace(/\/$/, "") ||
+    "https://us-central1-blu-app-camara.cloudfunctions.net";
 
 const AdminNoticiasSite = () => {
     const navigate = useNavigate();
@@ -27,6 +31,7 @@ const AdminNoticiasSite = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [selectedId, setSelectedId] = useState(null);
     const [generatingAI, setGeneratingAI] = useState(false);
+    const [notifyingNewsId, setNotifyingNewsId] = useState(null);
 
     const initialFormState = {
         titulo: '',
@@ -119,8 +124,6 @@ const AdminNoticiasSite = () => {
         }
 
         setGeneratingAI(true);
-        const FUNCTIONS_BASE_URL = process.env.REACT_APP_FUNCTIONS_BASE_URL?.replace(/\/$/, "") ||
-            "https://us-central1-blu-app-camara.cloudfunctions.net";
         const endpoint = `${FUNCTIONS_BASE_URL}/generateNews`;
         const prompt = `Escreva uma notícia profissional e detalhada para o portal de uma Câmara Municipal. 
         Título: ${formData.titulo}
@@ -200,6 +203,44 @@ const AdminNoticiasSite = () => {
         }
     };
 
+    const handleNotifyNews = async (noticiaId, { silent = false } = {}) => {
+        if (!noticiaId) return;
+
+        setNotifyingNewsId(noticiaId);
+        try {
+            const response = await fetch(`${FUNCTIONS_BASE_URL}/notifyNewsNow`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ noticiaId })
+            });
+            const text = await response.text();
+            let data = {};
+
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch {
+                data = { error: text };
+            }
+
+            if (!response.ok || data.success === false) {
+                throw new Error(data.error || `Erro HTTP ${response.status}`);
+            }
+
+            if (!silent) {
+                alert(`Notificação enviada para ${data.notificationsCount || data.usersCount || 0} usuário(s).`);
+            }
+            return data;
+        } catch (error) {
+            console.error('Erro ao notificar notícia:', error);
+            if (!silent) {
+                alert(`Erro ao notificar notícia: ${error.message}`);
+            }
+            return null;
+        } finally {
+            setNotifyingNewsId(null);
+        }
+    };
+
     const handleSubmit = async (statusToSet) => {
         setLoading(true);
         try {
@@ -234,6 +275,7 @@ const AdminNoticiasSite = () => {
                 await addDoc(collection(firestore, 'noticias'), dataToSave);
                 alert("Notícia publicada com sucesso!");
             }
+
             setShowModal(false);
             fetchNoticias();
         } catch (error) {
@@ -294,6 +336,17 @@ const AdminNoticiasSite = () => {
                                     </span>
                                 </div>
                                 <div className="item-actions">
+                                    {noticia.status === 'Publicado' && (
+                                        <button
+                                            onClick={() => handleNotifyNews(noticia.id)}
+                                            className="btn-secondary"
+                                            title="Reenviar notificação para o app"
+                                            disabled={notifyingNewsId === noticia.id}
+                                            style={{ marginRight: '8px', marginBottom: '5px', textAlign: 'center !important' }}
+                                        >
+                                            {notifyingNewsId === noticia.id ? 'Enviando...' : <LiaBellSolid size={20} />}
+                                        </button>
+                                    )}
                                     <button onClick={() => handleEdit(noticia)} className="btn-secondary" style={{ marginRight: '8px', marginBottom: '5px', textAlign: 'center !important' }}><LiaEditSolid size={20} /></button>
                                     <button onClick={() => handleDelete(noticia.id)} className="btn-danger"><LiaTrashSolid size={20} /></button>
                                 </div>
