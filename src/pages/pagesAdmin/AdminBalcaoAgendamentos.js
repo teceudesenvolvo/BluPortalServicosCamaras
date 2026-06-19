@@ -8,9 +8,10 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
+import AdminQuickReplies from '../../components/AdminQuickReplies';
 import {
     LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane,
-    LiaPaperclipSolid, LiaSearchSolid, LiaArrowLeftSolid, LiaFilterSolid, LiaDownloadSolid, LiaPrintSolid
+    LiaPaperclipSolid, LiaSearchSolid, LiaFilterSolid, LiaDownloadSolid, LiaPrintSolid
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { buildReadMessagesUpdate, countUnreadAdminMessages } from '../../utils/adminMessages';
@@ -335,6 +336,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                     <p className="chat-empty-state">Nenhuma mensagem trocada.</p>
                                 )}
                             </div>
+                            <AdminQuickReplies onPick={(text) => setMessage(text)} />
                             <div className="modal-chat-composer">
                                 <textarea
                                     value={message}
@@ -781,18 +783,10 @@ const AdminBalcaoAgendamentos = () => {
                 {/* Header */}
                 <header className="page-header-container">
                     <div className="header-title-section">
-                        <button
-                            onClick={() => navigate('/admin-balcao')}
-                            className="btn-secondary"
-                            style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-                        >
-                            <LiaArrowLeftSolid size={18} /> Voltar ao Dashboard
-                        </button>
+                        
                         <h1>Agendamentos Realizados</h1>
                         <p>Balcão do Cidadão — {filteredAgendamentos.length} pessoa{filteredAgendamentos.length === 1 ? '' : 's'} com agendamento marcado.</p>
-                        <button onClick={fetchAgendamentos} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
-                            ↻ Atualizar dados
-                        </button>
+                       
                     </div>
                 </header>
 

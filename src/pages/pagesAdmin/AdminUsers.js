@@ -162,6 +162,10 @@ const AdminUsersDashboard = () => {
     const [users, setUsers] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterTipo, setFilterTipo] = useState('Todos');
+    const [filterCpf, setFilterCpf] = useState('');
+    const [filterPhone, setFilterPhone] = useState('');
+    const [filterCity, setFilterCity] = useState('');
+    const [filterState, setFilterState] = useState('');
     const [showFilters, setShowFilters] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
     
@@ -171,9 +175,9 @@ const AdminUsersDashboard = () => {
     const [lastDoc, setLastDoc] = useState(null);
     const [isLastPage, setIsLastPage] = useState(false);
     const itemsPerPage = 15;
-    const maxItemsWithFilters = 60; 
+    const maxItemsWithFilters = 500; 
 
-    const hasActiveFilters = !!(searchTerm || filterTipo !== 'Todos');
+    const hasActiveFilters = !!(searchTerm || filterTipo !== 'Todos' || filterCpf || filterPhone || filterCity || filterState);
 
     const BATCH_SIZE = 20; // Define o tamanho do lote
     const [currentBatchStartIndex, setCurrentBatchStartIndex] = useState(0); 
@@ -231,7 +235,7 @@ const AdminUsersDashboard = () => {
         setCurrentPage(1);
         setCursors([null]);
         fetchUsers(null, hasActiveFilters);
-    }, [isAuthReady, filterTipo, searchTerm, hasActiveFilters, fetchUsers]);
+    }, [isAuthReady, filterTipo, searchTerm, filterCpf, filterPhone, filterCity, filterState, hasActiveFilters, fetchUsers]);
 
     const handleNextPage = () => {
         if (!lastDoc || isLastPage) return;
@@ -357,6 +361,10 @@ const AdminUsersDashboard = () => {
     const clearFilters = () => {
         setSearchTerm('');
         setFilterTipo('Todos');
+        setFilterCpf('');
+        setFilterPhone('');
+        setFilterCity('');
+        setFilterState('');
         setCurrentPage(1);
         setCursors([null]);
     };
@@ -364,8 +372,30 @@ const AdminUsersDashboard = () => {
     const filteredUsers = users.filter(user =>
     {
         const searchLower = searchTerm.toLowerCase();
-        return (user.name && user.name.toLowerCase().includes(searchLower)) ||
-               (user.email && user.email.toLowerCase().includes(searchLower));
+        const cpfLower = filterCpf.toLowerCase();
+        const phoneLower = filterPhone.toLowerCase();
+        const cityLower = filterCity.toLowerCase();
+        const stateLower = filterState.toLowerCase();
+        const searchable = [
+            user.name,
+            user.email,
+            user.cpf,
+            user.telefone,
+            user.phone,
+            user.tipo,
+            user.city,
+            user.state,
+            user.neighborhood,
+            user.address,
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        const matchesSearch = !searchLower || searchable.includes(searchLower);
+        const matchesCpf = !cpfLower || String(user.cpf || '').toLowerCase().includes(cpfLower);
+        const matchesPhone = !phoneLower || String(user.telefone || user.phone || '').toLowerCase().includes(phoneLower);
+        const matchesCity = !cityLower || String(user.city || '').toLowerCase().includes(cityLower);
+        const matchesState = !stateLower || String(user.state || '').toLowerCase().includes(stateLower);
+
+        return matchesSearch && matchesCpf && matchesPhone && matchesCity && matchesState;
     }
     );
 
@@ -408,7 +438,7 @@ const AdminUsersDashboard = () => {
                                 <LiaSearchSolid style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888' }} size={20} />
                                 <input
                                     type="text"
-                                    placeholder="Buscar por nome ou e-mail..."
+                                    placeholder="Buscar por nome, e-mail, CPF, telefone, cidade..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="form-input"
@@ -460,6 +490,46 @@ const AdminUsersDashboard = () => {
                                 >
                                     {tiposList.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>CPF</label>
+                                <input
+                                    value={filterCpf}
+                                    onChange={(e) => setFilterCpf(e.target.value)}
+                                    className="form-input"
+                                    placeholder="Buscar por CPF"
+                                    style={{ margin: 0 }}
+                                />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Telefone</label>
+                                <input
+                                    value={filterPhone}
+                                    onChange={(e) => setFilterPhone(e.target.value)}
+                                    className="form-input"
+                                    placeholder="Buscar por telefone"
+                                    style={{ margin: 0 }}
+                                />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Cidade</label>
+                                <input
+                                    value={filterCity}
+                                    onChange={(e) => setFilterCity(e.target.value)}
+                                    className="form-input"
+                                    placeholder="Buscar por cidade"
+                                    style={{ margin: 0 }}
+                                />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Estado</label>
+                                <input
+                                    value={filterState}
+                                    onChange={(e) => setFilterState(e.target.value)}
+                                    className="form-input"
+                                    placeholder="UF ou estado"
+                                    style={{ margin: 0 }}
+                                />
                             </div>
                         </div>
                     )}

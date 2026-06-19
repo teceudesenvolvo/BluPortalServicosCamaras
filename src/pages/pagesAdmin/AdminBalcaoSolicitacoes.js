@@ -8,6 +8,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
+import AdminQuickReplies from '../../components/AdminQuickReplies';
 import {
     LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane,
     LiaPaperclipSolid, LiaSearchSolid, LiaArrowLeftSolid, LiaFilterSolid, LiaDownloadSolid, LiaPrintSolid, LiaPlusSolid
@@ -583,6 +584,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                 <p className="chat-empty-state">Nenhuma mensagem trocada.</p>
                             )}
                         </div>
+                        <AdminQuickReplies onPick={(text) => setMessage(text)} />
                         <div className="modal-chat-composer">
                             <textarea
                                 value={message}

@@ -8,38 +8,7 @@ import {
     LiaSyncSolid,
     LiaTvSolid,
 } from 'react-icons/lia';
-
-const videosEndpoint = 'https://southamerica-east1-blu-app-camara.cloudfunctions.net/listarVideosTvCamara';
-
-const buildPlayerUrl = (videoId) => {
-    if (!videoId) return null;
-
-    const params = new URLSearchParams({
-        rel: '0',
-        modestbranding: '1',
-        playsinline: '1',
-    });
-
-    return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
-};
-
-const getVideoTimestamp = (video) => {
-    const timestamp = new Date(video?.publishedAt || '').getTime();
-    return Number.isNaN(timestamp) ? 0 : timestamp;
-};
-
-const formatVideoDate = (value) => {
-    if (!value) return 'TV Câmara';
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'TV Câmara';
-
-    return new Intl.DateTimeFormat('pt-BR', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    }).format(date);
-};
+import { buildPlayerUrl, fetchTvCamaraVideos, formatVideoDate } from '../../utils/tvCamara';
 
 const TvCamara = () => {
     const navigate = useNavigate();
@@ -56,16 +25,7 @@ const TvCamara = () => {
             setLoading(true);
             setError('');
 
-            const response = await fetch(videosEndpoint);
-            if (!response.ok) {
-                throw new Error(`Falha HTTP ${response.status}`);
-            }
-
-            const payload = await response.json();
-            const playlistVideos = Array.isArray(payload?.videos) ? payload.videos : [];
-            const orderedVideos = [...playlistVideos].sort(
-                (firstVideo, secondVideo) => getVideoTimestamp(secondVideo) - getVideoTimestamp(firstVideo),
-            );
+            const { videos: orderedVideos } = await fetchTvCamaraVideos();
 
             setVideos(orderedVideos);
             setSelectedVideo((currentVideo) => {

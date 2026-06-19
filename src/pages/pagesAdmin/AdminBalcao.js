@@ -13,8 +13,8 @@ import {
     LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane,
     LiaPaperclipSolid, LiaDownloadSolid,
     LiaCogSolid, LiaCalendarCheckSolid, LiaClipboardListSolid,
-    LiaClockSolid, LiaHourglassHalfSolid, LiaRedoAltSolid, LiaBullhornSolid,
-    LiaPlusSolid, LiaUsersSolid
+    LiaClockSolid, LiaHourglassHalfSolid, LiaRedoAltSolid, LiaBullhornSolid, 
+    LiaUsersSolid
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
@@ -1093,9 +1093,7 @@ const AdminBalcaoDashboard = () => {
                         <button onClick={fetchData} className="admin-action-button action-refresh admin-balcao-refresh-button" disabled={loading}>
                             <span className="admin-action-icon">↻</span><span className="admin-action-label">Atualizar dados</span>
                         </button>
-                        <button type="button" onClick={() => navigate('/admin-balcao/solicitacoes')} className="admin-action-button action-new">
-                            <LiaPlusSolid /><span className="admin-action-label">Nova Solicitação</span>
-                        </button>
+                        
                         <button type="button" onClick={() => navigate('/recepcao')} className="admin-action-button action-reception">
                             <LiaUsersSolid /><span className="admin-action-label">Recepção</span>
                         </button>

@@ -52,6 +52,7 @@ import AdminNotifications from './pages/pagesAdmin/AdminNotifications';
 import AdminMensagens from './pages/pagesAdmin/AdminMensagens';
 import RecepcaoAtendimento from './pages/pagesAdmin/RecepcaoAtendimento';
 import PainelAtendimento from './pages/pagesAdmin/PainelAtendimento';
+import AdminTvCamara from './pages/pagesAdmin/AdminTvCamara';
 
 
 function App() {
@@ -103,6 +104,7 @@ function App() {
           <Route path="/admin-mail" element={<AdminMail />} />
           <Route path="/admin-notifications" element={<AdminNotifications />} />
           <Route path="/admin-mensagens" element={<AdminMensagens />} />
+          <Route path="/admin-tv-camara" element={<AdminTvCamara />} />
           <Route path="/admin-migration" element={<AdminMigration />} />
           <Route path="/recepcao" element={<RecepcaoAtendimento />} />
           <Route path="/painel-atendimento" element={<PainelAtendimento />} />
