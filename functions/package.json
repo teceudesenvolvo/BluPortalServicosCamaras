@@ -13,7 +13,8 @@
     "shell": "firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "deploy:safe-youtube-support": "firebase deploy --only functions:invokeYoutubeFunction,functions:notifyNewsNow,functions:atualizarPlaylistYoutubeAutomatico,functions:renovarWebhookYoutubeAutomatico,functions:verificarVideosTvCamaraAutomatico",
+    "deploy:safe-youtube-support": "firebase deploy --only functions:invokeYoutubeFunction,functions:notifyNewsNow",
+    "deploy:neutralize-youtube-support-schedules": "firebase deploy --only functions:atualizarPlaylistYoutubeAutomatico,functions:renovarWebhookYoutubeAutomatico,functions:verificarVideosTvCamaraAutomatico",
     "logs": "firebase functions:log"
   },
   "dependencies": {

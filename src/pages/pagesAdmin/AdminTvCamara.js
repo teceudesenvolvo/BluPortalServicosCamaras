@@ -71,7 +71,7 @@ const AdminTvCamara = () => {
         lastLog: logs.find(log => (log.functionName || log.functionId) === youtubeFunction.id || (log.functionName || log.functionId) === youtubeFunction.name),
         totalLogs: logs.filter(log => (log.functionName || log.functionId) === youtubeFunction.id || (log.functionName || log.functionId) === youtubeFunction.name).length,
     })), [logs]);
-    const cloudYoutubeFunctions = useMemo(() => youtubeFunctions.filter(item => item.type === 'cloud-function'), []);
+    const youtubeFunctionCards = useMemo(() => youtubeFunctions.filter(item => item.type !== 'firestore-action'), []);
 
     const registerYoutubeLog = async ({
         functionId = 'playlistManualTvCamara',
@@ -119,6 +119,11 @@ const AdminTvCamara = () => {
 
     const callYoutubeFunction = async (youtubeFunction, { silent = false } = {}) => {
         if (!youtubeFunction?.endpoint) return null;
+        if (youtubeFunction.callable === false) {
+            const message = `${youtubeFunction.label} é gerenciada automaticamente no projeto blu-app-camaras e não deve ser chamada manualmente pelo portal.`;
+            if (!silent) alert(message);
+            throw new Error(message);
+        }
 
         setRunningFunctions(prev => ({ ...prev, [youtubeFunction.id]: true }));
         const startedAt = Date.now();
@@ -246,6 +251,23 @@ const AdminTvCamara = () => {
     const handleRunYoutubeFunction = async (youtubeFunction) => {
         setError('');
         try {
+            if (youtubeFunction.callable === false) {
+                const message = `${youtubeFunction.label} é ${youtubeFunction.statusLabel?.toLowerCase() || 'automática'} e permanece ativa no projeto blu-app-camaras.`;
+                setError(message);
+                await registerYoutubeLog({
+                    functionId: youtubeFunction.id,
+                    status: 'success',
+                    endpoint: youtubeFunction.endpoint,
+                    message,
+                    details: {
+                        action: 'manual-call-blocked',
+                        reason: 'scheduled-or-webhook-function',
+                    },
+                });
+                await fetchLogs();
+                return;
+            }
+
             if (youtubeFunction.id === 'listarVideosTvCamara') {
                 await monitorEndpoint();
                 return;
@@ -400,25 +422,29 @@ const AdminTvCamara = () => {
                     <section className="data-card admin-tv-camara-functions-card">
                         <div className="card-header">
                             <h3><LiaTvSolid /> Funções YouTube</h3>
-                            <span>{cloudYoutubeFunctions.length} função(ões)</span>
+                            <span>{youtubeFunctionCards.length} função(ões)</span>
                         </div>
                         <div className="admin-tv-camara-functions">
-                            {cloudYoutubeFunctions.map(youtubeFunction => (
+                            {youtubeFunctionCards.map(youtubeFunction => (
                                 <article key={youtubeFunction.id}>
                                     <div>
                                         <strong>{youtubeFunction.name}</strong>
                                         <span>{youtubeFunction.description}</span>
-                                        <small>{youtubeFunction.method || 'GET'} · {youtubeFunction.endpoint}</small>
+                                        <small>{youtubeFunction.method || 'GET'} · {youtubeFunction.statusLabel || 'Disponível'} · {youtubeFunction.endpoint}</small>
                                     </div>
-                                    <button
-                                        type="button"
-                                        className="btn-primary"
-                                        onClick={() => handleRunYoutubeFunction(youtubeFunction)}
-                                        disabled={monitoring || runningFunctions[youtubeFunction.id]}
-                                    >
-                                        <LiaSyncSolid />
-                                        {runningFunctions[youtubeFunction.id] || (monitoring && youtubeFunction.id === 'listarVideosTvCamara') ? 'Chamando...' : 'Chamar função'}
-                                    </button>
+                                    {youtubeFunction.callable === false ? (
+                                        <span className="admin-tv-camara-function-badge">{youtubeFunction.statusLabel || 'Automática'}</span>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            className="btn-primary"
+                                            onClick={() => handleRunYoutubeFunction(youtubeFunction)}
+                                            disabled={monitoring || runningFunctions[youtubeFunction.id]}
+                                        >
+                                            <LiaSyncSolid />
+                                            {runningFunctions[youtubeFunction.id] || (monitoring && youtubeFunction.id === 'listarVideosTvCamara') ? 'Testando...' : 'Testar função'}
+                                        </button>
+                                    )}
                                 </article>
                             ))}
                         </div>

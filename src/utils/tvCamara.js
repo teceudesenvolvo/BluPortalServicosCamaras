@@ -6,6 +6,7 @@ export const appFunctionsBaseUrl = process.env.REACT_APP_FUNCTIONS_BASE_URL?.rep
     'https://us-central1-blu-app-camara.cloudfunctions.net';
 export const youtubeFunctionInvokerEndpoint = `${appFunctionsBaseUrl}/invokeYoutubeFunction`;
 export const videosEndpoint = `${youtubeFunctionsBaseUrl}/listarVideosTvCamara`;
+export const fallbackVideosEndpoint = `${appFunctionsBaseUrl}/listarVideosTvCamaraFallback`;
 export const tvCamaraPlaylistCollection = 'tv-camara-playlist';
 export const tvCamaraLogsCollection = 'tv-camara-logs';
 
@@ -15,27 +16,33 @@ export const youtubeFunctions = [
         name: 'atualizarPlaylistYoutube',
         label: 'Atualizar playlist do YouTube',
         endpoint: `${youtubeFunctionsBaseUrl}/atualizarPlaylistYoutube`,
-        description: 'Força a atualização da playlist usada pela TV Câmara.',
-        type: 'cloud-function',
-        method: 'POST',
+        description: 'Automação original do projeto blu-app-camaras. Roda a cada 30 minutos, das 8h às 19h.',
+        type: 'scheduled-function',
+        method: 'SCHEDULE',
+        callable: false,
+        statusLabel: 'Automática',
     },
     {
         id: 'youtubeChannelWebhook',
         name: 'youtubeChannelWebhook',
         label: 'Webhook do canal YouTube',
         endpoint: `${youtubeFunctionsBaseUrl}/youtubeChannelWebhook`,
-        description: 'Endpoint do webhook do canal para receber eventos do YouTube.',
-        type: 'cloud-function',
-        method: 'GET',
+        description: 'Endpoint chamado pelo YouTube/WebSub. Chamadas manuais sem hub.challenge retornam 403 por segurança.',
+        type: 'webhook',
+        method: 'WEBHOOK',
+        callable: false,
+        statusLabel: 'Webhook externo',
     },
     {
         id: 'renovarWebhookYoutube',
         name: 'renovarWebhookYoutube',
         label: 'Renovar webhook YouTube',
         endpoint: `${youtubeFunctionsBaseUrl}/renovarWebhookYoutube`,
-        description: 'Renova a inscrição do webhook do canal no YouTube.',
-        type: 'cloud-function',
-        method: 'POST',
+        description: 'Automação original do projeto blu-app-camaras. Renova a inscrição WebSub a cada 3 dias.',
+        type: 'scheduled-function',
+        method: 'SCHEDULE',
+        callable: false,
+        statusLabel: 'Automática',
     },
     {
         id: 'listarVideosTvCamara',
@@ -45,6 +52,8 @@ export const youtubeFunctions = [
         description: 'Busca os vídeos do YouTube usados na TV Câmara.',
         type: 'cloud-function',
         method: 'GET',
+        callable: true,
+        statusLabel: 'Testável',
     },
     {
         id: 'playlistManualTvCamara',
@@ -129,9 +138,9 @@ export const normalizeVideo = (video = {}, source = 'endpoint') => {
     };
 };
 
-export const fetchEndpointVideos = async () => {
+const requestVideosEndpoint = async (endpoint, source = 'endpoint') => {
     const startedAt = Date.now();
-    const response = await fetch(videosEndpoint);
+    const response = await fetch(endpoint);
     const durationMs = Date.now() - startedAt;
 
     if (!response.ok) {
@@ -139,9 +148,22 @@ export const fetchEndpointVideos = async () => {
     }
 
     const payload = await response.json();
-    const videos = Array.isArray(payload?.videos) ? payload.videos.map(video => normalizeVideo(video, 'endpoint')) : [];
+    const videos = Array.isArray(payload?.videos) ? payload.videos.map(video => normalizeVideo(video, source)) : [];
 
     return { payload, videos, durationMs, status: response.status };
+};
+
+export const fetchEndpointVideos = async () => {
+    try {
+        return await requestVideosEndpoint(videosEndpoint, 'endpoint');
+    } catch (primaryError) {
+        const fallbackResult = await requestVideosEndpoint(fallbackVideosEndpoint, 'public-feed');
+        return {
+            ...fallbackResult,
+            primaryError: primaryError.message || 'Falha ao carregar endpoint principal.',
+            fallback: true,
+        };
+    }
 };
 
 export const fetchManualPlaylistVideos = async () => {
@@ -163,15 +185,29 @@ export const mergeTvCamaraVideos = (manualVideos = [], endpointVideos = []) => {
 };
 
 export const fetchTvCamaraVideos = async () => {
-    const [manualVideos, endpointResult] = await Promise.all([
+    const [manualResult, endpointResult] = await Promise.allSettled([
         fetchManualPlaylistVideos(),
         fetchEndpointVideos(),
     ]);
+    const manualVideos = manualResult.status === 'fulfilled' ? manualResult.value : [];
+    const endpoint = endpointResult.status === 'fulfilled'
+        ? endpointResult.value
+        : {
+            payload: null,
+            videos: [],
+            durationMs: 0,
+            status: null,
+            error: endpointResult.reason?.message || 'Falha ao carregar vídeos da função listarVideosTvCamara.',
+        };
 
     return {
-        videos: mergeTvCamaraVideos(manualVideos, endpointResult.videos),
+        videos: mergeTvCamaraVideos(manualVideos, endpoint.videos),
         manualVideos,
-        endpointVideos: endpointResult.videos,
-        endpoint: endpointResult,
+        endpointVideos: endpoint.videos,
+        endpoint,
+        errors: {
+            manual: manualResult.status === 'rejected' ? manualResult.reason?.message : null,
+            endpoint: endpointResult.status === 'rejected' ? endpointResult.reason?.message : null,
+        },
     };
 };

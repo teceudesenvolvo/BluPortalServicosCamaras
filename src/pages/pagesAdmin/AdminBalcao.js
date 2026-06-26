@@ -111,6 +111,177 @@ const formatChartDateLabel = (dateKey) => {
     return `${day}/${month}`;
 };
 
+const CHART_PERIOD_OPTIONS = [
+    { id: 'all', label: 'Todo Período' },
+    { id: '7', label: 'Últimos 7 dias', days: 7 },
+    { id: '30', label: 'Últimos 30 dias', days: 30 },
+    { id: '90', label: 'Últimos 90 dias', days: 90 },
+    { id: '180', label: 'Últimos 180 dias', days: 180 },
+    { id: '365', label: 'Últimos 365 dias', days: 365 },
+    { id: 'custom', label: 'Personalizado' },
+];
+
+const startOfDay = (date) => {
+    const next = new Date(date);
+    next.setHours(0, 0, 0, 0);
+    return next;
+};
+
+const endOfDay = (date) => {
+    const next = new Date(date);
+    next.setHours(23, 59, 59, 999);
+    return next;
+};
+
+const parseInputDate = (value, useEndOfDay = false) => {
+    if (!value) return null;
+    const [year, month, day] = value.split('-').map(Number);
+    if (!year || !month || !day) return null;
+
+    const parsed = new Date(year, month - 1, day);
+    return useEndOfDay ? endOfDay(parsed) : startOfDay(parsed);
+};
+
+const formatDateInputValue = (date) => formatChartDateKey(date.getTime());
+
+const getCurrentMonthRange = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+};
+
+const buildDateKeysBetween = (start, end) => {
+    if (!start || !end) return [];
+
+    const dateKeys = [];
+    const cursor = startOfDay(start);
+    const finalDate = startOfDay(end);
+
+    while (cursor <= finalDate) {
+        dateKeys.push(formatChartDateKey(cursor.getTime()));
+        cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return dateKeys;
+};
+
+const getChartPeriodRange = (period, customStartDate, customEndDate, data) => {
+    const selectedOption = CHART_PERIOD_OPTIONS.find((option) => option.id === period) || CHART_PERIOD_OPTIONS[2];
+    const now = new Date();
+
+    if (period === 'all') {
+        const dateKeys = [...new Set(
+            data
+                .filter((item) => item.timestamp)
+                .map((item) => formatChartDateKey(item.timestamp))
+        )].sort();
+
+        return {
+            start: data[0]?.timestamp ? startOfDay(new Date(Math.min(...data.map((item) => item.timestamp || Date.now())))) : null,
+            end: data[0]?.timestamp ? endOfDay(new Date(Math.max(...data.map((item) => item.timestamp || 0)))) : null,
+            dateKeys,
+            label: 'Todo período carregado',
+        };
+    }
+
+    if (period === 'custom') {
+        let start = parseInputDate(customStartDate);
+        let end = parseInputDate(customEndDate, true);
+
+        if (start && end && start > end) {
+            [start, end] = [startOfDay(end), endOfDay(start)];
+        }
+
+        return {
+            start,
+            end,
+            dateKeys: buildDateKeysBetween(start, end),
+            label: start && end
+                ? `${formatChartDateLabel(formatChartDateKey(start.getTime()))} até ${formatChartDateLabel(formatChartDateKey(end.getTime()))}`
+                : 'Período personalizado',
+        };
+    }
+
+    const days = selectedOption.days || 30;
+    const end = endOfDay(now);
+    const start = startOfDay(now);
+    start.setDate(start.getDate() - days + 1);
+
+    return {
+        start,
+        end,
+        dateKeys: buildDateKeysBetween(start, end),
+        label: selectedOption.label,
+    };
+};
+
+const getStatusCounts = (data) => {
+    const counts = data.reduce((acc, item) => {
+        const status = item.status || 'Cancelado';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+    }, {});
+
+    return FIXED_STATUSES.reduce((acc, status) => {
+        acc[status] = counts[status] || 0;
+        return acc;
+    }, {});
+};
+
+const buildStatusGrowthData = (data, period, customStartDate, customEndDate) => {
+    const dataWithTimestamp = data.filter((item) => item.timestamp).sort((a, b) => a.timestamp - b.timestamp);
+    const { start, end, dateKeys, label } = getChartPeriodRange(period, customStartDate, customEndDate, dataWithTimestamp);
+    const startTime = start?.getTime();
+    const endTime = end?.getTime();
+
+    const filteredData = dataWithTimestamp.filter((item) => (
+        (!startTime || item.timestamp >= startTime) &&
+        (!endTime || item.timestamp <= endTime)
+    ));
+
+    const dailyCountsByStatus = FIXED_STATUSES.reduce((acc, status) => {
+        acc[status] = {};
+        return acc;
+    }, {});
+
+    filteredData.forEach((item) => {
+        const status = item.status || 'Cancelado';
+        if (!dailyCountsByStatus[status]) dailyCountsByStatus[status] = {};
+        const dateKey = formatChartDateKey(item.timestamp);
+        dailyCountsByStatus[status][dateKey] = (dailyCountsByStatus[status][dateKey] || 0) + 1;
+    });
+
+    const datasets = FIXED_STATUSES.map((status) => {
+        let cumulativeTotal = 0;
+        return {
+            label: status,
+            data: dateKeys.map((dateKey) => {
+                cumulativeTotal += dailyCountsByStatus[status]?.[dateKey] || 0;
+                return cumulativeTotal;
+            }),
+            borderColor: STATUS_COLORS[status] || '#2563eb',
+            backgroundColor: `${STATUS_COLORS[status] || '#2563eb'}22`,
+            tension: 0.35,
+            fill: false,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            borderWidth: 2.5,
+        };
+    }).filter(dataset => dataset.data.some(value => value > 0));
+
+    return {
+        label,
+        total: filteredData.length,
+        data: {
+            labels: dateKeys.map(formatChartDateLabel),
+            datasets,
+        },
+    };
+};
+
 const formatTodayLabel = () => {
     const today = new Date();
     const day = String(today.getDate()).padStart(2, '0');
@@ -653,6 +824,11 @@ const AdminBalcaoDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [statusCounts, setStatusCounts] = useState({});
     const [statusGrowthData, setStatusGrowthData] = useState({ labels: [], datasets: [] });
+    const [chartPeriod, setChartPeriod] = useState('30');
+    const [customStartDate, setCustomStartDate] = useState(() => formatDateInputValue(getCurrentMonthRange().start));
+    const [customEndDate, setCustomEndDate] = useState(() => formatDateInputValue(new Date()));
+    const [chartPeriodLabel, setChartPeriodLabel] = useState('Últimos 30 dias');
+    const [chartTotalSolicitacoes, setChartTotalSolicitacoes] = useState(0);
     const [solicitacoes, setSolicitacoes] = useState([]);
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
@@ -679,67 +855,13 @@ const AdminBalcaoDashboard = () => {
         
         try {
             const snapshot = await getDocs(q);
-            const fetchedData = snapshot.docs.map(doc => ({ 
+            const fetchedData = snapshot.docs.map(doc => ({
                 id: doc.id, 
                 ...doc.data(),
                 // Normalizar a data
                 timestamp: getSolicitationTime(doc.data().dataSolicitacao)
             }));
             setSolicitacoes(fetchedData);
-
-            const counts = fetchedData.reduce((acc, item) => {
-                const status = item.status || 'Cancelado';
-                acc[status] = (acc[status] || 0) + 1;
-                return acc;
-            }, {});
-
-            const orderedCounts = {};
-            FIXED_STATUSES.forEach(status => {
-                orderedCounts[status] = counts[status] || 0;
-            });
-            setStatusCounts(orderedCounts);
-
-            const dateKeys = [...new Set(
-                fetchedData
-                    .filter(item => item.timestamp)
-                    .map(item => formatChartDateKey(item.timestamp))
-            )].sort();
-
-            const dailyCountsByStatus = FIXED_STATUSES.reduce((acc, status) => {
-                acc[status] = {};
-                return acc;
-            }, {});
-
-            fetchedData.forEach((item) => {
-                if (!item.timestamp) return;
-                const status = item.status || 'Cancelado';
-                if (!dailyCountsByStatus[status]) dailyCountsByStatus[status] = {};
-                const dateKey = formatChartDateKey(item.timestamp);
-                dailyCountsByStatus[status][dateKey] = (dailyCountsByStatus[status][dateKey] || 0) + 1;
-            });
-
-            const datasets = FIXED_STATUSES.map((status) => {
-                let cumulativeTotal = 0;
-                return {
-                    label: status,
-                    data: dateKeys.map((dateKey) => {
-                        cumulativeTotal += dailyCountsByStatus[status]?.[dateKey] || 0;
-                        return cumulativeTotal;
-                    }),
-                    borderColor: STATUS_COLORS[status] || '#2563eb',
-                    backgroundColor: `${STATUS_COLORS[status] || '#2563eb'}22`,
-                    tension: 0.35,
-                    fill: false,
-                    pointRadius: 3,
-                    pointHoverRadius: 6,
-                    borderWidth: 2.5,
-                };
-            }).filter(dataset => dataset.data.some(value => value > 0));
-
-            setStatusGrowthData({
-                labels: dateKeys.map(formatChartDateLabel),
-                datasets,
-            });
         } catch (error) {
             console.error('Erro ao buscar solicitações:', error);
         } finally {
@@ -752,7 +874,29 @@ const AdminBalcaoDashboard = () => {
     }, [fetchData]);
 
     useEffect(() => {
-        if (!chartRef.current || statusGrowthData.labels.length === 0) return;
+        const { start: monthStart, end: monthEnd } = getCurrentMonthRange();
+        const currentMonthData = solicitacoes.filter((item) => (
+            item.timestamp && item.timestamp >= monthStart.getTime() && item.timestamp <= monthEnd.getTime()
+        ));
+
+        setStatusCounts(getStatusCounts(currentMonthData));
+
+        const chartSummary = buildStatusGrowthData(solicitacoes, chartPeriod, customStartDate, customEndDate);
+        setChartPeriodLabel(chartSummary.label);
+        setChartTotalSolicitacoes(chartSummary.total);
+        setStatusGrowthData(chartSummary.data);
+    }, [solicitacoes, chartPeriod, customStartDate, customEndDate]);
+
+    useEffect(() => {
+        if (!chartRef.current) return;
+
+        if (statusGrowthData.labels.length === 0) {
+            if (chartInstance.current) {
+                chartInstance.current.destroy();
+                chartInstance.current = null;
+            }
+            return;
+        }
 
         if (chartInstance.current) chartInstance.current.destroy();
 
@@ -787,7 +931,7 @@ const AdminBalcaoDashboard = () => {
                         position: 'bottom',
                         labels: { usePointStyle: true, boxWidth: 8, padding: 16, color: '#334155' }
                     },
-                    title: { display: true, text: 'Crescimento por Status e Data', color: '#10233f', font: { size: 16, weight: '600' } },
+                    title: { display: true, text: `Crescimento por status - ${chartPeriodLabel}`, color: '#10233f', font: { size: 16, weight: '600' } },
                     tooltip: {
                         callbacks: {
                             label: (context) => `${context.dataset.label}: ${context.parsed.y} solicitação${context.parsed.y === 1 ? '' : 'ões'}`
@@ -798,7 +942,7 @@ const AdminBalcaoDashboard = () => {
         });
 
         return () => { if (chartInstance.current) chartInstance.current.destroy(); };
-    }, [statusGrowthData]);
+    }, [statusGrowthData, chartPeriodLabel]);
 
     useEffect(() => {
         Object.values(statusChartInstances.current).forEach(instance => instance?.destroy());
@@ -1071,12 +1215,11 @@ const AdminBalcaoDashboard = () => {
         const appointmentDate = item.appointmentDate || item.dadosSolicitacao?.appointmentDate || item.dadosSolicitacao?.dataAgendamento;
         return (item.status || '') === 'Agendado' && normalizeDateString(appointmentDate) === todayKey;
     }).length;
-    const totalSolicitacoes = solicitacoes.length;
     const statusCharts = statusGrowthData.datasets.map((dataset) => {
         const total = dataset.data[dataset.data.length - 1] || 0;
         const first = dataset.data[0] || 0;
         const growth = Math.max(total - first, 0);
-        const percentage = totalSolicitacoes ? Math.round((total / totalSolicitacoes) * 100) : 0;
+        const percentage = chartTotalSolicitacoes ? Math.round((total / chartTotalSolicitacoes) * 100) : 0;
         return { dataset, total, growth, percentage };
     });
 
@@ -1165,7 +1308,39 @@ const AdminBalcaoDashboard = () => {
                     <div className="card-header admin-balcao-card-header">
                         <div>
                             <h3>Evolução dos Atendimentos</h3>
-                            <span>Crescimento acumulado por status nos últimos registros carregados</span>
+                            <span>Crescimento acumulado por status - {chartPeriodLabel}</span>
+                        </div>
+                        <div className="admin-balcao-chart-controls" aria-label="Filtros do gráfico">
+                            <label className="admin-balcao-period-select">
+                                Período do gráfico
+                                <select value={chartPeriod} onChange={(event) => setChartPeriod(event.target.value)}>
+                                    {CHART_PERIOD_OPTIONS.map((option) => (
+                                        <option key={option.id} value={option.id}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            {chartPeriod === 'custom' && (
+                                <div className="admin-balcao-custom-period">
+                                    <label>
+                                        Início
+                                        <input
+                                            type="date"
+                                            value={customStartDate}
+                                            onChange={(event) => setCustomStartDate(event.target.value)}
+                                        />
+                                    </label>
+                                    <label>
+                                        Fim
+                                        <input
+                                            type="date"
+                                            value={customEndDate}
+                                            onChange={(event) => setCustomEndDate(event.target.value)}
+                                        />
+                                    </label>
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className="chart-container">

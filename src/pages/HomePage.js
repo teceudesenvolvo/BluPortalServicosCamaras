@@ -15,6 +15,8 @@ import {
     LiaNewspaperSolid,
     LiaCommentsSolid,
     LiaMapMarkedAltSolid,
+    LiaClipboardListSolid,
+    LiaHourglassHalfSolid,
 } from "react-icons/lia";
 
 
@@ -24,7 +26,7 @@ import NoticiasSlider from '../components/NoticiasSlider'; // Importa o slider d
 import MaintenancePopup from '../components/MaintenancePopup';
 import Logo from '../assets/logo-paraipaba.png';
 import HeroBackground from '../assets/fachada2-cm.jpg';
-import { buildPlayerUrl, fetchTvCamaraVideos, formatVideoDate } from '../utils/tvCamara';
+import { appFunctionsBaseUrl, buildPlayerUrl, fetchTvCamaraVideos, formatVideoDate } from '../utils/tvCamara';
 
 const ServiceCard = ({ icon, title, description, tag, onClick }) => {
     return (
@@ -44,6 +46,11 @@ const ServiceCard = ({ icon, title, description, tag, onClick }) => {
     );
 };
 
+const BALCAO_BALANCE_ENDPOINTS = [
+    `${appFunctionsBaseUrl}/getBalcaoPublicBalance`,
+    'https://us-central1-blu-app-camara.cloudfunctions.net/getBalcaoPublicBalance',
+].filter((endpoint, index, endpoints) => endpoint && endpoints.indexOf(endpoint) === index);
+
 // Componente Principal: Home Page
 const HomePage = () => {
     const navigate = useNavigate();
@@ -51,6 +58,7 @@ const HomePage = () => {
     const [tvVideos, setTvVideos] = useState([]);
     const [tvLoading, setTvLoading] = useState(true);
     const [tvError, setTvError] = useState('');
+    const [balcaoBalance, setBalcaoBalance] = useState(null);
 
     const featuredVideo = tvVideos[0] || null;
     const featuredPlayerUrl = buildPlayerUrl(featuredVideo?.videoId);
@@ -85,6 +93,34 @@ const HomePage = () => {
         };
 
         fetchTvVideos();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        let mounted = true;
+
+        const fetchBalcaoBalance = async () => {
+            for (const endpoint of BALCAO_BALANCE_ENDPOINTS) {
+                try {
+                    const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}t=${Date.now()}`;
+                    const response = await fetch(url, { cache: 'no-store' });
+                    if (!response.ok) throw new Error(`Falha HTTP ${response.status}`);
+                    const payload = await response.json();
+
+                    if (mounted && payload?.ok) {
+                        setBalcaoBalance(payload);
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Falha ao carregar balanço do Balcão:', error);
+                }
+            }
+        };
+
+        fetchBalcaoBalance();
 
         return () => {
             mounted = false;
@@ -252,6 +288,46 @@ const HomePage = () => {
                                 onClick={service.action}
                             />
                         ))}
+                    </div>
+                </section>
+
+                <section className="home-balcao-balance-section">
+                    <div className="home-balcao-balance-copy">
+                        <span className="home-balcao-balance-eyebrow">
+                            <LiaUserFriendsSolid />
+                            Balcão do Cidadão
+                        </span>
+                        <h2>Balanço mensal dos atendimentos</h2>
+                        <p>
+                            Acompanhe o movimento do Balcão do Cidadão no mês atual, com dados consolidados das solicitações digitais.
+                        </p>
+                    </div>
+
+                    <div className="home-balcao-balance-grid">
+                        <article>
+                            <LiaClipboardListSolid />
+                            <span>{balcaoBalance?.period?.label || 'Mês atual'}</span>
+                            <strong>{balcaoBalance?.counts?.total ?? '--'}</strong>
+                            <small>solicitações registradas</small>
+                        </article>
+                        <article>
+                            <LiaHourglassHalfSolid />
+                            <span>Aguardando</span>
+                            <strong>{balcaoBalance?.counts?.aguardando ?? '--'}</strong>
+                            <small>em atendimento</small>
+                        </article>
+                        <article>
+                            <LiaCalendarCheckSolid />
+                            <span>Agendados</span>
+                            <strong>{balcaoBalance?.counts?.agendados ?? '--'}</strong>
+                            <small>com data marcada</small>
+                        </article>
+                        <article>
+                            <LiaShieldAltSolid />
+                            <span>Concluídos</span>
+                            <strong>{balcaoBalance?.counts?.concluidos ?? '--'}</strong>
+                            <small>finalizados no mês</small>
+                        </article>
                     </div>
                 </section>
 

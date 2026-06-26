@@ -3448,6 +3448,9 @@ body{
 
 .admin-balcao-card-header {
     align-items: flex-start;
+    gap: 18px;
+    justify-content: space-between;
+    position: relative;
 }
 
 .admin-balcao-card-header span {
@@ -3455,6 +3458,57 @@ body{
     margin-top: 4px;
     color: #64748b;
     font-size: 0.9rem;
+}
+
+.admin-balcao-chart-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+    min-width: min(100%, 310px);
+    margin-left: auto;
+    text-align: right;
+}
+
+.admin-balcao-custom-period {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.admin-balcao-period-select,
+.admin-balcao-custom-period label {
+    color: #173153;
+    display: flex;
+    flex-direction: column;
+    font-size: 0.78rem;
+    font-weight: 800;
+    gap: 5px;
+    text-align: right;
+}
+
+.admin-balcao-period-select select,
+.admin-balcao-custom-period input {
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.82);
+    color: #10233f;
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 10px 12px;
+}
+
+.admin-balcao-period-select {
+    width: 100%;
+    align-items: flex-end;
+}
+
+.admin-balcao-period-select select {
+    min-width: 260px;
+    appearance: auto;
+    cursor: pointer;
+    text-align: right;
 }
 
 .admin-balcao-status-grid {
@@ -5661,6 +5715,19 @@ body{
   white-space: nowrap;
 }
 
+.admin-tv-camara-function-badge {
+  justify-self: end;
+  padding: 10px 14px;
+  border-radius: 999px;
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #0f4c81, #0576bd);
+  box-shadow: 0 14px 28px rgba(2, 90, 161, 0.18);
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .admin-tv-camara-form {
   display: grid;
   gap: 14px;
@@ -6232,6 +6299,26 @@ button {
   .admin-balcao-action-cards {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+
+  .admin-balcao-card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-balcao-chart-controls {
+    align-items: stretch;
+    max-width: none;
+  }
+
+  .admin-balcao-period-select select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .admin-balcao-custom-period {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .admin-balcao-action-card {
@@ -7821,6 +7908,109 @@ color: #fff !important;
   justify-content: center;
 }
 
+.home-balcao-balance-section {
+  margin-top: 72px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
+  gap: 24px;
+  align-items: stretch;
+  padding: 28px;
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 192, 9, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.76), rgba(226, 242, 255, 0.5));
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  box-shadow: 0 24px 70px rgba(2, 47, 86, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+}
+
+.home-balcao-balance-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.home-balcao-balance-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(2, 90, 161, 0.1);
+  border: 1px solid rgba(2, 90, 161, 0.14);
+  color: #01477e;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.home-balcao-balance-copy h2 {
+  margin: 16px 0 0;
+  color: #10233f;
+  font-size: clamp(2rem, 4vw, 3.45rem);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.home-balcao-balance-copy p {
+  margin: 16px 0 0;
+  color: #5f6f86;
+  font-size: 1.02rem;
+  line-height: 1.65;
+  font-weight: 650;
+}
+
+.home-balcao-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.home-balcao-balance-grid article {
+  min-height: 164px;
+  border-radius: 22px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(2, 90, 161, 0.1);
+  box-shadow: 0 18px 42px rgba(2, 47, 86, 0.1);
+  display: grid;
+  align-content: center;
+  gap: 7px;
+}
+
+.home-balcao-balance-grid svg {
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+  border-radius: 14px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #025AA1, #01477e);
+  box-shadow: 0 14px 28px rgba(2, 90, 161, 0.2);
+}
+
+.home-balcao-balance-grid span {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.home-balcao-balance-grid strong {
+  color: #10233f;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1;
+}
+
+.home-balcao-balance-grid small {
+  color: #5f6f86;
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
 .home-tv-camara-section {
   margin-top: 82px;
   max-width: none;
@@ -7950,6 +8140,7 @@ color: #fff !important;
 
   .services-container-modern,
   .landing-stats-section,
+  .home-balcao-balance-section,
   .home-tv-camara-section {
     grid-template-columns: 1fr;
   }
@@ -8031,11 +8222,16 @@ color: #fff !important;
     min-height: 250px;
   }
 
+  .home-balcao-balance-section,
   .home-tv-camara-section,
   .noticias-cards-container,
   .vereadores-slider-section {
     border-radius: 24px;
     padding: 18px;
+  }
+
+  .home-balcao-balance-grid {
+    grid-template-columns: 1fr;
   }
 
   .home-tv-camara-actions {

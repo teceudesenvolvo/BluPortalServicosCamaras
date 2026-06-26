@@ -25,23 +25,10 @@ const corsHeaders = {
 
 const youtubeFunctionsBaseUrl =
     "https://southamerica-east1-blu-app-camara.cloudfunctions.net";
+const tvCamaraPublicPlaylistId = "PL2jvfc9q3EZ0CXi2qg5aDPydeCYdCsq59";
+const tvCamaraPublicChannelId = "UC-gpASXvFBoe1H6C-alYLzg";
 
 const allowedYoutubeFunctions = {
-  atualizarPlaylistYoutube: {
-    endpoint: `${youtubeFunctionsBaseUrl}/atualizarPlaylistYoutube`,
-    method: "POST",
-    label: "Atualizar playlist do YouTube",
-  },
-  youtubeChannelWebhook: {
-    endpoint: `${youtubeFunctionsBaseUrl}/youtubeChannelWebhook`,
-    method: "GET",
-    label: "Webhook do canal YouTube",
-  },
-  renovarWebhookYoutube: {
-    endpoint: `${youtubeFunctionsBaseUrl}/renovarWebhookYoutube`,
-    method: "POST",
-    label: "Renovar webhook YouTube",
-  },
   listarVideosTvCamara: {
     endpoint: `${youtubeFunctionsBaseUrl}/listarVideosTvCamara`,
     method: "GET",
@@ -55,6 +42,134 @@ const allowedYoutubeFunctions = {
  */
 function applyCors(res) {
   Object.entries(corsHeaders).forEach(([key, value]) => res.set(key, value));
+}
+
+/**
+ * Decodes XML entities used by YouTube public feeds.
+ * @param {string} value XML text
+ * @return {string} Decoded text
+ */
+function decodeXmlText(value) {
+  return String(value || "")
+      .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, "\"")
+      .replace(/&#39;/g, "'");
+}
+
+/**
+ * Reads the first matching XML tag from a feed entry.
+ * @param {string} entry Feed entry XML
+ * @param {string[]} tagNames Tag names to try
+ * @return {string} Tag text
+ */
+function readXmlTag(entry, tagNames) {
+  for (const tagName of tagNames) {
+    const pattern = new RegExp(
+        `<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "i");
+    const match = entry.match(pattern);
+    if (match?.[1]) return decodeXmlText(match[1].trim());
+  }
+  return "";
+}
+
+/**
+ * Converts a YouTube feed entry to the public video shape used by the portal.
+ * @param {string} entry Feed entry XML
+ * @param {number} position Entry position
+ * @return {object|null} Normalized video
+ */
+function parseYoutubeFeedEntry(entry, position) {
+  const videoId = readXmlTag(entry, ["yt:videoId", "videoId"]) ||
+      readXmlTag(entry, ["id"]).split(":").pop();
+  if (!videoId) return null;
+
+  const thumbnailMatch = entry.match(
+      /<media:thumbnail\b[^>]*\burl="([^"]+)"/i);
+
+  return {
+    videoId,
+    title: readXmlTag(entry, ["title"]) || "Vídeo da TV Câmara",
+    description: readXmlTag(entry, ["media:description", "description"]),
+    thumbnailUrl: thumbnailMatch?.[1] ? decodeXmlText(thumbnailMatch[1]) :
+      `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+    publishedAt: readXmlTag(entry, ["published", "updated"]) || null,
+    position,
+  };
+}
+
+/**
+ * Fetches videos from the public YouTube RSS feed.
+ * @return {Promise<object[]>} Public videos
+ */
+async function fetchPublicTvCamaraFeedVideos() {
+  const feedUrls = [
+    `https://www.youtube.com/feeds/videos.xml?playlist_id=${tvCamaraPublicPlaylistId}`,
+    `https://www.youtube.com/feeds/videos.xml?channel_id=${tvCamaraPublicChannelId}`,
+  ];
+
+  for (const feedUrl of feedUrls) {
+    const response = await fetch(feedUrl);
+    if (!response.ok) {
+      console.warn(`Feed público TV Câmara retornou HTTP ${response.status}`);
+      continue;
+    }
+
+    const xml = await response.text();
+    const entries = xml.match(/<entry>[\s\S]*?<\/entry>/gi) || [];
+    const videos = entries
+        .map((entry, index) => parseYoutubeFeedEntry(entry, index))
+        .filter(Boolean)
+        .sort((firstVideo, secondVideo) => {
+          const firstTime = firstVideo.publishedAt ?
+            Date.parse(firstVideo.publishedAt) : 0;
+          const secondTime = secondVideo.publishedAt ?
+            Date.parse(secondVideo.publishedAt) : 0;
+          return secondTime - firstTime;
+        });
+
+    if (videos.length > 0) return videos;
+  }
+
+  return [];
+}
+
+/**
+ * Converts Firestore or raw date values to milliseconds.
+ * @param {*} value Date-like value
+ * @return {number} Timestamp in milliseconds
+ */
+function getDateMillis(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value.toDate === "function") return value.toDate().getTime();
+  if (value instanceof Date) return value.getTime();
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+/**
+ * Returns the current month range using local server time.
+ * @return {{start: Date, end: Date, label: string}}
+ */
+function getCurrentMonthBalanceRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  end.setHours(23, 59, 59, 999);
+  const monthLabel = now.toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+
+  return {
+    start,
+    end,
+    label: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
+  };
 }
 
 /**
@@ -407,6 +522,101 @@ exports.generateNews = onRequest(
     },
 );
 
+exports.listarVideosTvCamaraFallback = onRequest(
+    {},
+    async (req, res) => {
+      applyCors(res);
+
+      if (req.method === "OPTIONS") {
+        return res.status(204).send("");
+      }
+      if (req.method !== "GET") {
+        return res.status(405).json({error: "Method Not Allowed"});
+      }
+
+      try {
+        const videos = await fetchPublicTvCamaraFeedVideos();
+        res.set("Cache-Control", "public, max-age=300, s-maxage=300");
+        return res.json({
+          ok: true,
+          source: "youtube-public-feed",
+          videos,
+        });
+      } catch (error) {
+        console.error("Erro no listarVideosTvCamaraFallback:", error);
+        return res.status(500).json({
+          ok: false,
+          error: "Falha ao carregar feed público da TV Câmara.",
+        });
+      }
+    },
+);
+
+exports.getBalcaoPublicBalance = onRequest(
+    {},
+    async (req, res) => {
+      applyCors(res);
+
+      if (req.method === "OPTIONS") {
+        return res.status(204).send("");
+      }
+      if (req.method !== "GET") {
+        return res.status(405).json({error: "Method Not Allowed"});
+      }
+
+      try {
+        const {start, end, label} = getCurrentMonthBalanceRange();
+        const snapshot = await admin.firestore()
+            .collection("balcao-cidadao")
+            .orderBy("dataSolicitacao", "desc")
+            .limit(1500)
+            .get();
+
+        const counts = {
+          total: 0,
+          aguardando: 0,
+          agendados: 0,
+          concluidos: 0,
+          reenviados: 0,
+        };
+        const statusCounts = {};
+
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          const time = getDateMillis(data.dataSolicitacao);
+          if (!time || time < start.getTime() || time > end.getTime()) return;
+
+          const status = data.status || "Não Classificado";
+          counts.total += 1;
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+
+          if (status === "Aguardando Atendimento") counts.aguardando += 1;
+          if (status === "Agendado") counts.agendados += 1;
+          if (status === "Concluído") counts.concluidos += 1;
+          if (status === "Documentação Reenviada") counts.reenviados += 1;
+        });
+
+        res.set("Cache-Control", "public, max-age=300, s-maxage=300");
+        return res.json({
+          ok: true,
+          period: {
+            label,
+            start: start.toISOString(),
+            end: end.toISOString(),
+          },
+          counts,
+          statusCounts,
+        });
+      } catch (error) {
+        console.error("Erro no getBalcaoPublicBalance:", error);
+        return res.status(500).json({
+          ok: false,
+          error: "Falha ao carregar balanço do Balcão do Cidadão.",
+        });
+      }
+    },
+);
+
 exports.notifyUsersOnNewsPublished = onDocumentWritten(
     "noticias/{noticiaId}",
     async (event) => {
@@ -489,7 +699,10 @@ exports.invokeYoutubeFunction = onRequest(
 
         if (!allowedYoutubeFunctions[functionName]) {
           return res.status(400).json({
-            error: "Função YouTube não permitida.",
+            error: "Função YouTube não permitida para chamada manual.",
+            message: "atualizarPlaylistYoutube e renovarWebhookYoutube são " +
+              "automações do projeto blu-app-camaras; youtubeChannelWebhook " +
+              "é chamado apenas pelo YouTube/WebSub.",
             allowed: Object.keys(allowedYoutubeFunctions),
           });
         }
@@ -511,12 +724,8 @@ exports.atualizarPlaylistYoutubeAutomatico = onSchedule(
       timeZone: "America/Fortaleza",
     },
     async () => {
-      try {
-        await invokeYoutubeTarget("atualizarPlaylistYoutube",
-            "schedule-atualizarPlaylistYoutubeAutomatico");
-      } catch (error) {
-        console.error("Erro no atualizarPlaylistYoutubeAutomatico:", error);
-      }
+      console.log("Automação original atualizarPlaylistYoutube gerenciada " +
+          "pelo projeto blu-app-camaras. Suporte local não executa chamada.");
       return null;
     },
 );
@@ -527,12 +736,8 @@ exports.renovarWebhookYoutubeAutomatico = onSchedule(
       timeZone: "America/Fortaleza",
     },
     async () => {
-      try {
-        await invokeYoutubeTarget("renovarWebhookYoutube",
-            "schedule-renovarWebhookYoutubeAutomatico");
-      } catch (error) {
-        console.error("Erro no renovarWebhookYoutubeAutomatico:", error);
-      }
+      console.log("Automação original renovarWebhookYoutube gerenciada " +
+          "pelo projeto blu-app-camaras. Suporte local não executa chamada.");
       return null;
     },
 );
@@ -543,12 +748,8 @@ exports.verificarVideosTvCamaraAutomatico = onSchedule(
       timeZone: "America/Fortaleza",
     },
     async () => {
-      try {
-        await invokeYoutubeTarget("listarVideosTvCamara",
-            "schedule-verificarVideosTvCamaraAutomatico");
-      } catch (error) {
-        console.error("Erro no verificarVideosTvCamaraAutomatico:", error);
-      }
+      console.log("Verificação automática de vídeos desativada neste " +
+          "projeto. A home consulta listarVideosTvCamara sob demanda.");
       return null;
     },
 );
