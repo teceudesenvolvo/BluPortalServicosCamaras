@@ -18,6 +18,14 @@ import {
     LiaSaveSolid, LiaTimesSolid, LiaCameraSolid
 } from "react-icons/lia";
 
+const ESTADO_CIVIL_OPTIONS = [
+    { value: 'solteiro', label: 'Solteiro(a)' },
+    { value: 'casado', label: 'Casado(a)' },
+    { value: 'divorciado', label: 'Divorciado(a)' },
+    { value: 'viuvo', label: 'Viúvo(a)' },
+    { value: 'uniao-estavel', label: 'União estável' },
+];
+
 // *******************
 // Componente Principal: Perfil
 // *******************
@@ -111,6 +119,11 @@ const Perfil = () => {
 
     const handleSave = async () => {
         if (!userAuth) return;
+        if (!editableProfileData?.estadoCivil) {
+            alert("Informe seu estado civil antes de salvar o perfil.");
+            return;
+        }
+
         setLoadingProfile(true);
         const userRef = doc(firestore, 'users', userAuth.uid);
         
@@ -233,7 +246,15 @@ const Perfil = () => {
                                 <div className="data-item-edit"><label>Nome:</label><input type="text" name="name" value={editableProfileData.name || ''} onChange={handleProfileChange} /></div>
                                 <div className="data-item-edit"><label>Telefone:</label><input type="tel" name="phone" value={editableProfileData.phone || ''} onChange={handleProfileChange} /></div>
                                 <div className="data-item-edit"><label>CPF:</label><input type="text" name="cpf" value={editableProfileData.cpf || ''} onChange={handleProfileChange} /></div>
-                                <div className="data-item-edit"><label>Estado Civil:</label><input type="text" name="estadoCivil" value={editableProfileData.estadoCivil || ''} onChange={handleProfileChange} /></div>
+                                <div className="data-item-edit">
+                                    <label>Estado Civil:</label>
+                                    <select name="estadoCivil" value={editableProfileData.estadoCivil || ''} onChange={handleProfileChange} required>
+                                        <option value="">Selecione...</option>
+                                        {ESTADO_CIVIL_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
                                 <div className="data-item-edit"><label>Sexo:</label><input type="text" name="sexo" value={editableProfileData.sexo || ''} onChange={handleProfileChange} /></div>
                             </div>
                             <div className="data-card">

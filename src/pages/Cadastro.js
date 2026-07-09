@@ -118,6 +118,11 @@ const CadastroPage = () => {
             setError('Por favor, preencha os campos de endereço obrigatórios.');
             return;
         }
+        if (!formData.estadoCivil) {
+            setError('Por favor, informe seu estado civil.');
+            setStep(2);
+            return;
+        }
 
         setLoading(true);
 
@@ -224,6 +229,7 @@ const CadastroPage = () => {
                                         <option value="casado">Casado(a)</option>
                                         <option value="divorciado">Divorciado(a)</option>
                                         <option value="viuvo">Viúvo(a)</option>
+                                        <option value="uniao-estavel">União estável</option>
                                     </select>
                                     <select name="sexo" value={formData.sexo} onChange={handleChange} required>
                                         <option value="">Sexo</option>

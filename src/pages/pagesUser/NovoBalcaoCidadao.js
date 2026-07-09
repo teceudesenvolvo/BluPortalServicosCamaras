@@ -11,6 +11,14 @@ import { printProtocolReceipt } from '../../utils/printReport';
 // Ícones
 import { LiaPaperPlane, LiaArrowLeftSolid } from "react-icons/lia";
 
+const ESTADO_CIVIL_OPTIONS = [
+    { value: 'solteiro', label: 'Solteiro(a)' },
+    { value: 'casado', label: 'Casado(a)' },
+    { value: 'divorciado', label: 'Divorciado(a)' },
+    { value: 'viuvo', label: 'Viúvo(a)' },
+    { value: 'uniao-estavel', label: 'União estável' },
+];
+
 const NovoBalcaoCidadao = () => {
     const navigate = useNavigate();
     const { id: editId } = useParams();
@@ -25,7 +33,7 @@ const NovoBalcaoCidadao = () => {
     // States for beneficiary (requester vs other)
     const [destino, setDestino] = useState('voce'); // voce | outro
     const [parentesco, setParentesco] = useState('');
-    const [otherPerson, setOtherPerson] = useState({ name: '', cpf: '', phone: '' });
+    const [otherPerson, setOtherPerson] = useState({ name: '', cpf: '', phone: '', estadoCivil: '' });
     const [phonePreference, setPhonePreference] = useState('novo'); // novo | mesmo
     const [enderecoPreference, setEnderecoPreference] = useState('mesmo'); // mesmo | novo
     const [novoEndereco, setNovoEndereco] = useState({ cep: '', rua: '', numero: '', bairro: '', cidade: '', estado: '' });
@@ -74,7 +82,7 @@ const NovoBalcaoCidadao = () => {
                             setDestino(b.id === 'outro' ? 'outro' : 'voce');
                             if (b.id === 'outro') {
                                 setParentesco(b.parentesco || '');
-                                setOtherPerson({ name: b.name || '', cpf: b.cpf || '', phone: b.phone || '' });
+                                setOtherPerson({ name: b.name || '', cpf: b.cpf || '', phone: b.phone || '', estadoCivil: b.estadoCivil || '' });
                                 // Verifica se o endereço é diferente do original para setar a preferência
                                 if (b.endereco && b.endereco.cep !== loggedInUserData?.cep) {
                                     setEnderecoPreference('novo');
@@ -222,6 +230,14 @@ const NovoBalcaoCidadao = () => {
             setError('Por favor, selecione um assunto.');
             return;
         }
+        if (destino === 'voce' && !loggedInUserData?.estadoCivil) {
+            setError('Para enviar uma solicitação ao Balcão do Cidadão, preencha seu estado civil no perfil.');
+            return;
+        }
+        if (destino === 'outro' && !otherPerson.estadoCivil) {
+            setError('Por favor, informe o estado civil do beneficiário.');
+            return;
+        }
 
         setLoading(true);
         setError('');
@@ -263,7 +279,8 @@ const NovoBalcaoCidadao = () => {
                 email: loggedInUserData?.email || currentUser.email,
                 name: loggedInUserData?.name || 'Não informado',
                 cpf: loggedInUserData?.cpf || 'Não informado',
-                phone: loggedInUserData?.phone || 'Não informado',
+                phone: loggedInUserData?.phone || loggedInUserData?.telefone || 'Não informado',
+                estadoCivil: loggedInUserData?.estadoCivil || '',
             };
 
             let dadosBeneficiario;
@@ -298,6 +315,7 @@ const NovoBalcaoCidadao = () => {
                     name: otherPerson.name,
                     cpf: otherPerson.cpf,
                     phone: phoneFinal,
+                    estadoCivil: otherPerson.estadoCivil,
                     parentesco: parentesco || 'Não informado',
                     endereco: {
                         rua: enderecoFinal.rua || 'Não informado',
@@ -395,6 +413,7 @@ const NovoBalcaoCidadao = () => {
                     Nome: dadosBeneficiario?.name,
                     CPF: dadosBeneficiario?.cpf,
                     Telefone: dadosBeneficiario?.phone,
+                    'Estado Civil': dadosBeneficiario?.estadoCivil,
                     Parentesco: dadosBeneficiario?.parentesco,
                 },
                 details: {
@@ -427,10 +446,9 @@ const NovoBalcaoCidadao = () => {
                             <label htmlFor="estadoCivil">Estado Civil *</label>
                             <select id="estadoCivil" name="estadoCivil" value={formData.estadoCivil || ''} onChange={handleFormChange} required>
                                 <option value="">Selecione...</option>
-                                <option value="solteiro">Solteiro(a)</option>
-                                <option value="casado">Casado(a)</option>
-                                <option value="divorciado">Divorciado(a)</option>
-                                <option value="viuvo">Viúvo(a)</option>
+                                {ESTADO_CIVIL_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>{option.label}</option>
+                                ))}
                             </select>
                         </div>
                         <div className="form-group">
@@ -543,6 +561,15 @@ const NovoBalcaoCidadao = () => {
                                     <label>Nome Completo do Beneficiário *</label>
                                     <input type="text" name="name" value={otherPerson.name} onChange={handleOtherPersonChange} required className="form-input" />
                                 </div>
+                                <div className="form-group">
+                                    <label>Estado Civil do Beneficiário *</label>
+                                    <select name="estadoCivil" value={otherPerson.estadoCivil} onChange={handleOtherPersonChange} required className="form-input">
+                                        <option value="">Selecione...</option>
+                                        {ESTADO_CIVIL_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
                                 <div className="form-row">
                                     <div className="form-group">
                                         <label>CPF *</label>
@@ -630,7 +657,16 @@ const NovoBalcaoCidadao = () => {
                             </div>
                         ) : null}
                         
-                        {error && <p className="error-message">{error}</p>}
+                        {error && (
+                            <div className="error-message">
+                                <span>{error}</span>
+                                {destino === 'voce' && error.includes('estado civil') && (
+                                    <button type="button" className="btn-secondary" onClick={() => navigate('/perfil')}>
+                                        Preencher no perfil
+                                    </button>
+                                )}
+                            </div>
+                        )}
                         {success && <p className="success-message">{success}</p>}
                         <div className="form-actions">
                             <button type="button" className="btn-secondary" onClick={() => navigate('/balcao')}>
