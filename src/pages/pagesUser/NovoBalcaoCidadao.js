@@ -230,8 +230,9 @@ const NovoBalcaoCidadao = () => {
             setError('Por favor, selecione um assunto.');
             return;
         }
-        if (destino === 'voce' && !loggedInUserData?.estadoCivil) {
-            setError('Para enviar uma solicitação ao Balcão do Cidadão, preencha seu estado civil no perfil.');
+        const estadoCivilUsuario = loggedInUserData?.estadoCivil || formData.estadoCivil || '';
+        if (destino === 'voce' && !estadoCivilUsuario) {
+            setError('Informe seu estado civil para continuar com a solicitação.');
             return;
         }
         if (destino === 'outro' && !otherPerson.estadoCivil) {
@@ -280,7 +281,7 @@ const NovoBalcaoCidadao = () => {
                 name: loggedInUserData?.name || 'Não informado',
                 cpf: loggedInUserData?.cpf || 'Não informado',
                 phone: loggedInUserData?.phone || loggedInUserData?.telefone || 'Não informado',
-                estadoCivil: loggedInUserData?.estadoCivil || '',
+                estadoCivil: estadoCivilUsuario,
             };
 
             let dadosBeneficiario;
@@ -356,7 +357,10 @@ const NovoBalcaoCidadao = () => {
                 dadosDaSolicitacao = {
                     assunto: assunto,
                     tipoDocumento: tipoDocumento,
-                    detalhes: formData,
+                    detalhes: {
+                        ...formData,
+                        estadoCivil: destino === 'voce' ? estadoCivilUsuario : otherPerson.estadoCivil,
+                    },
                     anexos: anexosProcessados,
                 };
             } else {
@@ -442,15 +446,6 @@ const NovoBalcaoCidadao = () => {
                     <>
                         <h4 className="form-section-title">Carteira de Identidade Nacional (CIN)</h4>
                         <p className="form-info-text">Para 1ª e 2ª via. O CPF regularizado é indispensável. A foto biométrica é geralmente tirada no local do atendimento.</p>
-                        <div className="form-group">
-                            <label htmlFor="estadoCivil">Estado Civil *</label>
-                            <select id="estadoCivil" name="estadoCivil" value={formData.estadoCivil || ''} onChange={handleFormChange} required>
-                                <option value="">Selecione...</option>
-                                {ESTADO_CIVIL_OPTIONS.map((option) => (
-                                    <option key={option.value} value={option.value}>{option.label}</option>
-                                ))}
-                            </select>
-                        </div>
                         <div className="form-group">
                             <label>Certidão de Nascimento/Casamento (Original, legível) *</label>
                             <input type="file" name="cin_certidao" onChange={handleFileChange} required accept="image/*,.pdf" />
@@ -543,6 +538,21 @@ const NovoBalcaoCidadao = () => {
                                 <button type="button" className={`tab-button ${destino === 'outro' ? 'active' : ''}`} onClick={() => setDestino('outro')} style={{ flex: 1 }}>Para outra pessoa</button>
                             </div>
                         </div>
+
+                        {destino === 'voce' && !loggedInUserData?.estadoCivil && (
+                            <div className="data-card" style={{ marginBottom: '20px', padding: '20px' }}>
+                                <div className="form-group">
+                                    <label htmlFor="estadoCivil">Estado Civil *</label>
+                                    <select id="estadoCivil" name="estadoCivil" value={formData.estadoCivil || ''} onChange={handleFormChange} required className="form-input">
+                                        <option value="">Selecione...</option>
+                                        {ESTADO_CIVIL_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                        ))}
+                                    </select>
+                                    <small className="form-info-text">Este dado será usado nesta solicitação. Você também pode mantê-lo salvo no perfil.</small>
+                                </div>
+                            </div>
+                        )}
 
                         {destino === 'outro' && (
                             <div className="data-card" style={{ marginBottom: '20px', padding: '20px', backgroundColor: '#f9fafb' }}>

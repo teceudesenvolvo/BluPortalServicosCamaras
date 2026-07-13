@@ -38,6 +38,7 @@ const Sidebar = ({ onItemClick }) => {
         // { title: 'Procon', icon: <LiaBookOpenSolid />, path: '/procon-atendimentos' },
         // { title: 'Atendimento Jurídico', icon: <LiaBalanceScaleLeftSolid />, path: '/juridico' },
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/balcao' },
+        { title: 'Microempreendedor', icon: <LiaUserFriendsSolid />, path: '/microempreendedor' },
         { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/mensagens' },
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/ouvidoria' },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/procuradoria' },

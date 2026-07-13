@@ -54,6 +54,7 @@ const DashboardPage = () => {
         // { title: 'Procon', icon: <LiaBookOpenSolid />, path: '/procon-atendimentos' },
         // { title: 'Atendimento Jurídico', icon: <LiaBalanceScaleLeftSolid />, path: '/juridico' },
         { title: 'Balcão do Cidadão', description: 'Solicite documentos, acompanhe pedidos e agendamentos.', icon: <LiaUserFriendsSolid />, path: '/balcao', accent: '#025AA1' },
+        { title: 'Microempreendedor', description: 'Receba orientação para MEI, finanças, impostos e melhorias do negócio.', icon: <LiaUserFriendsSolid />, path: '/microempreendedor', accent: '#047857' },
         { title: 'Ouvidoria', description: 'Envie manifestações, dúvidas, elogios e reclamações.', icon: <LiaUserAstronautSolid />, path: '/ouvidoria', accent: '#0f766e' },
         { title: 'Procuradoria da Mulher', description: 'Acesse atendimento e acolhimento especializado.', icon: <LiaFemaleSolid />, path: '/procuradoria', accent: '#8b5cf6' },
         { title: 'TV Câmara', description: 'Assista aos conteúdos e transmissões da Câmara.', icon: <LiaTvSolid />, path: '/tv-camara', accent: '#f59e0b' },

@@ -35,6 +35,8 @@ import Piel from './pages/pagesUser/Piel';
 import NovaSolicitacaoVereador from './pages/pagesUser/NovaSolicitacaoVereador';
 import AdminBalcaoAgendamentos from './pages/pagesAdmin/AdminBalcaoAgendamentos';
 import TvCamara from './pages/pagesUser/TvCamara';
+import Microempreendedor from './pages/pagesUser/Microempreendedor';
+import NovaMicroempreendedor from './pages/pagesUser/NovaMicroempreendedor';
 
 import AdminPiel from './pages/pagesAdmin/AdminPiel';
 import AdminProcon from './pages/pagesAdmin/AdminProcon';
@@ -53,6 +55,7 @@ import AdminMensagens from './pages/pagesAdmin/AdminMensagens';
 import RecepcaoAtendimento from './pages/pagesAdmin/RecepcaoAtendimento';
 import PainelAtendimento from './pages/pagesAdmin/PainelAtendimento';
 import AdminTvCamara from './pages/pagesAdmin/AdminTvCamara';
+import AdminMicroempreendedor from './pages/pagesAdmin/AdminMicroempreendedor';
 
 
 function App() {
@@ -88,6 +91,8 @@ function App() {
           <Route path="/vereadores/nova" element={<NovaSolicitacaoVereador />} />
           <Route path="/piel" element={<Piel />} />
           <Route path="/tv-camara" element={<TvCamara />} />
+          <Route path="/microempreendedor" element={<Microempreendedor />} />
+          <Route path="/microempreendedor/novo" element={<NovaMicroempreendedor />} />
 
           {/* Com Login - Admin */}
           <Route path="/admin-procon" element={<AdminProcon />} />
@@ -105,6 +110,7 @@ function App() {
           <Route path="/admin-notifications" element={<AdminNotifications />} />
           <Route path="/admin-mensagens" element={<AdminMensagens />} />
           <Route path="/admin-tv-camara" element={<AdminTvCamara />} />
+          <Route path="/admin-microempreendedor" element={<AdminMicroempreendedor />} />
           <Route path="/admin-migration" element={<AdminMigration />} />
           <Route path="/recepcao" element={<RecepcaoAtendimento />} />
           <Route path="/painel-atendimento" element={<PainelAtendimento />} />

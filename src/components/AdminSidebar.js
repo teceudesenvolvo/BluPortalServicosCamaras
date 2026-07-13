@@ -12,6 +12,8 @@ import {
     LiaUsersSolid,
     LiaCloudDownloadAltSolid,
     LiaBellSolid,
+    LiaBriefcaseSolid,
+    LiaClipboardListSolid,
     LiaNewspaperSolid,
     LiaCommentsSolid,
     LiaTvSolid
@@ -123,6 +125,8 @@ const AdminSidebar = () => {
         // { title: 'Procon', icon: <LiaTachometerAltSolid />, path: '/admin-procon', roles: ['Admin', 'Procon'] },
         // { title: 'Atendimentos Jurídicos', icon: <LiaGavelSolid />, path: '/admin-juridico', roles: ['Admin', 'Juridico'] },
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/admin-balcao', roles: ['Admin', 'Balcão'] },
+        { title: 'Microempreendedor', icon: <LiaBriefcaseSolid />, path: '/admin-microempreendedor', roles: ['Admin', 'Microempreendedor'] },
+        { title: 'Recepção', icon: <LiaClipboardListSolid />, path: '/recepcao', roles: ['Admin', 'Balcão', 'Recepção', 'Microempreendedor'] },
         { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/admin-mensagens', roles: ['Admin', 'Balcão', 'Ouvidoria', 'Procuradoria'] },
         { title: 'Notícias do Site', icon: <LiaNewspaperSolid />, path: '/admin-noticias', roles: ['Admin'] },
         { title: 'TV Câmara', icon: <LiaTvSolid />, path: '/admin-tv-camara', roles: ['Admin'] },
@@ -133,7 +137,7 @@ const AdminSidebar = () => {
         { title: 'Gerenciar Usuários', icon: <LiaUsersCogSolid />, path: '/admin-users', roles: ['Admin'] },
         { title: 'Histórico Notificações', icon: <LiaBellSolid />, path: '/admin-notifications', roles: ['Admin'] },
         { title: 'Migração Firestore', icon: <LiaCloudDownloadAltSolid />, path: '/admin-migration', roles: ['Admin'] },
-        { title: 'Perfil', icon: <LiaUser />, path: '/perfil', roles: ['Admin', 'Vereador', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção'] },
+        { title: 'Perfil', icon: <LiaUser />, path: '/perfil', roles: ['Admin', 'Vereador', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor'] },
     ];
 
     // Filtra os itens do menu com base no tipo de usuário

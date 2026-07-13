@@ -16,7 +16,7 @@ import config from '../../config';
 import { printProtocolReceipt } from '../../utils/printReport';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
-const receptionSectors = ['Balcão do Cidadão', 'Ouvidoria', 'Procuradoria da Mulher', 'PIEL'];
+const receptionSectors = ['Balcão do Cidadão', 'Assessoria ao Microempreendedor', 'Ouvidoria', 'Procuradoria da Mulher', 'PIEL'];
 const documentTypeOptions = {
     'Balcão do Cidadão': [
         { value: 'cin', label: 'Carteira de Identidade Nacional (CIN)' },
@@ -41,6 +41,12 @@ const documentTypeOptions = {
         { value: 'Transferência de Domicílio', label: 'Transferência de Domicílio' },
         { value: 'Consulta de Situação Eleitoral', label: 'Consulta de Situação Eleitoral' },
         { value: 'Outros', label: 'Outros' },
+    ],
+    'Assessoria ao Microempreendedor': [
+        { value: 'Orientação para abertura de um novo negócio (MEI)', label: 'Orientação para abertura de um novo negócio (MEI)' },
+        { value: 'Dicas e orientações para melhorar seu negócio', label: 'Dicas e orientações para melhorar seu negócio' },
+        { value: 'Ajuda para organização de finanças', label: 'Ajuda para organização de finanças' },
+        { value: 'Informações sobre impostos e obrigações', label: 'Informações sobre impostos e obrigações' },
     ],
 };
 const flowSteps = [
@@ -71,8 +77,18 @@ const normalizeDate = (value) => {
 const getAppointmentDate = (item) => item?.appointmentDate || item?.dadosSolicitacao?.appointmentDate || '';
 const getAppointmentTime = (item) => item?.appointmentTime || item?.dadosSolicitacao?.appointmentTime || '';
 const getCitizenName = (item) => item?.dadosBeneficiario?.name || item?.dadosUsuario?.name || 'Cidadão';
+const getAppointmentSubject = (item) => item?.dadosSolicitacao?.assunto || item?.dadosAssessoria?.tipo || item?.dadosManifestacao?.assunto || item?.dadosAtendimento?.tipoAtendimento || 'Atendimento';
+
+const appointmentCollections = [
+    { name: 'balcao-cidadao', sector: 'Balcão do Cidadão' },
+    { name: 'assessoria-microempreendedor', sector: 'Assessoria ao Microempreendedor' },
+    { name: 'ouvidoria', sector: 'Ouvidoria' },
+    { name: 'procuradoria-mulher', sector: 'Procuradoria da Mulher' },
+    { name: 'piel-atendimentos', sector: 'PIEL' },
+];
 
 const getReceptionCollection = (sector) => {
+    if (sector === 'Assessoria ao Microempreendedor') return 'assessoria-microempreendedor';
     if (sector === 'Ouvidoria') return 'ouvidoria';
     if (sector === 'Procuradoria da Mulher') return 'procuradoria-mulher';
     if (sector === 'PIEL') return 'piel-atendimentos';
@@ -80,6 +96,7 @@ const getReceptionCollection = (sector) => {
 };
 
 const getReceptionUploadPath = (sector, userId) => {
+    if (sector === 'Assessoria ao Microempreendedor') return `${config.cityCollection}/microempreendedor/${userId}/anexos`;
     if (sector === 'Ouvidoria') return `${config.cityCollection}/ouvidoria/${userId}/anexos`;
     if (sector === 'Procuradoria da Mulher') return `procuradoria-mulher/${userId}/anexos`;
     if (sector === 'PIEL') return `${config.cityCollection}/piel/${userId}/anexos`;
@@ -214,17 +231,25 @@ const RecepcaoAtendimento = () => {
         setAppointmentResults([]);
 
         try {
-            const snapshot = await getDocs(query(
-                collection(firestore, 'balcao-cidadao'),
-                where('status', '==', 'Agendado'),
-                limit(500)
-            ));
+            const snapshots = await Promise.all(appointmentCollections.map(async (item) => {
+                const snapshot = await getDocs(query(
+                    collection(firestore, item.name),
+                    where('status', '==', 'Agendado'),
+                    limit(500)
+                ));
+                return snapshot.docs.map(docSnap => ({
+                    id: docSnap.id,
+                    collectionName: item.name,
+                    setorAtendimento: item.sector,
+                    ...docSnap.data(),
+                }));
+            }));
 
-            const results = snapshot.docs
-                .map(item => ({ id: item.id, ...item.data() }))
+            const results = snapshots.flat()
                 .filter((item) => {
                     const values = [
                         item.id,
+                        item.setorAtendimento,
                         item.dadosUsuario?.name,
                         item.dadosUsuario?.email,
                         item.dadosUsuario?.cpf,
@@ -233,6 +258,10 @@ const RecepcaoAtendimento = () => {
                         item.dadosBeneficiario?.name,
                         item.dadosBeneficiario?.cpf,
                         item.dadosBeneficiario?.phone,
+                        item.dadosAssessoria?.tipo,
+                        item.dadosAssessoria?.nomeNegocio,
+                        item.dadosManifestacao?.assunto,
+                        item.dadosAtendimento?.tipoAtendimento,
                         getAppointmentDate(item),
                         getAppointmentTime(item),
                     ].filter(Boolean).join(' ').toLowerCase();
@@ -306,7 +335,23 @@ const RecepcaoAtendimento = () => {
             };
 
             let payload;
-            if (selectedSector === 'Ouvidoria') {
+            if (selectedSector === 'Assessoria ao Microempreendedor') {
+                payload = {
+                    ...commonFields,
+                    dadosAssessoria: {
+                        tipo: requestForm.tipoDocumento,
+                        nomeNegocio: requestForm.assunto || '',
+                        cnpj: '',
+                        contatoPreferencial: 'Presencial',
+                        descricao: requestForm.descricao,
+                        anexos: uploadedFiles.length ? { documentos_recepcao: uploadedFiles } : {},
+                    },
+                    dadosBeneficiario: beneficiaryData,
+                    status: 'Recebida',
+                    dataSolicitacao: new Date(),
+                    messages: {},
+                };
+            } else if (selectedSector === 'Ouvidoria') {
                 payload = {
                     ...commonFields,
                     dadosManifestacao: {
@@ -406,12 +451,12 @@ const RecepcaoAtendimento = () => {
             const senha = await createQueueTicket({
                 protocolo: appointment.id,
                 nome: getCitizenName(appointment),
-                assunto: appointment.dadosSolicitacao?.assunto || 'Atendimento',
+                assunto: getAppointmentSubject(appointment),
                 appointmentDate: getAppointmentDate(appointment),
                 appointmentTime: getAppointmentTime(appointment),
             });
 
-            await updateDoc(doc(firestore, 'balcao-cidadao', appointment.id), {
+            await updateDoc(doc(firestore, appointment.collectionName || 'balcao-cidadao', appointment.id), {
                 statusFila: 'Aguardando Atendimento Presencial',
                 senhaAtendimento: senha,
                 chegadaRecepcaoEm: new Date(),
@@ -435,7 +480,7 @@ const RecepcaoAtendimento = () => {
                 },
                 details: {
                     Senha: senha,
-                    Assunto: appointment.dadosSolicitacao?.assunto,
+                    Assunto: getAppointmentSubject(appointment),
                     'Data Agendada': getAppointmentDate(appointment),
                     'Horário Agendado': getAppointmentTime(appointment),
                 },
@@ -493,7 +538,7 @@ const RecepcaoAtendimento = () => {
                                 }}
                             >
                                 <span>{sector}</span>
-                                <small>{sector === 'Balcão do Cidadão' ? 'Documentos e solicitações' : sector === 'Ouvidoria' ? 'Manifestação cidadã' : sector === 'PIEL' ? 'Atendimento eleitoral' : 'Acolhimento e orientação'}</small>
+                                <small>{sector === 'Balcão do Cidadão' ? 'Documentos e solicitações' : sector === 'Assessoria ao Microempreendedor' ? 'MEI, finanças e impostos' : sector === 'Ouvidoria' ? 'Manifestação cidadã' : sector === 'PIEL' ? 'Atendimento eleitoral' : 'Acolhimento e orientação'}</small>
                             </button>
                         ))}
                     </div>
@@ -545,7 +590,7 @@ const RecepcaoAtendimento = () => {
                             {appointmentResults.map(result => (
                                 <button type="button" key={result.id} className={appointment?.id === result.id ? 'active' : ''} onClick={() => setAppointment(result)}>
                                     <strong>{getCitizenName(result)}</strong>
-                                    <span>{result.id} • {getAppointmentDate(result) || 'Sem data'} • {getAppointmentTime(result) || 'Sem horário'}</span>
+                                    <span>{result.setorAtendimento} • {result.id} • {getAppointmentDate(result) || 'Sem data'} • {getAppointmentTime(result) || 'Sem horário'}</span>
                                 </button>
                             ))}
                         </div>
@@ -557,6 +602,7 @@ const RecepcaoAtendimento = () => {
                                 <strong>{getCitizenName(appointment)}</strong>
                                 <span>Protocolo: {appointment.id}</span>
                             </div>
+                            <p>Setor: {appointment.setorAtendimento || selectedSector}</p>
                             <p>Status: {appointment.status || 'Sem status'}</p>
                             <p>Data: {getAppointmentDate(appointment) || 'Não informado'}</p>
                             <p>Horário: {getAppointmentTime(appointment) || 'Não informado'}</p>
@@ -628,7 +674,7 @@ const RecepcaoAtendimento = () => {
             return (
                 <div className="reception-step-card reception-review-card">
                     <h4>Dados da Solicitação</h4>
-                    <p><strong>Setor:</strong> {selectedSector}</p>
+                    <p><strong>Setor:</strong> {appointment?.setorAtendimento || selectedSector}</p>
                     <p><strong>Cidadão:</strong> {getCitizenName(appointment)}</p>
                     <p><strong>Protocolo:</strong> {appointment?.id}</p>
                     <p><strong>Data:</strong> {getAppointmentDate(appointment)}</p>

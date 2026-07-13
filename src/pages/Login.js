@@ -43,6 +43,9 @@ const LoginPage = () => {
             case 'Balcão':
                 navigate('/admin-balcao', { replace: true });
                 break;
+            case 'Microempreendedor':
+                navigate('/admin-microempreendedor', { replace: true });
+                break;
             case 'Recepção':
                 navigate('/recepcao', { replace: true });
                 break;
