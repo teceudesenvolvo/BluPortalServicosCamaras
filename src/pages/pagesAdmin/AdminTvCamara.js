@@ -13,6 +13,8 @@ import {
 } from 'firebase/firestore';
 import {
     LiaExternalLinkAltSolid,
+    LiaKeySolid,
+    LiaLinkSolid,
     LiaPlayCircleSolid,
     LiaPlusSolid,
     LiaSyncSolid,
@@ -35,6 +37,9 @@ import {
     videosEndpoint,
     youtubeFunctionInvokerEndpoint,
     youtubeFunctions,
+    youtubeOAuthUrlEndpoint,
+    youtubeRefreshTokenEndpoint,
+    youtubeSyncLogsEndpoint,
 } from '../../utils/tvCamara';
 
 const formatLogDate = (value) => {
@@ -51,6 +56,10 @@ const AdminTvCamara = () => {
     const [loading, setLoading] = useState(true);
     const [monitoring, setMonitoring] = useState(false);
     const [runningFunctions, setRunningFunctions] = useState({});
+    const [oauthLoading, setOauthLoading] = useState(false);
+    const [oauthCallbackUrl, setOauthCallbackUrl] = useState('');
+    const [oauthAuthUrl, setOauthAuthUrl] = useState('');
+    const [oauthResult, setOauthResult] = useState('');
     const [activeLogFunction, setActiveLogFunction] = useState('all');
     const [error, setError] = useState('');
     const [formData, setFormData] = useState({
@@ -72,6 +81,19 @@ const AdminTvCamara = () => {
         totalLogs: logs.filter(log => (log.functionName || log.functionId) === youtubeFunction.id || (log.functionName || log.functionId) === youtubeFunction.name).length,
     })), [logs]);
     const youtubeFunctionCards = useMemo(() => youtubeFunctions.filter(item => item.type !== 'firestore-action'), []);
+
+    const getAuthHeaders = async () => {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) {
+            throw new Error('Sessão expirada. Faça login novamente para renovar o token do YouTube.');
+        }
+
+        return {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+        };
+    };
 
     const registerYoutubeLog = async ({
         functionId = 'playlistManualTvCamara',
@@ -109,6 +131,32 @@ const AdminTvCamara = () => {
         ));
 
         setLogs(snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })));
+    };
+
+    const syncYoutubeLogs = async (functionId = 'all') => {
+        try {
+            const response = await fetch(youtubeSyncLogsEndpoint, {
+                method: 'POST',
+                headers: await getAuthHeaders(),
+                body: JSON.stringify({ functionId }),
+            });
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok || payload?.ok === false) {
+                throw new Error(payload?.error || `Falha HTTP ${response.status}`);
+            }
+
+            return payload;
+        } catch (syncError) {
+            console.error('Erro ao sincronizar logs do YouTube:', syncError);
+            return null;
+        }
+    };
+
+    const refreshYoutubeLogs = async (functionId = 'all') => {
+        const syncTarget = functionId === 'playlistManualTvCamara' ? 'all' : functionId;
+        await syncYoutubeLogs(syncTarget);
+        await fetchLogs();
     };
 
     const fetchManualVideos = async () => {
@@ -200,7 +248,7 @@ const AdminTvCamara = () => {
             throw functionError;
         } finally {
             setRunningFunctions(prev => ({ ...prev, [youtubeFunction.id]: false }));
-            fetchLogs();
+            refreshYoutubeLogs(youtubeFunction.id);
         }
     };
 
@@ -244,7 +292,7 @@ const AdminTvCamara = () => {
             });
         } finally {
             setMonitoring(false);
-            fetchLogs();
+            refreshYoutubeLogs('listarVideosTvCamara');
         }
     };
 
@@ -264,7 +312,7 @@ const AdminTvCamara = () => {
                         reason: 'scheduled-or-webhook-function',
                     },
                 });
-                await fetchLogs();
+                await refreshYoutubeLogs(youtubeFunction.id);
                 return;
             }
 
@@ -287,7 +335,7 @@ const AdminTvCamara = () => {
             await Promise.all([
                 fetchManualVideos(),
                 monitorEndpoint({ silent: true }),
-                fetchLogs(),
+                refreshYoutubeLogs(),
             ]);
         } catch (loadError) {
             console.error('Erro ao carregar admin TV Câmara:', loadError);
@@ -381,6 +429,75 @@ const AdminTvCamara = () => {
         fetchLogs();
     };
 
+    const handleGenerateOAuthUrl = async () => {
+        setOauthLoading(true);
+        setOauthAuthUrl('');
+        setOauthResult('');
+        setError('');
+
+        try {
+            const response = await fetch(youtubeOAuthUrlEndpoint, {
+                method: 'POST',
+                headers: await getAuthHeaders(),
+                body: JSON.stringify({ source: 'admin-tv-camara' }),
+            });
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok || payload?.ok === false) {
+                throw new Error(payload?.error || `Falha HTTP ${response.status}`);
+            }
+
+            window.open(payload.authUrl, '_blank', 'noopener,noreferrer');
+            setOauthAuthUrl(payload.authUrl || '');
+            setOauthResult('Abrimos a autorização do Google em uma nova aba. Autorize a conta do canal e cole aqui a URL final iniciada por http://localhost/.');
+            await refreshYoutubeLogs('all');
+        } catch (oauthError) {
+            console.error('Erro ao gerar URL OAuth YouTube:', oauthError);
+            setOauthResult('');
+            setError(oauthError.message || 'Não foi possível gerar a URL de autorização.');
+        } finally {
+            setOauthLoading(false);
+        }
+    };
+
+    const handleUpdateRefreshToken = async () => {
+        if (!oauthCallbackUrl.trim()) {
+            setError('Cole a URL de retorno do Google para atualizar o refresh token.');
+            return;
+        }
+
+        setOauthLoading(true);
+        setOauthResult('');
+        setError('');
+
+        try {
+            const response = await fetch(youtubeRefreshTokenEndpoint, {
+                method: 'POST',
+                headers: await getAuthHeaders(),
+                body: JSON.stringify({
+                    callbackUrl: oauthCallbackUrl.trim(),
+                    source: 'admin-tv-camara',
+                }),
+            });
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok || payload?.ok === false) {
+                throw new Error(payload?.error || `Falha HTTP ${response.status}`);
+            }
+
+            setOauthCallbackUrl('');
+            setOauthAuthUrl('');
+            setOauthResult('Refresh token atualizado no Firebase. As funções do YouTube passam a usar o novo secret após reinício, nova implantação ou nova instância fria.');
+            await refreshYoutubeLogs('all');
+        } catch (oauthError) {
+            console.error('Erro ao atualizar refresh token YouTube:', oauthError);
+            setOauthResult('');
+            setError(oauthError.message || 'Não foi possível atualizar o refresh token.');
+        } finally {
+            setOauthLoading(false);
+        }
+    };
+
     return (
         <div className="dashboard-layout">
             <AdminSidebar />
@@ -447,6 +564,65 @@ const AdminTvCamara = () => {
                                     )}
                                 </article>
                             ))}
+                        </div>
+                    </section>
+
+                    <section className="data-card admin-tv-camara-oauth-card">
+                        <div className="card-header">
+                            <h3><LiaKeySolid /> Renovar OAuth YouTube</h3>
+                            <span>Seguro via Firebase</span>
+                        </div>
+                        <div className="admin-tv-camara-oauth-panel">
+                            <div className="admin-tv-camara-oauth-copy">
+                                <strong>Client ID e Client Secret continuam protegidos no Firebase.</strong>
+                                <p>Use este fluxo apenas quando o Google informar token expirado, revogado ou `invalid_grant`. O portal gera a URL, você autoriza a conta do canal e cola a URL final para gravar uma nova versão do secret.</p>
+                            </div>
+                            <div className="admin-tv-camara-oauth-actions">
+                                <button
+                                    type="button"
+                                    className="btn-primary"
+                                    onClick={handleGenerateOAuthUrl}
+                                    disabled={oauthLoading}
+                                >
+                                    <LiaExternalLinkAltSolid />
+                                    {oauthLoading ? 'Processando...' : 'Gerar URL de autorização'}
+                                </button>
+                                {oauthAuthUrl && (
+                                    <a
+                                        className="admin-tv-camara-oauth-link"
+                                        href={oauthAuthUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <LiaExternalLinkAltSolid />
+                                        Abrir autorização manualmente
+                                    </a>
+                                )}
+                                <label>
+                                    URL de retorno do Google
+                                    <textarea
+                                        className="form-input"
+                                        rows="3"
+                                        value={oauthCallbackUrl}
+                                        onChange={(event) => setOauthCallbackUrl(event.target.value)}
+                                        placeholder="http://localhost/?code=4/0Adk...&scope=https://www.googleapis.com/auth/youtube"
+                                    />
+                                </label>
+                                <button
+                                    type="button"
+                                    className="btn-secondary admin-tv-camara-token-button"
+                                    onClick={handleUpdateRefreshToken}
+                                    disabled={oauthLoading || !oauthCallbackUrl.trim()}
+                                >
+                                    <LiaLinkSolid />
+                                    Atualizar refresh token no Firebase
+                                </button>
+                            </div>
+                            {oauthResult && <div className="success-message-inline">{oauthResult}</div>}
+                            <div className="admin-tv-camara-oauth-note">
+                                <strong>Para evitar novas revogações:</strong>
+                                mantenha a tela de consentimento em produção, use sempre a mesma conta do canal e o mesmo OAuth Client, não gere tokens repetidos sem necessidade e não remova o acesso em myaccount.google.com/permissions.
+                            </div>
                         </div>
                     </section>
 
@@ -521,7 +697,7 @@ const AdminTvCamara = () => {
                     <section className="data-card admin-tv-camara-logs-card">
                         <div className="card-header">
                             <h3>Logs das funções YouTube</h3>
-                            <button type="button" className="btn-secondary" onClick={fetchLogs}><LiaSyncSolid /> Atualizar logs</button>
+                            <button type="button" className="btn-secondary" onClick={() => refreshYoutubeLogs(activeLogFunction)}><LiaSyncSolid /> Atualizar logs</button>
                         </div>
                         <div className="admin-tv-camara-log-filters">
                             <button type="button" className={activeLogFunction === 'all' ? 'active' : ''} onClick={() => setActiveLogFunction('all')}>

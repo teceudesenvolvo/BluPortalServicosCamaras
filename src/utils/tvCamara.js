@@ -5,6 +5,9 @@ export const youtubeFunctionsBaseUrl = 'https://southamerica-east1-blu-app-camar
 export const appFunctionsBaseUrl = process.env.REACT_APP_FUNCTIONS_BASE_URL?.replace(/\/$/, '') ||
     'https://us-central1-blu-app-camara.cloudfunctions.net';
 export const youtubeFunctionInvokerEndpoint = `${appFunctionsBaseUrl}/invokeYoutubeFunction`;
+export const youtubeSyncLogsEndpoint = `${appFunctionsBaseUrl}/syncYoutubeFunctionLogs`;
+export const youtubeOAuthUrlEndpoint = `${appFunctionsBaseUrl}/getYoutubeOAuthUrl`;
+export const youtubeRefreshTokenEndpoint = `${appFunctionsBaseUrl}/updateYoutubeRefreshToken`;
 export const videosEndpoint = `${youtubeFunctionsBaseUrl}/listarVideosTvCamara`;
 export const fallbackVideosEndpoint = `${appFunctionsBaseUrl}/listarVideosTvCamaraFallback`;
 export const tvCamaraPlaylistCollection = 'tv-camara-playlist';

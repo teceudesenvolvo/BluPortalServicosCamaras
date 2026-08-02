@@ -4,18 +4,18 @@ const {
 } = require("firebase-functions/v2/firestore");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onRequest} = require("firebase-functions/v2/https");
-const {defineString, defineSecret} = require("firebase-functions/params");
+const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin"); // Keep admin for database operations
-const {VertexAI} = require("@google-cloud/vertexai");
-const nodemailer = require("nodemailer");
+const {Logging} = require("@google-cloud/logging");
+const {SecretManagerServiceClient} = require("@google-cloud/secret-manager");
 
 admin.initializeApp();
 
-const gmailEmail = defineString("GMAIL_EMAIL");
-const gmailAppPassword = defineSecret("GMAIL_APP_PASSWORD");
+const youtubeClientId = defineSecret("YOUTUBE_CLIENT_ID");
+const youtubeClientSecret = defineSecret("YOUTUBE_CLIENT_SECRET");
 
-let genAI;
-let mailTransport;
+let secretManagerClient;
+let loggingClient;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,6 +27,8 @@ const youtubeFunctionsBaseUrl =
     "https://southamerica-east1-blu-app-camara.cloudfunctions.net";
 const tvCamaraPublicPlaylistId = "PL2jvfc9q3EZ0CXi2qg5aDPydeCYdCsq59";
 const tvCamaraPublicChannelId = "UC-gpASXvFBoe1H6C-alYLzg";
+const youtubeOAuthRedirectUri = "http://localhost";
+const youtubeOAuthScope = "https://www.googleapis.com/auth/youtube";
 
 const allowedYoutubeFunctions = {
   listarVideosTvCamara: {
@@ -36,12 +38,224 @@ const allowedYoutubeFunctions = {
   },
 };
 
+const youtubeCloudLogTargets = {
+  atualizarPlaylistYoutube: {
+    functionId: "atualizarPlaylistYoutube",
+    functionName: "atualizarPlaylistYoutube",
+    functionLabel: "Atualizar playlist do YouTube",
+    endpoint: `${youtubeFunctionsBaseUrl}/atualizarPlaylistYoutube`,
+    serviceName: "atualizarplaylistyoutube",
+  },
+  youtubeChannelWebhook: {
+    functionId: "youtubeChannelWebhook",
+    functionName: "youtubeChannelWebhook",
+    functionLabel: "Webhook do canal YouTube",
+    endpoint: `${youtubeFunctionsBaseUrl}/youtubeChannelWebhook`,
+    serviceName: "youtubechannelwebhook",
+  },
+  renovarWebhookYoutube: {
+    functionId: "renovarWebhookYoutube",
+    functionName: "renovarWebhookYoutube",
+    functionLabel: "Renovar webhook YouTube",
+    endpoint: `${youtubeFunctionsBaseUrl}/renovarWebhookYoutube`,
+    serviceName: "renovarwebhookyoutube",
+  },
+  listarVideosTvCamara: {
+    functionId: "listarVideosTvCamara",
+    functionName: "listarVideosTvCamara",
+    functionLabel: "Listar vídeos da TV Câmara",
+    endpoint: `${youtubeFunctionsBaseUrl}/listarVideosTvCamara`,
+    serviceName: "listarvideostvcamara",
+  },
+};
+
 /**
  * Applies CORS headers to HTTP responses.
  * @param {object} res Express response object
  */
 function applyCors(res) {
   Object.entries(corsHeaders).forEach(([key, value]) => res.set(key, value));
+}
+
+/**
+ * Returns the Secret Manager client singleton.
+ * @return {SecretManagerServiceClient} Secret Manager client
+ */
+function getSecretManagerClient() {
+  if (!secretManagerClient) {
+    secretManagerClient = new SecretManagerServiceClient();
+  }
+  return secretManagerClient;
+}
+
+/**
+ * Returns the Cloud Logging client singleton.
+ * @return {Logging} Cloud Logging client
+ */
+function getLoggingClient() {
+  if (!loggingClient) {
+    loggingClient = new Logging();
+  }
+  return loggingClient;
+}
+
+/**
+ * Returns whether a Cloud Logging message should be ignored for UI sync.
+ * @param {string} message Log message
+ * @return {boolean} True when the message is infra-noise
+ */
+function shouldIgnoreYoutubeCloudMessage(message) {
+  const text = String(message || "").toLowerCase();
+  return !text ||
+    text.includes("starting new instance") ||
+    text.includes("default startup tcp probe succeeded") ||
+    text.includes("the request was not authenticated") ||
+    text.includes("deployment_rollout");
+}
+
+/**
+ * Normalizes a Cloud Logging entry into the shape needed by the UI.
+ * @param {object} entry Logging entry
+ * @param {object} target Target metadata
+ * @return {object|null} Normalized log or null
+ */
+function normalizeYoutubeCloudLogEntry(entry, target) {
+  const metadata = entry.metadata || {};
+  const jsonPayload = metadata.jsonPayload || {};
+  const textPayload = metadata.textPayload || "";
+  const message = jsonPayload.message || jsonPayload.error || textPayload || "";
+
+  if (shouldIgnoreYoutubeCloudMessage(message)) {
+    return null;
+  }
+
+  const severity = String(metadata.severity || "DEFAULT").toUpperCase();
+  const loweredMessage = String(message).toLowerCase();
+  const status = severity === "ERROR" ||
+    loweredMessage.includes("falha") ||
+    loweredMessage.includes("invalid_grant") ?
+    "error" : "success";
+
+  return {
+    status,
+    functionId: target.functionId,
+    functionName: target.functionName,
+    functionLabel: target.functionLabel,
+    endpoint: target.endpoint,
+    message: String(message || "").trim(),
+    httpStatus: jsonPayload.httpStatus || null,
+    durationMs: 0,
+    details: {
+      source: "cloud-logging-sync",
+      severity,
+      serviceName: target.serviceName,
+      timestamp: metadata.timestamp || null,
+    },
+  };
+}
+
+/**
+ * Reads the latest meaningful Cloud Logging entry for a YouTube function.
+ * @param {object} target Target metadata
+ * @return {Promise<object|null>} Normalized log or null
+ */
+async function getLatestYoutubeCloudLog(target) {
+  const [entries] = await getLoggingClient().getEntries({
+    filter: [
+      "resource.type=\"cloud_run_revision\"",
+      `resource.labels.service_name="${target.serviceName}"`,
+    ].join(" AND "),
+    orderBy: "timestamp desc",
+    pageSize: 20,
+  });
+
+  for (const entry of entries) {
+    const normalized = normalizeYoutubeCloudLogEntry(entry, target);
+    if (normalized) return normalized;
+  }
+
+  return null;
+}
+
+/**
+ * Verifies a Firebase Auth bearer token and checks admin permissions.
+ * @param {object} req Express request object
+ * @return {Promise<object>} Authenticated user data
+ */
+async function requireAdminUser(req) {
+  const authorization = req.get("authorization") || "";
+  const token = authorization.startsWith("Bearer ") ?
+    authorization.slice("Bearer ".length) : "";
+
+  if (!token) {
+    const error = new Error("Token de autenticação ausente.");
+    error.status = 401;
+    throw error;
+  }
+
+  const decodedToken = await admin.auth().verifyIdToken(token);
+  const userSnap = await admin.firestore()
+      .collection("users")
+      .doc(decodedToken.uid)
+      .get();
+  const userData = userSnap.exists ? userSnap.data() || {} : {};
+  const allowed = userData.tipo === "Admin" ||
+      decodedToken.email === "leo@gmail.com" ||
+      decodedToken.email === "blutecnologiasbr@gmail.com";
+
+  if (!allowed) {
+    const error = new Error("Usuário sem permissão administrativa.");
+    error.status = 403;
+    throw error;
+  }
+
+  return {
+    uid: decodedToken.uid,
+    email: decodedToken.email || userData.email || "",
+    tipo: userData.tipo || "",
+  };
+}
+
+/**
+ * Extracts the OAuth code from a full callback URL or raw code.
+ * @param {string} value Full callback URL or code
+ * @return {string} OAuth authorization code
+ */
+function extractYoutubeOAuthCode(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+
+  try {
+    const parsedUrl = new URL(text);
+    return parsedUrl.searchParams.get("code") || "";
+  } catch (error) {
+    return text.includes("code=") ?
+      new URL(`http://localhost/?${text.split("?").pop()}`).searchParams
+          .get("code") || "" :
+      text;
+  }
+}
+
+/**
+ * Persists a new Secret Manager version for YOUTUBE_REFRESH_TOKEN.
+ * @param {string} refreshToken New OAuth refresh token
+ * @return {Promise<string>} Secret version name
+ */
+async function saveYoutubeRefreshTokenSecret(refreshToken) {
+  const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+  if (!projectId) {
+    throw new Error("Projeto Google Cloud não identificado.");
+  }
+
+  const parent = `projects/${projectId}/secrets/YOUTUBE_REFRESH_TOKEN`;
+  const [version] = await getSecretManagerClient().addSecretVersion({
+    parent,
+    payload: {
+      data: Buffer.from(refreshToken, "utf8"),
+    },
+  });
+
+  return version.name || parent;
 }
 
 /**
@@ -399,47 +613,12 @@ async function invokeYoutubeTarget(functionName, source) {
 exports.sendMailOnNewRequest = onDocumentCreated(
     {
       document: "mail/{mailId}",
-      secrets: [gmailAppPassword],
     },
     async (event) => {
-      const pass = await gmailAppPassword.value();
-      if (!mailTransport) {
-        mailTransport = nodemailer.createTransport({
-          service: "gmail",
-          auth: {
-            user: gmailEmail.value(),
-            pass: pass,
-          },
-        });
-      }
-
       const snapshot = event.data;
-
       if (!snapshot) return;
-
       const mailData = snapshot.data();
-
-      const emailFooter = "<br><br><hr><p><i>Por favor não responda " +
-          "este email. Email oficial da câmara:<br/>" +
-          "balcaocidadao25@gmail.com</i></p>" +
-          "<p>Este email foi enviado automaticamente pelo sistema do " +
-          "Portal de Serviços da Câmara Municipal de Paraipaba.<br/>" +
-          " Se você tiver dúvidas ou precisar de assistência, por " +
-          "favor entre em contato com a câmara através do email " +
-          "acima. Obrigado por utilizar o Portal de Serviços da " +
-          "Câmara Municipal de Paraipaba. <strong>" +
-          "Atenciosamente,<br>Blu Tecnologias</strong></p>";
-
-      const mailOptions = {
-        from: `"Portal de Serviços" <${gmailEmail.value()}>`,
-        to: mailData.to,
-        subject: mailData.message.subject,
-        html: `${mailData.message.html}${emailFooter}`,
-      };
-
       try {
-        await mailTransport.sendMail(mailOptions);
-
         if (mailData.userId) {
           const db = admin.firestore();
           const protocolo = mailData.protocolo || "";
@@ -464,9 +643,11 @@ exports.sendMailOnNewRequest = onDocumentCreated(
           });
         }
 
+        console.log("Envio de email externo desativado; notificação " +
+            `in-app processada para ${mailData.userId || "sem userId"}.`);
         return snapshot.ref.delete();
       } catch (error) {
-        console.error(`Erro ao enviar email para ${mailData.to}:`, error);
+        console.error("Erro ao processar notificação in-app:", error);
         return null;
       }
     },
@@ -486,14 +667,6 @@ exports.generateNews = onRequest(
         return res.status(405).send("Method Not Allowed");
       }
 
-      if (!genAI) {
-        genAI = new VertexAI({
-          project: process.env.GCLOUD_PROJECT,
-          location: "us-central1",
-        });
-      }
-      const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"});
-
       try {
         const prompt = req.body?.prompt;
         if (!prompt || typeof prompt !== "string") {
@@ -502,19 +675,11 @@ exports.generateNews = onRequest(
           });
         }
 
-        const result = await model.generateContent({
-          contents: [{role: "user", parts: [{text: prompt}]}],
-          generationConfig: {
-            temperature: 0.7,
-          },
+        return res.status(503).json({
+          error: "Geração por IA temporariamente desativada para reduzir " +
+            "custos de Non-Firebase Services.",
+          disabled: true,
         });
-
-        const response = await result.response;
-        const generatedText =
-            response.candidates[0].content.parts[0].text || "";
-
-        const cleanedText = generatedText.replace(/```html|```/g, "").trim();
-        return res.json({text: cleanedText});
       } catch (error) {
         console.error("Erro no generateNews:", error);
         return res.status(500).json({error: "Erro interno ao gerar texto."});
@@ -682,6 +847,194 @@ exports.notifyNewsNow = onRequest(
     },
 );
 
+exports.getYoutubeOAuthUrl = onRequest(
+    {
+      secrets: [youtubeClientId],
+    },
+    async (req, res) => {
+      applyCors(res);
+
+      if (req.method === "OPTIONS") {
+        return res.status(204).send("");
+      }
+      if (req.method !== "POST") {
+        return res.status(405).json({error: "Method Not Allowed"});
+      }
+
+      try {
+        const adminUser = await requireAdminUser(req);
+        const clientId = youtubeClientId.value()?.trim();
+        if (!clientId) {
+          return res.status(500).json({
+            ok: false,
+            error: "YOUTUBE_CLIENT_ID não configurado.",
+          });
+        }
+
+        const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+        authUrl.searchParams.set("client_id", clientId);
+        authUrl.searchParams.set("redirect_uri", youtubeOAuthRedirectUri);
+        authUrl.searchParams.set("response_type", "code");
+        authUrl.searchParams.set("scope", youtubeOAuthScope);
+        authUrl.searchParams.set("access_type", "offline");
+        authUrl.searchParams.set("prompt", "consent");
+        authUrl.searchParams.set("include_granted_scopes", "true");
+
+        await saveYoutubeFunctionLog({
+          status: "success",
+          functionId: "youtubeOAuthRefreshToken",
+          functionName: "youtubeOAuthRefreshToken",
+          functionLabel: "Renovar token OAuth YouTube",
+          endpoint: "getYoutubeOAuthUrl",
+          message: "URL de autorização OAuth gerada.",
+          createdBy: adminUser.email || "admin",
+          details: {
+            action: "generate-auth-url",
+            redirectUri: youtubeOAuthRedirectUri,
+          },
+        });
+
+        return res.json({
+          ok: true,
+          authUrl: authUrl.toString(),
+          redirectUri: youtubeOAuthRedirectUri,
+        });
+      } catch (error) {
+        console.error("Erro no getYoutubeOAuthUrl:", error);
+        return res.status(error.status || 500).json({
+          ok: false,
+          error: error.message || "Erro interno.",
+        });
+      }
+    },
+);
+
+exports.updateYoutubeRefreshToken = onRequest(
+    {
+      secrets: [youtubeClientId, youtubeClientSecret],
+    },
+    async (req, res) => {
+      applyCors(res);
+
+      if (req.method === "OPTIONS") {
+        return res.status(204).send("");
+      }
+      if (req.method !== "POST") {
+        return res.status(405).json({error: "Method Not Allowed"});
+      }
+
+      const startedAt = Date.now();
+
+      try {
+        const adminUser = await requireAdminUser(req);
+        const callbackUrl = req.body?.callbackUrl || req.body?.code || "";
+        const code = extractYoutubeOAuthCode(callbackUrl);
+
+        if (!code) {
+          return res.status(400).json({
+            ok: false,
+            error: "Informe a URL de retorno do Google ou o parâmetro code.",
+          });
+        }
+
+        const clientId = youtubeClientId.value()?.trim();
+        const clientSecret = youtubeClientSecret.value()?.trim();
+        if (!clientId || !clientSecret) {
+          return res.status(500).json({
+            ok: false,
+            error: "Client ID/Secret do YouTube não configurados no Firebase.",
+          });
+        }
+
+        const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+          },
+          body: new URLSearchParams({
+            code,
+            client_id: clientId,
+            client_secret: clientSecret,
+            redirect_uri: youtubeOAuthRedirectUri,
+            grant_type: "authorization_code",
+          }).toString(),
+        });
+
+        const tokenPayload = await tokenResponse.json();
+        if (!tokenResponse.ok) {
+          throw new Error(tokenPayload.error_description ||
+            tokenPayload.error ||
+            `Falha HTTP ${tokenResponse.status} ao trocar OAuth code.`);
+        }
+
+        const refreshToken = tokenPayload.refresh_token;
+        if (!refreshToken) {
+          throw new Error([
+            "Google não retornou refresh_token.",
+            "Gere a URL novamente e confirme o consentimento",
+            "da conta do canal.",
+          ].join(" "));
+        }
+
+        const versionName = await saveYoutubeRefreshTokenSecret(refreshToken);
+        const durationMs = Date.now() - startedAt;
+
+        await saveYoutubeFunctionLog({
+          status: "success",
+          functionId: "youtubeOAuthRefreshToken",
+          functionName: "youtubeOAuthRefreshToken",
+          functionLabel: "Renovar token OAuth YouTube",
+          endpoint: "updateYoutubeRefreshToken",
+          durationMs,
+          message: "Refresh token do YouTube atualizado no Secret Manager.",
+          createdBy: adminUser.email || "admin",
+          details: {
+            action: "update-refresh-token",
+            secretVersion: versionName,
+            expiresIn: tokenPayload.expires_in || null,
+            scope: tokenPayload.scope || youtubeOAuthScope,
+            nextStep: [
+              "Reimplante ou reinicie as funções YouTube para garantir",
+              "leitura da versão mais recente do secret.",
+            ].join(" "),
+          },
+        });
+
+        return res.json({
+          ok: true,
+          message: "Refresh token atualizado com sucesso.",
+          secretVersion: versionName,
+          expiresIn: tokenPayload.expires_in || null,
+        });
+      } catch (error) {
+        const durationMs = Date.now() - startedAt;
+        console.error("Erro no updateYoutubeRefreshToken:", error);
+        try {
+          await saveYoutubeFunctionLog({
+            status: "error",
+            functionId: "youtubeOAuthRefreshToken",
+            functionName: "youtubeOAuthRefreshToken",
+            functionLabel: "Renovar token OAuth YouTube",
+            endpoint: "updateYoutubeRefreshToken",
+            durationMs,
+            message: error.message || "Erro ao atualizar refresh token.",
+            details: {
+              action: "update-refresh-token",
+              errorName: error.name || "Error",
+            },
+          });
+        } catch (logError) {
+          console.error("Erro ao registrar log OAuth YouTube:", logError);
+        }
+        return res.status(error.status || 500).json({
+          ok: false,
+          error: error.message || "Erro interno.",
+        });
+      }
+    },
+);
+
 exports.invokeYoutubeFunction = onRequest(
     {},
     async (req, res) => {
@@ -714,6 +1067,61 @@ exports.invokeYoutubeFunction = onRequest(
       } catch (error) {
         console.error("Erro no invokeYoutubeFunction:", error);
         return res.status(500).json({error: error.message || "Erro interno."});
+      }
+    },
+);
+
+exports.syncYoutubeFunctionLogs = onRequest(
+    {},
+    async (req, res) => {
+      applyCors(res);
+
+      if (req.method === "OPTIONS") {
+        return res.status(204).send("");
+      }
+      if (req.method !== "POST") {
+        return res.status(405).json({error: "Method Not Allowed"});
+      }
+
+      try {
+        const adminUser = await requireAdminUser(req);
+        const requestedFunctionId = String(
+            req.body?.functionId || "all").trim();
+        const targets = requestedFunctionId === "all" ?
+          Object.values(youtubeCloudLogTargets) :
+          [youtubeCloudLogTargets[requestedFunctionId]].filter(Boolean);
+
+        if (!targets.length) {
+          return res.status(400).json({
+            ok: false,
+            error: "Função de log do YouTube não reconhecida.",
+          });
+        }
+
+        const syncedLogs = [];
+
+        for (const target of targets) {
+          const normalizedLog = await getLatestYoutubeCloudLog(target);
+          if (!normalizedLog) continue;
+
+          await saveYoutubeFunctionLog({
+            ...normalizedLog,
+            createdBy: adminUser.email || "admin",
+          });
+          syncedLogs.push(normalizedLog);
+        }
+
+        return res.json({
+          ok: true,
+          syncedCount: syncedLogs.length,
+          logs: syncedLogs,
+        });
+      } catch (error) {
+        console.error("Erro no syncYoutubeFunctionLogs:", error);
+        return res.status(error.status || 500).json({
+          ok: false,
+          error: error.message || "Erro interno.",
+        });
       }
     },
 );
@@ -824,7 +1232,10 @@ function processDeletion(snapshot, promises, collName) {
 
 // Função agendada para apagar solicitações expiradas
 exports.cleanupExpiredRequests = onSchedule(
-    "every 1 hours",
+    {
+      schedule: "0 3 * * *",
+      timeZone: "America/Fortaleza",
+    },
     async (event) => {
       const now = Date.now();
       const db = admin.firestore();
