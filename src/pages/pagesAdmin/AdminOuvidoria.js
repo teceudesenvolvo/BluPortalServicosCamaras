@@ -9,8 +9,9 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
+import QueueManagerModal from '../../components/QueueManagerModal';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
-import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane, LiaSearchSolid, LiaFilterSolid, LiaArrowLeftSolid } from "react-icons/lia";
+import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane, LiaSearchSolid, LiaFilterSolid, LiaArrowLeftSolid, LiaUsersCogSolid } from "react-icons/lia";
 
 // Modal Component
 const ManifestacaoModal = ({ manifestacao, onClose, onStatusChange, onSendMessage, onFileUpload }) => {
@@ -149,6 +150,7 @@ const AdminOuvidoriaDashboard = () => {
     const [filterStatus, setFilterStatus] = useState('Todas');
     const [filterTipo, setFilterTipo] = useState('Todos');
     const [showFilters, setShowFilters] = useState(false);
+    const [showQueueManager, setShowQueueManager] = useState(false);
 
     // Paginação
     const [currentPage, setCurrentPage] = useState(1);
@@ -412,6 +414,11 @@ const AdminOuvidoriaDashboard = () => {
                             ↻ Atualizar lista
                         </button>
                     </div>
+                    <div className="admin-balcao-header-actions">
+                        <button onClick={() => setShowQueueManager(true)} className="admin-action-button action-queue" title="Organizar fila da Ouvidoria">
+                            <LiaUsersCogSolid /><span className="admin-action-label">Gerenciar fila</span>
+                        </button>
+                    </div>
                     <div className="user-profile">
                         <div className="user-text">
                             <p className="user-name-display">{auth.currentUser?.email || 'Admin'}</p>
@@ -420,6 +427,7 @@ const AdminOuvidoriaDashboard = () => {
                         <div className="user-avatar"></div>
                     </div>
                 </header>
+                {showQueueManager && <QueueManagerModal lockedService="Ouvidoria" onClose={() => setShowQueueManager(false)} />}
 
                 <div className="data-card" style={{ marginBottom: '24px' }}>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>

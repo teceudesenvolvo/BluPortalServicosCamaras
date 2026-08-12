@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { LiaArrowLeftSolid, LiaCogSolid, LiaPaperPlane, LiaSearchSolid, LiaTimesSolid } from 'react-icons/lia';
+import { LiaArrowLeftSolid, LiaCogSolid, LiaPaperPlane, LiaSearchSolid, LiaTimesSolid, LiaUsersCogSolid } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
+import QueueManagerModal from '../../components/QueueManagerModal';
 import { auth, firestore } from '../../firebase';
 
 const STATUSES = ['Recebida', 'Em Análise', 'Agendamento Liberado', 'Agendado', 'Concluída', 'Cancelada'];
@@ -360,6 +361,7 @@ const AdminMicroempreendedor = () => {
     const [filterStatus, setFilterStatus] = useState('Todas');
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
+    const [showQueueManager, setShowQueueManager] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -479,6 +481,9 @@ const AdminMicroempreendedor = () => {
                         <p>Gerencie solicitações de orientação para MEI, finanças, impostos e melhorias de negócio.</p>
                     </div>
                     <div className="admin-balcao-header-actions">
+                        <button onClick={() => setShowQueueManager(true)} className="admin-action-button action-queue" title="Organizar fila da assessoria">
+                            <LiaUsersCogSolid /><span className="admin-action-label">Gerenciar fila</span>
+                        </button>
                         <button onClick={fetchSolicitacoes} className="admin-action-button action-refresh" disabled={loading}>
                             <span className="admin-action-icon">↻</span>
                             <span className="admin-action-label">Atualizar dados</span>
@@ -494,6 +499,7 @@ const AdminMicroempreendedor = () => {
                         </button>
                     </div>
                 </header>
+                {showQueueManager && <QueueManagerModal lockedService="Assessoria ao Microempreendedor" onClose={() => setShowQueueManager(false)} />}
 
                 <div className="data-card micro-filter-card">
                     <div className="search-box">

@@ -9,9 +9,10 @@ import { firestore, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import AdminQuickReplies from '../../components/AdminQuickReplies';
+import QueueManagerModal from '../../components/QueueManagerModal';
 import {
     LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane,
-    LiaPaperclipSolid, LiaSearchSolid, LiaArrowLeftSolid, LiaFilterSolid, LiaDownloadSolid, LiaPrintSolid, LiaPlusSolid
+    LiaPaperclipSolid, LiaSearchSolid, LiaArrowLeftSolid, LiaFilterSolid, LiaDownloadSolid, LiaPrintSolid, LiaPlusSolid, LiaUsersCogSolid
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { buildReadMessagesUpdate, countUnreadAdminMessages } from '../../utils/adminMessages';
@@ -624,6 +625,7 @@ const AdminBalcaoSolicitacoes = () => {
     const [firstKey, setFirstKey] = useState(null); // Chave do primeiro item da página atual
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showQueueManager, setShowQueueManager] = useState(false);
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
@@ -1165,6 +1167,9 @@ const AdminBalcaoSolicitacoes = () => {
                         <p>Balcão do Cidadão — {filteredSolicitacoes.length} solicitaç{filteredSolicitacoes.length === 1 ? 'ão' : 'ões'} encontrada{filteredSolicitacoes.length === 1 ? '' : 's'}</p>
                     </div>
                     <div className="admin-balcao-header-actions">
+                        <button onClick={() => setShowQueueManager(true)} className="admin-action-button action-queue" title="Organizar fila de atendimento">
+                            <LiaUsersCogSolid /><span className="admin-action-label">Gerenciar fila</span>
+                        </button>
                         <button onClick={handleResetPagination} className="admin-action-button action-refresh" disabled={loading}>
                             <span className="admin-action-icon">↻</span><span className="admin-action-label">Atualizar dados</span>
                         </button>
@@ -1402,6 +1407,7 @@ const AdminBalcaoSolicitacoes = () => {
                         onCreate={handleCreateSolicitacao}
                     />
                 )}
+                {showQueueManager && <QueueManagerModal lockedService="Balcão do Cidadão" onClose={() => setShowQueueManager(false)} />}
             </div>
         </div>
     );

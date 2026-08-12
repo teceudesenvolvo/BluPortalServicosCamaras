@@ -9,8 +9,9 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
+import QueueManagerModal from '../../components/QueueManagerModal';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
-import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane, LiaSearchSolid } from "react-icons/lia";
+import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane, LiaSearchSolid, LiaUsersCogSolid } from "react-icons/lia";
 
 // Modal Component
 const SolicitacaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage, onFileUpload }) => {
@@ -152,6 +153,7 @@ const AdminProcuradoriaDashboard = () => {
     const [statusCounts, setStatusCounts] = useState({});
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [showQueueManager, setShowQueueManager] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -347,6 +349,11 @@ const AdminProcuradoriaDashboard = () => {
                             ↻ Atualizar dados
                         </button>
                     </div>
+                    <div className="admin-balcao-header-actions">
+                        <button onClick={() => setShowQueueManager(true)} className="admin-action-button action-queue" title="Organizar fila da Procuradoria">
+                            <LiaUsersCogSolid /><span className="admin-action-label">Gerenciar fila</span>
+                        </button>
+                    </div>
                     <div className="user-profile">
                         <div className="user-text">
                             <p className="user-name-display">{auth.currentUser?.email || 'Admin'}</p>
@@ -355,6 +362,7 @@ const AdminProcuradoriaDashboard = () => {
                         <div className="user-avatar"></div>
                     </div>
                 </header>
+                {showQueueManager && <QueueManagerModal lockedService="Procuradoria da Mulher" onClose={() => setShowQueueManager(false)} />}
 
                 <div className="data-sections-grid">
                     <div className="data-card">

@@ -61,6 +61,14 @@ const flowSteps = [
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
+const queuePrefixes = {
+    'Balcão do Cidadão': 'B',
+    'Assessoria ao Microempreendedor': 'M',
+    Ouvidoria: 'O',
+    'Procuradoria da Mulher': 'P',
+    PIEL: 'E',
+};
+
 const normalizeDate = (value) => {
     if (!value) return '';
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
@@ -103,17 +111,18 @@ const getReceptionUploadPath = (sector, userId) => {
     return `${config.cityCollection}/balcao-cidadao/${userId}/anexos`;
 };
 
-const createQueueTicket = async ({ protocolo, nome, assunto, appointmentDate, appointmentTime }) => {
+const createQueueTicket = async ({ protocolo, nome, assunto, appointmentDate, appointmentTime, setor }) => {
     const dateKey = todayKey();
-    const counterRef = doc(firestore, 'atendimento-fila-meta', dateKey);
+    const prefix = queuePrefixes[setor] || 'B';
+    const counterRef = doc(firestore, 'atendimento-fila-meta', `${dateKey}-${prefix}`);
     const queueRef = doc(collection(firestore, 'atendimento-fila'));
 
     return runTransaction(firestore, async (transaction) => {
         const counterSnap = await transaction.get(counterRef);
         const next = (counterSnap.exists() ? counterSnap.data().ultimoNumero || 0 : 0) + 1;
-        const password = `B${String(next).padStart(3, '0')}`;
+        const password = `${prefix}${String(next).padStart(3, '0')}`;
 
-        transaction.set(counterRef, { ultimoNumero: next, data: dateKey }, { merge: true });
+        transaction.set(counterRef, { ultimoNumero: next, data: dateKey, setor, prefixo: prefix }, { merge: true });
         transaction.set(queueRef, {
             senha: password,
             protocolo,
@@ -121,6 +130,8 @@ const createQueueTicket = async ({ protocolo, nome, assunto, appointmentDate, ap
             assunto,
             appointmentDate,
             appointmentTime,
+            setor: setor || 'Balcão do Cidadão',
+            prioridade: false,
             status: 'Aguardando',
             criadoEm: new Date(),
             chamadoEm: null,
@@ -454,6 +465,7 @@ const RecepcaoAtendimento = () => {
                 assunto: getAppointmentSubject(appointment),
                 appointmentDate: getAppointmentDate(appointment),
                 appointmentTime: getAppointmentTime(appointment),
+                setor: appointment.setorAtendimento || selectedSector,
             });
 
             await updateDoc(doc(firestore, appointment.collectionName || 'balcao-cidadao', appointment.id), {

@@ -1,102 +1,197 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { collection, doc, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { collection, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import { LiaImageSolid, LiaRedoAltSolid, LiaVolumeMuteSolid, LiaVolumeUpSolid } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
 import { firestore } from '../../firebase';
 
+const getTime = (value) => {
+    if (!value) return 0;
+    if (typeof value.toMillis === 'function') return value.toMillis();
+    return new Date(value).getTime() || 0;
+};
+
+const isToday = (value) => {
+    const date = value?.toDate ? value.toDate() : new Date(value);
+    const today = new Date();
+    return !Number.isNaN(date.getTime())
+        && date.getFullYear() === today.getFullYear()
+        && date.getMonth() === today.getMonth()
+        && date.getDate() === today.getDate();
+};
+
 const PainelAtendimento = () => {
     const [tickets, setTickets] = useState([]);
+    const [news, setNews] = useState([]);
+    const [activeNewsIndex, setActiveNewsIndex] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [voiceEnabled, setVoiceEnabled] = useState(() => localStorage.getItem('queueVoiceEnabled') !== 'false');
+    const lastAnnouncementRef = useRef('');
 
     useEffect(() => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const q = query(
-            collection(firestore, 'atendimento-fila'),
-            where('criadoEm', '>=', today),
-            orderBy('criadoEm', 'asc'),
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            setTickets(snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })));
+        const unsubscribe = onSnapshot(collection(firestore, 'atendimento-fila'), (snapshot) => {
+            setTickets(snapshot.docs
+                .map(item => ({ id: item.id, ...item.data() }))
+                .filter(item => isToday(item.criadoEm)));
             setLoading(false);
         }, (error) => {
             console.error('Erro ao carregar fila:', error);
             setLoading(false);
         });
-
         return () => unsubscribe();
     }, []);
 
-    const waiting = useMemo(() => tickets.filter(ticket => ticket.status === 'Aguardando'), [tickets]);
-    const calling = useMemo(() => tickets.filter(ticket => ticket.status === 'Chamando'), [tickets]);
-    const done = useMemo(() => tickets.filter(ticket => ticket.status === 'Concluído'), [tickets]);
-    const current = calling[calling.length - 1] || null;
-
-    const updateTicket = async (ticket, status) => {
-        await updateDoc(doc(firestore, 'atendimento-fila', ticket.id), {
-            status,
-            chamadoEm: status === 'Chamando' ? new Date() : ticket.chamadoEm || null,
-            concluidoEm: status === 'Concluído' ? new Date() : null,
+    useEffect(() => {
+        const newsRef = collection(firestore, 'noticias');
+        const publishedNews = query(newsRef, where('status', '==', 'Publicado'), orderBy('createdAt', 'desc'), limit(8));
+        const unsubscribe = onSnapshot(publishedNews, (snapshot) => {
+            setNews(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
+            setActiveNewsIndex(0);
+        }, (error) => {
+            console.error('Erro ao carregar notícias do painel:', error);
         });
+        return () => unsubscribe();
+    }, []);
+
+    useEffect(() => {
+        if (news.length < 2) return undefined;
+        const interval = window.setInterval(() => {
+            setActiveNewsIndex(index => (index + 1) % news.length);
+        }, 7000);
+        return () => window.clearInterval(interval);
+    }, [news.length]);
+
+    const waiting = useMemo(() => tickets.filter(ticket => ticket.status === 'Aguardando'), [tickets]);
+    const activeCalls = useMemo(() => tickets
+        .filter(ticket => ['Chamando', 'Em Atendimento'].includes(ticket.status))
+        .sort((a, b) => getTime(b.chamadoEm) - getTime(a.chamadoEm)), [tickets]);
+    const current = activeCalls[0] || null;
+    const recentCalls = activeCalls.slice(1, 6);
+    const serviceSummary = useMemo(() => Object.entries(waiting.reduce((summary, ticket) => {
+        const name = ticket.setor || 'Balcão do Cidadão';
+        summary[name] = (summary[name] || 0) + 1;
+        return summary;
+    }, {})).sort((a, b) => b[1] - a[1]), [waiting]);
+
+    const speakCall = useCallback((ticket) => {
+        if (!ticket || !('speechSynthesis' in window)) return;
+        window.speechSynthesis.cancel();
+        const service = ticket.setor || 'Balcão do Cidadão';
+        const counter = ticket.guiche || 'guichê de atendimento';
+        const text = `${ticket.nome}. Atendimento de ${service}. Compareça ao ${counter}.`;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'pt-BR';
+        utterance.rate = 0.88;
+        utterance.pitch = 1;
+        const portugueseVoice = window.speechSynthesis.getVoices().find(voice => voice.lang?.toLowerCase().startsWith('pt-br'));
+        if (portugueseVoice) utterance.voice = portugueseVoice;
+        window.speechSynthesis.speak(utterance);
+    }, []);
+
+    useEffect(() => {
+        if (!voiceEnabled || !current || current.status !== 'Chamando') return;
+        const announcementId = `${current.id}-${getTime(current.chamadoEm)}-${current.chamadas || 1}`;
+        if (lastAnnouncementRef.current === announcementId) return;
+        lastAnnouncementRef.current = announcementId;
+        speakCall(current);
+    }, [current, speakCall, voiceEnabled]);
+
+    const toggleVoice = () => {
+        const nextValue = !voiceEnabled;
+        setVoiceEnabled(nextValue);
+        localStorage.setItem('queueVoiceEnabled', String(nextValue));
+        if (!nextValue && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+        if (nextValue && current) speakCall(current);
     };
 
     return (
-        <div className="dashboard-layout">
+        <div className="dashboard-layout public-queue-shell">
             <AdminSidebar />
-            <div className="dashboard-content queue-panel-page">
-                <header className="queue-panel-hero">
+            <main className="dashboard-content public-queue-page">
+                <header className="public-queue-header">
                     <div>
-                        <span>Fila presencial</span>
+                        <span>Câmara Municipal de Paraipaba</span>
                         <h1>Painel de Atendimento</h1>
-                        <p>{waiting.length} aguardando · {calling.length} em chamada · {done.length} concluído{done.length === 1 ? '' : 's'}</p>
                     </div>
-                    {current && (
-                        <div className="queue-current-card">
-                            <span>Chamando agora</span>
-                            <strong>{current.senha}</strong>
-                            <p>{current.nome}</p>
+                    <div className="public-queue-clock">
+                        <strong>{new Date().toLocaleDateString('pt-BR')}</strong>
+                        <span>{waiting.length} aguardando</span>
+                        <div className="public-queue-voice-controls">
+                            <button type="button" onClick={toggleVoice} title={voiceEnabled ? 'Desativar voz' : 'Ativar voz'}>
+                                {voiceEnabled ? <LiaVolumeUpSolid /> : <LiaVolumeMuteSolid />}
+                                {voiceEnabled ? 'Voz ativa' : 'Voz desligada'}
+                            </button>
+                            <button type="button" onClick={() => speakCall(current)} disabled={!current} title="Repetir chamada">
+                                <LiaRedoAltSolid /> Repetir
+                            </button>
                         </div>
-                    )}
+                    </div>
                 </header>
 
-                <div className="queue-grid">
-                    <section className="data-card">
-                        <div className="card-header"><h3>Aguardando</h3></div>
-                        {loading && <p>Carregando fila...</p>}
-                        {!loading && waiting.length === 0 && <p>Nenhuma senha aguardando.</p>}
-                        <div className="queue-ticket-list">
-                            {waiting.map(ticket => (
-                                <div key={ticket.id} className="queue-ticket">
-                                    <strong>{ticket.senha}</strong>
-                                    <div>
-                                        <span>{ticket.nome}</span>
-                                        <small>{ticket.assunto} · Protocolo {ticket.protocolo}</small>
-                                    </div>
-                                    <button onClick={() => updateTicket(ticket, 'Chamando')} className="btn-primary">Chamar</button>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
+                {loading ? <div className="queue-empty-state">Carregando chamadas...</div> : (
+                    <div className="public-queue-layout">
+                        <section className="public-current-call">
+                            <span>{current?.status === 'Em Atendimento' ? 'Em atendimento' : 'Chamando agora'}</span>
+                            {current ? (
+                                <>
+                                    <strong>{current.senha}</strong>
+                                    <div className="public-counter-name">{current.guiche || 'Dirija-se ao atendimento'}</div>
+                                    <p>{current.nome}</p>
+                                    <small>{current.setor || 'Balcão do Cidadão'}</small>
+                                </>
+                            ) : (
+                                <div className="public-no-call">Aguarde a próxima chamada</div>
+                            )}
+                        </section>
 
-                    <section className="data-card">
-                        <div className="card-header"><h3>Chamando</h3></div>
-                        {calling.length === 0 && <p>Nenhuma senha em chamada.</p>}
-                        <div className="queue-ticket-list">
-                            {calling.map(ticket => (
-                                <div key={ticket.id} className="queue-ticket calling">
+                        <aside className="public-recent-calls">
+                            <div className="queue-section-title"><h2>Últimas chamadas</h2></div>
+                            {recentCalls.length === 0 && <p className="queue-empty">As chamadas aparecerão aqui.</p>}
+                            {recentCalls.map(ticket => (
+                                <article key={ticket.id}>
                                     <strong>{ticket.senha}</strong>
-                                    <div>
-                                        <span>{ticket.nome}</span>
-                                        <small>{ticket.assunto}</small>
-                                    </div>
-                                    <button onClick={() => updateTicket(ticket, 'Concluído')} className="btn-save-status">Concluir</button>
-                                </div>
+                                    <div><b>{ticket.guiche || 'Atendimento'}</b><span>{ticket.setor || 'Balcão do Cidadão'}</span></div>
+                                </article>
                             ))}
-                        </div>
-                    </section>
-                </div>
-            </div>
+                        </aside>
+
+                        <section className="public-service-queues">
+                            <h2>Filas por serviço</h2>
+                            <div>
+                                {serviceSummary.map(([name, count]) => (
+                                    <article key={name}><span>{name}</span><strong>{count}</strong><small>aguardando</small></article>
+                                ))}
+                                {serviceSummary.length === 0 && <p>Nenhum cidadão aguardando.</p>}
+                            </div>
+                        </section>
+
+                        {news.length > 0 && (
+                            <section className="public-news-slider" aria-label="Notícias da Câmara">
+                                <div className="public-news-track" style={{ transform: `translateX(-${activeNewsIndex * 100}%)` }}>
+                                    {news.map(item => (
+                                        <article key={item.id} className="public-news-slide">
+                                            <div className="public-news-image">
+                                                {item.capaUrl ? <img src={item.capaUrl} alt="" /> : <LiaImageSolid />}
+                                            </div>
+                                            <div className="public-news-content">
+                                                <span>Notícias da Câmara</span>
+                                                <h2>{item.titulo}</h2>
+                                                {item.subtitulo && <p>{item.subtitulo}</p>}
+                                            </div>
+                                        </article>
+                                    ))}
+                                </div>
+                                {news.length > 1 && (
+                                    <div className="public-news-dots" aria-label="Selecionar notícia">
+                                        {news.map((item, index) => (
+                                            <button key={item.id} type="button" className={index === activeNewsIndex ? 'active' : ''} onClick={() => setActiveNewsIndex(index)} aria-label={`Exibir notícia ${index + 1}`} />
+                                        ))}
+                                    </div>
+                                )}
+                            </section>
+                        )}
+                    </div>
+                )}
+            </main>
         </div>
     );
 };

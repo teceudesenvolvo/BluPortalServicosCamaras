@@ -5,7 +5,8 @@ import {
 } from 'firebase/firestore';
 import { firestore } from '../../firebase';
 import AdminSidebar from '../../components/AdminSidebar';
-import { LiaPlusSolid, LiaTimesSolid, LiaEditSolid, LiaTrashAltSolid, LiaSaveSolid } from "react-icons/lia";
+import QueueManagerModal from '../../components/QueueManagerModal';
+import { LiaPlusSolid, LiaTimesSolid, LiaEditSolid, LiaTrashAltSolid, LiaSaveSolid, LiaUsersCogSolid } from "react-icons/lia";
 
 // Modal para Adicionar/Editar Informativo
 const InformativoModal = ({ informativo, onClose, onSave }) => {
@@ -65,6 +66,7 @@ const AdminPiel = () => {
     const [loading, setLoading] = useState(true);
     const [selectedInformativo, setSelectedInformativo] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [showQueueManager, setShowQueueManager] = useState(false);
 
     // Leitura única (economiza downloads)
     const fetchInformativos = useCallback(async () => {
@@ -155,6 +157,9 @@ const AdminPiel = () => {
                         <p>Adicione, edite ou remova os informativos da página PIEL.</p>
                     </div>
                     <div className="page-actions-bar" style={{justifyContent: 'flex-end', padding: 0}}>
+                        <button onClick={() => setShowQueueManager(true)} className="admin-action-button action-queue" title="Organizar fila do PIEL">
+                            <LiaUsersCogSolid /><span className="admin-action-label">Gerenciar fila</span>
+                        </button>
                         <button className="btn-primary" onClick={() => handleOpenModal()}>
                             <LiaPlusSolid /> Adicionar Informativo
                         </button>
@@ -191,6 +196,7 @@ const AdminPiel = () => {
                         onSave={handleSave}
                     />
                 )}
+                {showQueueManager && <QueueManagerModal lockedService="PIEL" onClose={() => setShowQueueManager(false)} />}
             </div>
         </div>
     );
