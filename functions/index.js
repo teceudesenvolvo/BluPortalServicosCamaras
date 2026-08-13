@@ -216,6 +216,31 @@ async function requireAdminUser(req) {
   };
 }
 
+exports.getAdminAuthUserCount = onRequest({}, async (req, res) => {
+  applyCors(res);
+  if (req.method === "OPTIONS") return res.status(204).send("");
+  if (req.method !== "GET") {
+    return res.status(405).json({error: "Method Not Allowed"});
+  }
+  try {
+    await requireAdminUser(req);
+    let total = 0;
+    let pageToken;
+    do {
+      const page = await admin.auth().listUsers(1000, pageToken);
+      total += page.users.length;
+      pageToken = page.pageToken;
+    } while (pageToken);
+    res.set("Cache-Control", "private, max-age=300");
+    return res.json({ok: true, total});
+  } catch (error) {
+    console.error("Erro ao contar usuários do Auth:", error);
+    return res.status(error.status || 500).json({
+      error: error.message || "Falha ao contar usuários.",
+    });
+  }
+});
+
 /**
  * Extracts the OAuth code from a full callback URL or raw code.
  * @param {string} value Full callback URL or code

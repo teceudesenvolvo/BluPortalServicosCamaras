@@ -134,6 +134,7 @@ const createQueueTicket = async ({ protocolo, nome, assunto, appointmentDate, ap
             prioridade: false,
             status: 'Aguardando',
             criadoEm: new Date(),
+            ordemFilaEm: new Date(),
             chamadoEm: null,
             criadoPor: auth.currentUser?.email || 'Recepção',
         });

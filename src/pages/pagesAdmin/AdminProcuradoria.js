@@ -11,7 +11,8 @@ import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import QueueManagerModal from '../../components/QueueManagerModal';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
-import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane, LiaSearchSolid, LiaUsersCogSolid } from "react-icons/lia";
+import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane, LiaSearchSolid, LiaUsersCogSolid, LiaCogSolid } from "react-icons/lia";
+import { SectorAvailabilityModal } from '../../components/SectorScheduling';
 
 // Modal Component
 const SolicitacaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage, onFileUpload }) => {
@@ -106,6 +107,8 @@ const SolicitacaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage,
                             <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="form-input">
                                 <option value="Recebida">Recebida</option>
                                 <option value="Em Acolhimento">Em Acolhimento</option>
+                                <option value="Agendamento Liberado">Agendamento Liberado</option>
+                                <option value="Agendado">Agendado</option>
                                 <option value="Encaminhada">Encaminhada</option>
                                 <option value="Concluída">Concluída</option>
                                 <option value="Cancelada">Cancelada</option>
@@ -154,6 +157,7 @@ const AdminProcuradoriaDashboard = () => {
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [showQueueManager, setShowQueueManager] = useState(false);
+    const [showAvailability, setShowAvailability] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -353,6 +357,7 @@ const AdminProcuradoriaDashboard = () => {
                         <button onClick={() => setShowQueueManager(true)} className="admin-action-button action-queue" title="Organizar fila da Procuradoria">
                             <LiaUsersCogSolid /><span className="admin-action-label">Gerenciar fila</span>
                         </button>
+                        <button type="button" onClick={() => setShowAvailability(true)} className="admin-header-gear-button" aria-label="Configurar horários" title="Configurar horários"><LiaCogSolid size={24} /></button>
                     </div>
                     <div className="user-profile">
                         <div className="user-text">
@@ -363,6 +368,7 @@ const AdminProcuradoriaDashboard = () => {
                     </div>
                 </header>
                 {showQueueManager && <QueueManagerModal lockedService="Procuradoria da Mulher" onClose={() => setShowQueueManager(false)} />}
+                {showAvailability && <SectorAvailabilityModal configCollection="procuradoria-config" sectorLabel="Procuradoria da Mulher" onClose={() => setShowAvailability(false)} />}
 
                 <div className="data-sections-grid">
                     <div className="data-card">

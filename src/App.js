@@ -4,6 +4,7 @@ import './App.css';
 
 // Importa o provedor de autenticação
 import { AuthProvider } from './contexts/FirebaseAuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 // Importa as páginas
 import HomePage from './pages/HomePage';
@@ -14,6 +15,7 @@ import NoticiaDetalhe from './pages/NoticiaDetalhe';
 
 // Componentes Globais
 import DevelopmentPopup from './components/DevelopmentPopup';
+import ThemeToggle from './components/ThemeToggle';
 
 // Páginas Usuário Comum
 import DownloadApp from './pages/DownloadApp';
@@ -61,9 +63,11 @@ import AdminMicroempreendedor from './pages/pagesAdmin/AdminMicroempreendedor';
 function App() {
   return (
     // 1. Envolve toda a aplicação com o AuthProvider
-    <AuthProvider>
-      <Router>
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
         <DevelopmentPopup />
+        <ThemeToggle />
         <Routes>
           {/* Sem Login */}
           <Route path="/" element={<HomePage />} />
@@ -116,8 +120,9 @@ function App() {
           <Route path="/painel-atendimento" element={<PainelAtendimento />} />
 
         </Routes>
-      </Router>
-    </AuthProvider>
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

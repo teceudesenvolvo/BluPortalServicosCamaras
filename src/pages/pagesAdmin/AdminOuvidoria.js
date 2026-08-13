@@ -11,7 +11,8 @@ import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import QueueManagerModal from '../../components/QueueManagerModal';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
-import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane, LiaSearchSolid, LiaFilterSolid, LiaArrowLeftSolid, LiaUsersCogSolid } from "react-icons/lia";
+import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane, LiaSearchSolid, LiaFilterSolid, LiaArrowLeftSolid, LiaUsersCogSolid, LiaCogSolid } from "react-icons/lia";
+import { SectorAvailabilityModal } from '../../components/SectorScheduling';
 
 // Modal Component
 const ManifestacaoModal = ({ manifestacao, onClose, onStatusChange, onSendMessage, onFileUpload }) => {
@@ -99,6 +100,8 @@ const ManifestacaoModal = ({ manifestacao, onClose, onStatusChange, onSendMessag
                             <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="form-input">
                                 <option value="Recebida">Recebida</option>
                                 <option value="Em Análise">Em Análise</option>
+                                <option value="Agendamento Liberado">Agendamento Liberado</option>
+                                <option value="Agendado">Agendado</option>
                                 <option value="Respondida">Respondida</option>
                                 <option value="Encaminhada">Encaminhada</option>
                                 <option value="Cancelada">Cancelada</option>
@@ -151,6 +154,7 @@ const AdminOuvidoriaDashboard = () => {
     const [filterTipo, setFilterTipo] = useState('Todos');
     const [showFilters, setShowFilters] = useState(false);
     const [showQueueManager, setShowQueueManager] = useState(false);
+    const [showAvailability, setShowAvailability] = useState(false);
 
     // Paginação
     const [currentPage, setCurrentPage] = useState(1);
@@ -418,6 +422,7 @@ const AdminOuvidoriaDashboard = () => {
                         <button onClick={() => setShowQueueManager(true)} className="admin-action-button action-queue" title="Organizar fila da Ouvidoria">
                             <LiaUsersCogSolid /><span className="admin-action-label">Gerenciar fila</span>
                         </button>
+                        <button type="button" onClick={() => setShowAvailability(true)} className="admin-header-gear-button" aria-label="Configurar horários" title="Configurar horários"><LiaCogSolid size={24} /></button>
                     </div>
                     <div className="user-profile">
                         <div className="user-text">
@@ -428,6 +433,7 @@ const AdminOuvidoriaDashboard = () => {
                     </div>
                 </header>
                 {showQueueManager && <QueueManagerModal lockedService="Ouvidoria" onClose={() => setShowQueueManager(false)} />}
+                {showAvailability && <SectorAvailabilityModal configCollection="ouvidoria-config" sectorLabel="Ouvidoria" onClose={() => setShowAvailability(false)} />}
 
                 <div className="data-card" style={{ marginBottom: '24px' }}>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>

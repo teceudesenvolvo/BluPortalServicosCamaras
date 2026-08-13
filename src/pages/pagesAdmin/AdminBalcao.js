@@ -14,9 +14,10 @@ import {
     LiaPaperclipSolid, LiaDownloadSolid,
     LiaCogSolid, LiaCalendarCheckSolid, LiaClipboardListSolid,
     LiaClockSolid, LiaHourglassHalfSolid, LiaRedoAltSolid, LiaBullhornSolid, 
-    LiaUsersSolid
+    LiaUsersSolid, LiaUserSolid, LiaAddressCardSolid
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
+import { useTheme } from '../../contexts/ThemeContext';
 
 // Lightbox para visualizar arquivos inline
 const FileViewerModal = ({ file, onClose }) => {
@@ -815,6 +816,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
 
 // Main Dashboard Component
 const AdminBalcaoDashboard = () => {
+    const { theme } = useTheme();
     const navigate = useNavigate();
     const chartRef = useRef(null);
     const chartInstance = useRef(null);
@@ -831,6 +833,7 @@ const AdminBalcaoDashboard = () => {
     const [chartPeriodLabel, setChartPeriodLabel] = useState('Últimos 30 dias');
     const [chartTotalSolicitacoes, setChartTotalSolicitacoes] = useState(0);
     const [solicitacoes, setSolicitacoes] = useState([]);
+    const [authUsersCount, setAuthUsersCount] = useState(null);
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
     const [isInstantNotificationModalOpen, setIsInstantNotificationModalOpen] = useState(false);
@@ -875,6 +878,47 @@ const AdminBalcaoDashboard = () => {
     }, [fetchData]);
 
     useEffect(() => {
+        if (!isAuthReady || !auth.currentUser) return;
+        let cancelled = false;
+        const fetchAuthCount = async () => {
+            try {
+                const token = await auth.currentUser.getIdToken();
+                const baseUrl = process.env.REACT_APP_FUNCTIONS_BASE_URL?.replace(/\/$/, '') || 'https://us-central1-blu-app-camara.cloudfunctions.net';
+                let lastError;
+
+                for (let attempt = 0; attempt < 3; attempt += 1) {
+                    try {
+                        const response = await fetch(`${baseUrl}/getAdminAuthUserCount?v=2`, {
+                            method: 'GET',
+                            cache: 'no-store',
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                Accept: 'application/json',
+                            },
+                        });
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        const result = await response.json();
+                        if (!cancelled) setAuthUsersCount(Number(result.total) || 0);
+                        return;
+                    } catch (error) {
+                        lastError = error;
+                        if (attempt < 2) {
+                            await new Promise(resolve => setTimeout(resolve, 900 * (attempt + 1)));
+                        }
+                    }
+                }
+
+                throw lastError;
+            } catch (error) {
+                console.error('Erro ao carregar total de usuários do Auth:', error);
+                if (!cancelled) setAuthUsersCount(null);
+            }
+        };
+        fetchAuthCount();
+        return () => { cancelled = true; };
+    }, [isAuthReady]);
+
+    useEffect(() => {
         const { start: monthStart, end: monthEnd } = getCurrentMonthRange();
         const currentMonthData = solicitacoes.filter((item) => (
             item.timestamp && item.timestamp >= monthStart.getTime() && item.timestamp <= monthEnd.getTime()
@@ -902,6 +946,10 @@ const AdminBalcaoDashboard = () => {
         if (chartInstance.current) chartInstance.current.destroy();
 
         const ctx = chartRef.current.getContext('2d');
+        const isDarkTheme = theme === 'dark';
+        const chartTextColor = isDarkTheme ? '#d7e8f5' : '#5f6f86';
+        const chartHeadingColor = isDarkTheme ? '#f4f9fd' : '#10233f';
+        const chartGridColor = isDarkTheme ? 'rgba(174, 211, 237, 0.14)' : 'rgba(15, 23, 42, 0.08)';
         chartInstance.current = new Chart(ctx, {
             type: 'line',
             data: {
@@ -918,21 +966,21 @@ const AdminBalcaoDashboard = () => {
                 scales: { 
                     y: { 
                         beginAtZero: true, 
-                        ticks: { stepSize: 1, color: '#5f6f86' },
-                        grid: { color: 'rgba(15, 23, 42, 0.08)' }
+                        ticks: { stepSize: 1, color: chartTextColor },
+                        grid: { color: chartGridColor }
                     },
                     x: {
                         grid: { display: false },
-                        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10, color: '#5f6f86' }
+                        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10, color: chartTextColor }
                     }
                 },
                 plugins: {
                     legend: {
                         display: true,
                         position: 'bottom',
-                        labels: { usePointStyle: true, boxWidth: 8, padding: 16, color: '#334155' }
+                        labels: { usePointStyle: true, boxWidth: 8, padding: 16, color: chartTextColor }
                     },
-                    title: { display: true, text: `Crescimento por status - ${chartPeriodLabel}`, color: '#10233f', font: { size: 16, weight: '600' } },
+                    title: { display: true, text: `Crescimento por status - ${chartPeriodLabel}`, color: chartHeadingColor, font: { size: 16, weight: '600' } },
                     tooltip: {
                         callbacks: {
                             label: (context) => `${context.dataset.label}: ${context.parsed.y} solicitação${context.parsed.y === 1 ? '' : 'ões'}`
@@ -943,7 +991,7 @@ const AdminBalcaoDashboard = () => {
         });
 
         return () => { if (chartInstance.current) chartInstance.current.destroy(); };
-    }, [statusGrowthData, chartPeriodLabel]);
+    }, [statusGrowthData, chartPeriodLabel, theme]);
 
     useEffect(() => {
         Object.values(statusChartInstances.current).forEach(instance => instance?.destroy());
@@ -1216,6 +1264,22 @@ const AdminBalcaoDashboard = () => {
         const appointmentDate = item.appointmentDate || item.dadosSolicitacao?.appointmentDate || item.dadosSolicitacao?.dataAgendamento;
         return (item.status || '') === 'Agendado' && normalizeDateString(appointmentDate) === todayKey;
     }).length;
+    const normalizeIdentity = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const uniqueBeneficiariesCount = new Set(solicitacoes.map((item) => {
+        const beneficiary = item.dadosBeneficiario || {};
+        const requester = item.dadosUsuario || {};
+        return normalizeIdentity(
+            beneficiary.cpf
+            || beneficiary.id
+            || beneficiary.email
+            || beneficiary.name
+            || requester.cpf
+            || requester.uid
+            || requester.email
+            || requester.name
+        );
+    }).filter(Boolean)).size;
+    const totalAttendancesCount = solicitacoes.length;
     const statusCharts = statusGrowthData.datasets.map((dataset) => {
         const total = dataset.data[dataset.data.length - 1] || 0;
         const first = dataset.data[0] || 0;
@@ -1304,6 +1368,21 @@ const AdminBalcaoDashboard = () => {
                         </span>
                     </button>
                 </div>
+
+                <section className="admin-balcao-audience-summary" aria-label="Resumo de cidadãos atendidos">
+                    <article>
+                        <span className="admin-balcao-audience-icon users"><LiaUserSolid /></span>
+                        <div><span>Usuários cadastrados</span><strong>{authUsersCount ?? '—'}</strong><small>Total no Firebase Auth</small></div>
+                    </article>
+                    <article>
+                        <span className="admin-balcao-audience-icon beneficiaries"><LiaUsersSolid /></span>
+                        <div><span>Beneficiários únicos</span><strong>{uniqueBeneficiariesCount}</strong><small>Pessoas atendidas pelo Balcão</small></div>
+                    </article>
+                    <article>
+                        <span className="admin-balcao-audience-icon attendances"><LiaAddressCardSolid /></span>
+                        <div><span>Atendimentos registrados</span><strong>{totalAttendancesCount}</strong><small>Total no histórico carregado</small></div>
+                    </article>
+                </section>
 
                 <div className="data-card admin-balcao-chart-card">
                     <div className="card-header admin-balcao-card-header">

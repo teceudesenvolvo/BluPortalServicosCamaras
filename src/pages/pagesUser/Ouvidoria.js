@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { firestore } from '../../firebase';
 import Sidebar from '../../components/Sidebar';
 import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { SectorAppointment } from '../../components/SectorScheduling';
 
 // Ícones
 import { LiaPlusSolid, LiaTimesSolid } from "react-icons/lia";
@@ -32,6 +33,8 @@ const ManifestacaoModal = ({ manifestacao, onClose }) => {
                     <div className="detail-item"><strong>Assunto:</strong> {dadosManifestacao?.assunto || 'N/A'}</div>
                     <div className="detail-item"><strong>Descrição:</strong></div>
                     <p className="detail-description">{dadosManifestacao?.descricao || 'N/A'}</p>
+                    {status === 'Agendado' && <div className="appointment-confirmed"><strong>Agendamento:</strong> {manifestacao.appointmentDate} às {manifestacao.appointmentTime}</div>}
+                    {status === 'Agendamento Liberado' && <SectorAppointment collectionName="ouvidoria" configCollection="ouvidoria-config" request={manifestacao} sectorLabel="Ouvidoria" />}
                 </div>
             </div>
         </div>
@@ -42,6 +45,8 @@ const getStatusClass = (status) => {
     switch (status) {
         case 'Recebida': return 'status-pending';
         case 'Em Análise': return 'status-in-progress';
+        case 'Agendamento Liberado': return 'status-in-progress';
+        case 'Agendado': return 'status-in-progress';
         case 'Respondida': return 'status-completed';
         case 'Encaminhada': return 'status-in-progress';
         default: return '';

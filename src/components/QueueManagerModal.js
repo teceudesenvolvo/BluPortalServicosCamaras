@@ -46,7 +46,8 @@ const getTime = (value) => {
 
 const queueOrder = (a, b) => {
     const priorityDifference = Number(Boolean(b.prioridade)) - Number(Boolean(a.prioridade));
-    return priorityDifference || getTime(a.criadoEm) - getTime(b.criadoEm);
+    return priorityDifference
+        || getTime(a.ordemFilaEm || a.criadoEm) - getTime(b.ordemFilaEm || b.criadoEm);
 };
 
 const QueueManagerModal = ({ onClose, lockedService = '' }) => {
@@ -169,6 +170,82 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
         }
     };
 
+    const returnToQueueAndCallNext = async (ticket) => {
+        if (!ticket.guicheId) {
+            await updateTicket(ticket, 'Aguardando', {
+                ordemFilaEm: new Date(),
+                guiche: null,
+                guicheId: null,
+            });
+            return;
+        }
+
+        const nextTicket = waiting.find(item => item.id !== ticket.id) || null;
+        setLoading(true);
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                const currentRef = doc(firestore, 'atendimento-fila', ticket.id);
+                const counterRef = doc(firestore, 'atendimento-guiches', ticket.guicheId);
+                const currentSnap = await transaction.get(currentRef);
+                const counterSnap = await transaction.get(counterRef);
+
+                if (!currentSnap.exists() || !['Chamando', 'Em Atendimento'].includes(currentSnap.data().status)) {
+                    throw new Error('Esta chamada já foi movimentada por outro atendente.');
+                }
+
+                let nextSnap = null;
+                let nextRef = null;
+                if (nextTicket) {
+                    nextRef = doc(firestore, 'atendimento-fila', nextTicket.id);
+                    nextSnap = await transaction.get(nextRef);
+                    if (!nextSnap.exists() || nextSnap.data().status !== 'Aguardando') {
+                        throw new Error('A próxima senha já foi movimentada. Atualize e tente novamente.');
+                    }
+                }
+
+                const now = new Date();
+                transaction.update(currentRef, {
+                    status: 'Aguardando',
+                    ordemFilaEm: now,
+                    retornouFilaEm: now,
+                    motivoRetornoFila: 'Não compareceu ao guichê',
+                    guiche: null,
+                    guicheId: null,
+                    atualizadoEm: now,
+                    atualizadoPor: auth.currentUser?.email || 'admin',
+                });
+
+                if (nextSnap && nextRef) {
+                    const counter = counterSnap.data();
+                    transaction.update(nextRef, {
+                        status: 'Chamando',
+                        guicheId: ticket.guicheId,
+                        guiche: counter.nome || ticket.guiche,
+                        chamadoEm: now,
+                        chamadoPor: auth.currentUser?.email || 'admin',
+                        chamadas: (nextSnap.data().chamadas || 0) + 1,
+                    });
+                    transaction.set(counterRef, {
+                        ativo: true,
+                        senhaAtual: nextSnap.data().senha,
+                        ticketAtualId: nextTicket.id,
+                        atualizadoEm: now,
+                    }, { merge: true });
+                } else {
+                    transaction.set(counterRef, {
+                        senhaAtual: null,
+                        ticketAtualId: null,
+                        atualizadoEm: now,
+                    }, { merge: true });
+                }
+            });
+        } catch (error) {
+            alert(error.message || 'Não foi possível devolver a senha e chamar a próxima.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const createCounter = async () => {
         const nome = newCounterName.trim();
         if (!nome) return;
@@ -282,6 +359,7 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                                             <div className="queue-ticket-actions">
                                                 {ticket.status === 'Chamando' && <button title="Rechamar" onClick={() => updateTicket(ticket, 'Chamando', { chamadoEm: new Date(), chamadas: (ticket.chamadas || 1) + 1 })}><LiaRedoAltSolid /></button>}
                                                 {ticket.status === 'Chamando' && <button title="Iniciar atendimento" onClick={() => updateTicket(ticket, 'Em Atendimento')}><LiaPlayCircleSolid /></button>}
+                                                {ticket.status === 'Chamando' && <button className="queue-no-show-button" title="Não compareceu: voltar para a fila e chamar o próximo" onClick={() => returnToQueueAndCallNext(ticket)}><LiaUserClockSolid /></button>}
                                                 <button title="Concluir" onClick={() => updateTicket(ticket, 'Concluído')}><LiaCheckCircleSolid /></button>
                                                 <button title="Ausente" onClick={() => updateTicket(ticket, 'Ausente')}><LiaPauseCircleSolid /></button>
                                             </div>
