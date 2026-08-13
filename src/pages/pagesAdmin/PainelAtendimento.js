@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { collection, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
-import { LiaImageSolid, LiaRedoAltSolid, LiaVolumeMuteSolid, LiaVolumeUpSolid } from 'react-icons/lia';
+import { LiaCogSolid, LiaImageSolid, LiaRedoAltSolid, LiaVolumeMuteSolid, LiaVolumeUpSolid } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
 import { firestore } from '../../firebase';
+import appQrCode from '../../assets/app-download-qr.png';
 
 const getTime = (value) => {
     if (!value) return 0;
@@ -25,6 +26,21 @@ const PainelAtendimento = () => {
     const [activeNewsIndex, setActiveNewsIndex] = useState(0);
     const [loading, setLoading] = useState(true);
     const [voiceEnabled, setVoiceEnabled] = useState(() => localStorage.getItem('queueVoiceEnabled') !== 'false');
+    const [panelSettingsOpen, setPanelSettingsOpen] = useState(false);
+    const [panelOptions, setPanelOptions] = useState(() => {
+        try {
+            return {
+                showSideMenu: true,
+                showHeader: true,
+                showRecentCalls: true,
+                showServiceQueues: true,
+                showNews: true,
+                ...JSON.parse(localStorage.getItem('queuePanelDisplayOptions') || '{}'),
+            };
+        } catch {
+            return { showSideMenu: true, showHeader: true, showRecentCalls: true, showServiceQueues: true, showNews: true };
+        }
+    });
     const lastAnnouncementRef = useRef('');
 
     useEffect(() => {
@@ -103,13 +119,21 @@ const PainelAtendimento = () => {
         if (nextValue && current) speakCall(current);
     };
 
+    const updatePanelOption = (option) => {
+        setPanelOptions(current => {
+            const next = { ...current, [option]: !current[option] };
+            localStorage.setItem('queuePanelDisplayOptions', JSON.stringify(next));
+            return next;
+        });
+    };
+
     return (
-        <div className="dashboard-layout public-queue-shell">
-            <AdminSidebar />
+        <div className={`dashboard-layout public-queue-shell ${!panelOptions.showSideMenu ? 'public-queue-menu-hidden' : ''} ${!panelOptions.showHeader ? 'public-queue-header-hidden' : ''} ${!panelOptions.showRecentCalls ? 'public-queue-recent-hidden' : ''} ${!panelOptions.showServiceQueues ? 'public-queue-services-hidden' : ''} ${!panelOptions.showNews ? 'public-queue-news-hidden' : ''}`}>
+            {panelOptions.showSideMenu && <AdminSidebar />}
             <main className="dashboard-content public-queue-page">
-                <header className="public-queue-header">
+                {panelOptions.showHeader && <header className="public-queue-header">
                     <div>
-                        <span>Câmara Municipal de Paraipaba</span>
+                        <span className="public-queue-eyebrow">Câmara Municipal de Paraipaba</span>
                         <h1>Painel de Atendimento</h1>
                     </div>
                     <div className="public-queue-clock">
@@ -125,11 +149,44 @@ const PainelAtendimento = () => {
                             </button>
                         </div>
                     </div>
-                </header>
+                </header>}
+
+                <div className="queue-panel-floating-settings">
+                    <button
+                        type="button"
+                        className="queue-panel-settings-button"
+                        onClick={() => setPanelSettingsOpen(open => !open)}
+                        aria-label="Configurar exibição do painel"
+                        title="Configurar exibição"
+                    >
+                        <LiaCogSolid />
+                    </button>
+                    {panelSettingsOpen && (
+                        <div className="queue-panel-settings-popover">
+                            <strong>Exibição do painel</strong>
+                            {[
+                                ['showSideMenu', 'Exibir menu lateral'],
+                                ['showHeader', 'Exibir cabeçalho'],
+                                ['showRecentCalls', 'Exibir últimas chamadas'],
+                                ['showServiceQueues', 'Exibir filas por serviço'],
+                                ['showNews', 'Exibir notícias'],
+                            ].map(([option, label]) => (
+                                <label key={option}>
+                                    <input type="checkbox" checked={panelOptions[option]} onChange={() => updatePanelOption(option)} />
+                                    {label}
+                                </label>
+                            ))}
+                        </div>
+                    )}
+                </div>
 
                 {loading ? <div className="queue-empty-state">Carregando chamadas...</div> : (
                     <div className="public-queue-layout">
                         <section className="public-current-call">
+                            <a className="public-app-qr public-app-qr-persistent" href="https://servicos.camaraparaipaba.ce.gov.br/download-app" target="_blank" rel="noreferrer" aria-label="Baixar aplicativo da Câmara">
+                                <img src={appQrCode} alt="QR Code para baixar o aplicativo da Câmara" />
+                                <span><b>Baixe o app</b><small>Aponte a câmera</small></span>
+                            </a>
                             <span>{current?.status === 'Em Atendimento' ? 'Em atendimento' : 'Chamando agora'}</span>
                             {current ? (
                                 <>
@@ -143,7 +200,7 @@ const PainelAtendimento = () => {
                             )}
                         </section>
 
-                        <aside className="public-recent-calls">
+                        {panelOptions.showRecentCalls && <aside className="public-recent-calls">
                             <div className="queue-section-title"><h2>Últimas chamadas</h2></div>
                             {recentCalls.length === 0 && <p className="queue-empty">As chamadas aparecerão aqui.</p>}
                             {recentCalls.map(ticket => (
@@ -152,9 +209,9 @@ const PainelAtendimento = () => {
                                     <div><b>{ticket.guiche || 'Atendimento'}</b><span>{ticket.setor || 'Balcão do Cidadão'}</span></div>
                                 </article>
                             ))}
-                        </aside>
+                        </aside>}
 
-                        <section className="public-service-queues">
+                        {panelOptions.showServiceQueues && <section className="public-service-queues">
                             <h2>Filas por serviço</h2>
                             <div>
                                 {serviceSummary.map(([name, count]) => (
@@ -162,9 +219,9 @@ const PainelAtendimento = () => {
                                 ))}
                                 {serviceSummary.length === 0 && <p>Nenhum cidadão aguardando.</p>}
                             </div>
-                        </section>
+                        </section>}
 
-                        {news.length > 0 && (
+                        {panelOptions.showNews && news.length > 0 && (
                             <section className="public-news-slider" aria-label="Notícias da Câmara">
                                 <div className="public-news-track" style={{ transform: `translateX(-${activeNewsIndex * 100}%)` }}>
                                     {news.map(item => (

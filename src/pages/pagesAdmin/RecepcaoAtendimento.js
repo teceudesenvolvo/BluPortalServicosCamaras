@@ -296,7 +296,7 @@ const RecepcaoAtendimento = () => {
         }
     };
 
-    const handleCreateRequest = async () => {
+    const handleCreateRequest = async (shouldPrint = true) => {
         if (!requestForm.nome.trim() || !requestForm.tipoDocumento.trim()) {
             alert('Informe os dados obrigatórios antes de imprimir.');
             return;
@@ -422,7 +422,7 @@ const RecepcaoAtendimento = () => {
 
             await setDoc(docRef, payload);
             setCreatedProtocol(docRef.id);
-            printProtocolReceipt({
+            if (shouldPrint) printProtocolReceipt({
                 title: 'Comprovante de Atendimento da Recepção',
                 protocol: docRef.id,
                 status: payload.status,
@@ -452,7 +452,7 @@ const RecepcaoAtendimento = () => {
         }
     };
 
-    const handleConfirmArrival = async () => {
+    const handleConfirmArrival = async (shouldPrint = true) => {
         if (!appointment || !appointmentIsToday) {
             alert('Selecione um agendamento válido para hoje.');
             return;
@@ -477,7 +477,7 @@ const RecepcaoAtendimento = () => {
             });
 
             setQueuePassword(senha);
-            printProtocolReceipt({
+            if (shouldPrint) printProtocolReceipt({
                 title: 'Senha de Atendimento Presencial',
                 protocol: appointment.id,
                 status: `Senha ${senha}`,
@@ -742,19 +742,29 @@ const RecepcaoAtendimento = () => {
                         <>
                             <p><strong>{isCreateFlow ? 'Protocolo:' : 'Senha:'}</strong> {isCreateFlow ? createdProtocol : queuePassword}</p>
                             <p><strong>Setor:</strong> {selectedSector}</p>
-                            <p>O comprovante foi aberto para impressão.</p>
+                            <p>Protocolo gerado com sucesso. A impressão é opcional.</p>
                         </>
                     ) : (
                         <>
-                            <p>Revise as informações e clique para gerar a impressão.</p>
-                            <button
-                                type="button"
-                                className="btn-primary btn-save-status"
-                                onClick={isCreateFlow ? handleCreateRequest : handleConfirmArrival}
-                                disabled={loading}
-                            >
-                                <LiaPrintSolid /> {loading ? 'Gerando...' : 'Imprimir Protocolo'}
-                            </button>
+                            <p>Revise as informações. Você pode gerar o protocolo sem imprimir.</p>
+                            <div className="reception-print-actions">
+                                <button
+                                    type="button"
+                                    className="btn-primary btn-save-status"
+                                    onClick={() => isCreateFlow ? handleCreateRequest(true) : handleConfirmArrival(true)}
+                                    disabled={loading}
+                                >
+                                    <LiaPrintSolid /> {loading ? 'Gerando...' : 'Gerar e Imprimir'}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn-secondary reception-skip-print"
+                                    onClick={() => isCreateFlow ? handleCreateRequest(false) : handleConfirmArrival(false)}
+                                    disabled={loading}
+                                >
+                                    {loading ? 'Gerando...' : 'Pular impressão'}
+                                </button>
+                            </div>
                         </>
                     )}
                 </div>

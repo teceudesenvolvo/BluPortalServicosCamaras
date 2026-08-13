@@ -14,7 +14,7 @@ import {
     LiaPaperclipSolid, LiaDownloadSolid,
     LiaCogSolid, LiaCalendarCheckSolid, LiaClipboardListSolid,
     LiaClockSolid, LiaHourglassHalfSolid, LiaRedoAltSolid, LiaBullhornSolid, 
-    LiaUsersSolid, LiaUserSolid, LiaAddressCardSolid
+    LiaUsersSolid, LiaUserSolid, LiaAddressCardSolid, LiaCheckCircleSolid
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -1264,6 +1264,19 @@ const AdminBalcaoDashboard = () => {
         const appointmentDate = item.appointmentDate || item.dadosSolicitacao?.appointmentDate || item.dadosSolicitacao?.dataAgendamento;
         return (item.status || '') === 'Agendado' && normalizeDateString(appointmentDate) === todayKey;
     }).length;
+    const todayConfirmedAppointmentsCount = solicitacoes.filter((item) => {
+        const appointmentDate = item.appointmentDate || item.dadosSolicitacao?.appointmentDate || item.dadosSolicitacao?.dataAgendamento;
+        const isToday = normalizeDateString(appointmentDate) === todayKey;
+        const hasConfirmedArrival = Boolean(
+            item.chegadaRecepcaoEm
+            || item.senhaAtendimento
+            || item.statusFila === 'Aguardando Atendimento Presencial'
+            || item.statusFila === 'Chamando'
+            || item.statusFila === 'Em Atendimento'
+            || item.statusFila === 'Concluído'
+        );
+        return (item.status || '') === 'Agendado' && isToday && hasConfirmedArrival;
+    }).length;
     const normalizeIdentity = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
     const uniqueBeneficiariesCount = new Set(solicitacoes.map((item) => {
         const beneficiary = item.dadosBeneficiario || {};
@@ -1343,6 +1356,11 @@ const AdminBalcaoDashboard = () => {
                                 <LiaClockSolid size={21} />
                                 <span>{todayLabel}</span>
                                 <strong>{todayAppointmentsCount}</strong>
+                            </span>
+                            <span className="admin-balcao-action-metric">
+                                <LiaCheckCircleSolid size={21} />
+                                <span>Chegadas confirmadas</span>
+                                <strong>{todayConfirmedAppointmentsCount}</strong>
                             </span>
                         </span>
                     </button>
