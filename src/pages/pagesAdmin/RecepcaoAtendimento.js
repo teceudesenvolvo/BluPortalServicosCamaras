@@ -1,5 +1,4 @@
-import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
 import { collection, doc, getDocs, limit, query, runTransaction, setDoc, updateDoc, where } from 'firebase/firestore';
 import {
     LiaCheckCircleSolid,
@@ -15,6 +14,7 @@ import { auth, firestore } from '../../firebase';
 import config from '../../config';
 import { printProtocolReceipt } from '../../utils/printReport';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
+import { openQueuePanelWindow } from '../../utils/openQueuePanelWindow';
 
 const receptionSectors = ['Balcão do Cidadão', 'Assessoria ao Microempreendedor', 'Ouvidoria', 'Procuradoria da Mulher', 'PIEL'];
 const documentTypeOptions = {
@@ -86,6 +86,13 @@ const getAppointmentDate = (item) => item?.appointmentDate || item?.dadosSolicit
 const getAppointmentTime = (item) => item?.appointmentTime || item?.dadosSolicitacao?.appointmentTime || '';
 const getCitizenName = (item) => item?.dadosBeneficiario?.name || item?.dadosUsuario?.name || 'Cidadão';
 const getAppointmentSubject = (item) => item?.dadosSolicitacao?.assunto || item?.dadosAssessoria?.tipo || item?.dadosManifestacao?.assunto || item?.dadosAtendimento?.tipoAtendimento || 'Atendimento';
+const getAppointmentSortKey = (item) => {
+    const normalizedDate = normalizeDate(getAppointmentDate(item));
+    const time = String(getAppointmentTime(item) || '23:59').slice(0, 5);
+    if (!normalizedDate) return Number.POSITIVE_INFINITY;
+    const parsed = new Date(`${normalizedDate}T${time}:00-03:00`).getTime();
+    return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
+};
 
 const appointmentCollections = [
     { name: 'balcao-cidadao', sector: 'Balcão do Cidadão' },
@@ -111,7 +118,7 @@ const getReceptionUploadPath = (sector, userId) => {
     return `${config.cityCollection}/balcao-cidadao/${userId}/anexos`;
 };
 
-const createQueueTicket = async ({ protocolo, nome, assunto, appointmentDate, appointmentTime, setor }) => {
+const createQueueTicket = async ({ protocolo, nome, assunto, appointmentDate, appointmentTime, setor, collectionName }) => {
     const dateKey = todayKey();
     const prefix = queuePrefixes[setor] || 'B';
     const counterRef = doc(firestore, 'atendimento-fila-meta', `${dateKey}-${prefix}`);
@@ -130,6 +137,10 @@ const createQueueTicket = async ({ protocolo, nome, assunto, appointmentDate, ap
             assunto,
             appointmentDate,
             appointmentTime,
+            agendamentoOrdenacaoEm: appointmentDate && appointmentTime
+                ? new Date(`${normalizeDate(appointmentDate)}T${String(appointmentTime).slice(0, 5)}:00-03:00`)
+                : null,
+            collectionName: collectionName || getReceptionCollection(setor),
             setor: setor || 'Balcão do Cidadão',
             prioridade: false,
             status: 'Aguardando',
@@ -144,13 +155,13 @@ const createQueueTicket = async ({ protocolo, nome, assunto, appointmentDate, ap
 };
 
 const RecepcaoAtendimento = () => {
-    const navigate = useNavigate();
     const [flowStep, setFlowStep] = useState(0);
     const [attendanceType, setAttendanceType] = useState('');
     const [selectedSector, setSelectedSector] = useState('');
     const [attachedFiles, setAttachedFiles] = useState([]);
     const [appointmentSearch, setAppointmentSearch] = useState('');
     const [appointmentResults, setAppointmentResults] = useState([]);
+    const [todayAppointments, setTodayAppointments] = useState([]);
     const [appointment, setAppointment] = useState(null);
     const [queuePassword, setQueuePassword] = useState('');
     const [createdProtocol, setCreatedProtocol] = useState('');
@@ -175,6 +186,13 @@ const RecepcaoAtendimento = () => {
     const isCreateFlow = attendanceType === 'create';
     const isConfirmFlow = attendanceType === 'confirm';
 
+    useEffect(() => {
+        if (flowStep === 2 && isConfirmFlow && selectedSector) {
+            handleLoadTodayAppointments();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [flowStep, isConfirmFlow, selectedSector]);
+
     const resetFlow = () => {
         setFlowStep(0);
         setAttendanceType('');
@@ -182,6 +200,7 @@ const RecepcaoAtendimento = () => {
         setAttachedFiles([]);
         setAppointmentSearch('');
         setAppointmentResults([]);
+        setTodayAppointments([]);
         setAppointment(null);
         setQueuePassword('');
         setCreatedProtocol('');
@@ -279,7 +298,8 @@ const RecepcaoAtendimento = () => {
                     ].filter(Boolean).join(' ').toLowerCase();
 
                     return values.includes(term);
-                });
+                })
+                .sort((a, b) => getAppointmentSortKey(a) - getAppointmentSortKey(b) || getCitizenName(a).localeCompare(getCitizenName(b)));
 
             if (!results.length) {
                 alert('Nenhum agendamento encontrado com esses dados.');
@@ -291,6 +311,52 @@ const RecepcaoAtendimento = () => {
         } catch (error) {
             console.error('Erro ao buscar agendamentos:', error);
             alert('Erro ao buscar agendamentos.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLoadTodayAppointments = async () => {
+        if (!selectedSector) {
+            alert('Selecione o setor antes de listar os agendamentos.');
+            return;
+        }
+
+        setLoading(true);
+        setAppointment(null);
+        setAppointmentResults([]);
+        setQueuePassword('');
+
+        try {
+            const selectedCollection = appointmentCollections.find((item) => item.sector === selectedSector);
+            if (!selectedCollection) {
+                setTodayAppointments([]);
+                return;
+            }
+
+            const snapshot = await getDocs(query(
+                collection(firestore, selectedCollection.name),
+                where('status', '==', 'Agendado'),
+                limit(500)
+            ));
+
+            const results = snapshot.docs
+                .map((docSnap) => ({
+                    id: docSnap.id,
+                    collectionName: selectedCollection.name,
+                    setorAtendimento: selectedCollection.sector,
+                    ...docSnap.data(),
+                }))
+                .filter((item) => normalizeDate(getAppointmentDate(item)) === todayKey())
+                .sort((a, b) => getAppointmentSortKey(a) - getAppointmentSortKey(b) || getCitizenName(a).localeCompare(getCitizenName(b)));
+
+            setTodayAppointments(results);
+            if (results.length === 1) {
+                setAppointment(results[0]);
+            }
+        } catch (error) {
+            console.error('Erro ao listar agendamentos do dia:', error);
+            alert('Erro ao listar os agendamentos do dia.');
         } finally {
             setLoading(false);
         }
@@ -467,6 +533,7 @@ const RecepcaoAtendimento = () => {
                 appointmentDate: getAppointmentDate(appointment),
                 appointmentTime: getAppointmentTime(appointment),
                 setor: appointment.setorAtendimento || selectedSector,
+                collectionName: appointment.collectionName || getReceptionCollection(appointment.setorAtendimento || selectedSector),
             });
 
             await updateDoc(doc(firestore, appointment.collectionName || 'balcao-cidadao', appointment.id), {
@@ -596,7 +663,21 @@ const RecepcaoAtendimento = () => {
                         <button onClick={handleFindAppointment} className="btn-secondary" disabled={loading}>
                             <LiaSearchSolid /> Buscar
                         </button>
+                        <button onClick={handleLoadTodayAppointments} className="btn-secondary" disabled={loading}>
+                            <LiaClipboardListSolid /> Listar do dia
+                        </button>
                     </div>
+
+                    {todayAppointments.length > 0 && (
+                        <div className="appointment-result-list">
+                            {todayAppointments.map(result => (
+                                <button type="button" key={`today-${result.id}`} className={appointment?.id === result.id ? 'active' : ''} onClick={() => setAppointment(result)}>
+                                    <strong>{getCitizenName(result)}</strong>
+                                    <span>{result.setorAtendimento} • {result.id} • {getAppointmentDate(result)} • {getAppointmentTime(result) || 'Sem horário'}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     {appointmentResults.length > 1 && (
                         <div className="appointment-result-list">
@@ -607,6 +688,10 @@ const RecepcaoAtendimento = () => {
                                 </button>
                             ))}
                         </div>
+                    )}
+
+                    {!todayAppointments.length && !appointmentResults.length && (
+                        <p className="detail-description">Use a busca ou toque em `Listar do dia` para carregar todos os agendamentos de hoje deste setor.</p>
                     )}
 
                     {appointment && (
@@ -793,7 +878,7 @@ const RecepcaoAtendimento = () => {
                             <p>Fluxo presencial em passos para confirmação e criação de atendimentos.</p>
                         </div>
                         <div className="admin-balcao-header-actions">
-                            <button onClick={() => navigate('/painel-atendimento')} className="admin-action-button action-queue">
+                            <button onClick={openQueuePanelWindow} className="admin-action-button action-queue">
                                 <LiaClipboardListSolid />
                                 <span className="admin-action-label">Ver Painel da Fila</span>
                             </button>

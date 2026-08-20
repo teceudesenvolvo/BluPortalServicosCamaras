@@ -39,6 +39,7 @@ import AdminBalcaoAgendamentos from './pages/pagesAdmin/AdminBalcaoAgendamentos'
 import TvCamara from './pages/pagesUser/TvCamara';
 import Microempreendedor from './pages/pagesUser/Microempreendedor';
 import NovaMicroempreendedor from './pages/pagesUser/NovaMicroempreendedor';
+import AvaliarAtendimento from './pages/pagesUser/AvaliarAtendimento';
 
 import AdminPiel from './pages/pagesAdmin/AdminPiel';
 import AdminProcon from './pages/pagesAdmin/AdminProcon';
@@ -97,6 +98,7 @@ function App() {
           <Route path="/tv-camara" element={<TvCamara />} />
           <Route path="/microempreendedor" element={<Microempreendedor />} />
           <Route path="/microempreendedor/novo" element={<NovaMicroempreendedor />} />
+          <Route path="/avaliar-atendimento/:protocolo" element={<AvaliarAtendimento />} />
 
           {/* Com Login - Admin */}
           <Route path="/admin-procon" element={<AdminProcon />} />

@@ -8445,6 +8445,62 @@ color: #fff !important;
   background: rgba(1, 71, 126, 0.9);
 }
 
+[data-theme="dark"] .modern-profile-container .profile-summary,
+[data-theme="dark"] .modern-profile-container .profile-quick-grid article,
+[data-theme="dark"] .modern-profile-container .data-card {
+  background:
+    linear-gradient(145deg, rgba(21, 52, 80, 0.88), rgba(8, 33, 54, 0.84)) !important;
+  border-color: rgba(116, 190, 241, 0.24) !important;
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+[data-theme="dark"] .modern-profile-container .profile-text h2,
+[data-theme="dark"] .modern-profile-container .profile-quick-grid strong,
+[data-theme="dark"] .modern-profile-container .data-item span,
+[data-theme="dark"] .modern-profile-container .data-card h3,
+[data-theme="dark"] .modern-profile-container .card-header h3 {
+  color: #f4f9fd !important;
+}
+
+[data-theme="dark"] .modern-profile-container .profile-text span,
+[data-theme="dark"] .modern-profile-container .profile-quick-grid small,
+[data-theme="dark"] .modern-profile-container .data-item strong,
+[data-theme="dark"] .modern-profile-container .data-item-edit label {
+  color: #b9cee0 !important;
+}
+
+[data-theme="dark"] .modern-profile-container .profile-text p {
+  background: rgba(59, 130, 246, 0.18) !important;
+  color: #d8ebff !important;
+}
+
+[data-theme="dark"] .modern-profile-container .card-header {
+  border-bottom-color: rgba(59, 130, 246, 0.72) !important;
+}
+
+[data-theme="dark"] .modern-profile-container .data-item,
+[data-theme="dark"] .modern-profile-container .data-item-edit {
+  border-bottom-color: rgba(116, 190, 241, 0.12) !important;
+}
+
+[data-theme="dark"] .modern-profile-container .data-item-edit input,
+[data-theme="dark"] .modern-profile-container .data-item-edit select,
+[data-theme="dark"] .modern-profile-container .form-input-edit {
+  background: rgba(12, 40, 64, 0.9) !important;
+  border-color: rgba(90, 153, 203, 0.36) !important;
+  color: #f4f9fd !important;
+}
+
+[data-theme="dark"] .modern-profile-container .data-item-edit input::placeholder,
+[data-theme="dark"] .modern-profile-container .form-input-edit::placeholder {
+  color: #90aac0 !important;
+}
+
+[data-theme="dark"] .modern-profile-container .btn-edit-avatar {
+  background: rgba(1, 71, 126, 0.96) !important;
+  color: #f8fbff !important;
+}
+
 @media (max-width: 1000px) {
   .profile-quick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { collection, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
-import { LiaCogSolid, LiaImageSolid, LiaRedoAltSolid, LiaVolumeMuteSolid, LiaVolumeUpSolid } from 'react-icons/lia';
+import { LiaCogSolid, LiaDownloadSolid, LiaImageSolid, LiaRedoAltSolid, LiaVolumeMuteSolid, LiaVolumeUpSolid } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
 import { firestore } from '../../firebase';
 import appQrCode from '../../assets/app-download-qr.png';
@@ -27,6 +27,8 @@ const PainelAtendimento = () => {
     const [loading, setLoading] = useState(true);
     const [voiceEnabled, setVoiceEnabled] = useState(() => localStorage.getItem('queueVoiceEnabled') !== 'false');
     const [panelSettingsOpen, setPanelSettingsOpen] = useState(false);
+    const [installPrompt, setInstallPrompt] = useState(null);
+    const [isInstalled, setIsInstalled] = useState(() => window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true);
     const [panelOptions, setPanelOptions] = useState(() => {
         try {
             return {
@@ -42,6 +44,38 @@ const PainelAtendimento = () => {
         }
     });
     const lastAnnouncementRef = useRef('');
+
+    useEffect(() => {
+        const manifestLink = document.querySelector('link[rel="manifest"]');
+        const themeMeta = document.querySelector('meta[name="theme-color"]');
+        const previousManifest = manifestLink?.getAttribute('href');
+        const previousTheme = themeMeta?.getAttribute('content');
+        const previousTitle = document.title;
+
+        manifestLink?.setAttribute('href', '/manifest-painel.json');
+        themeMeta?.setAttribute('content', '#062b49');
+        document.title = 'Painel de Atendimento - Câmara de Paraipaba';
+
+        const handleInstallPrompt = (event) => {
+            event.preventDefault();
+            setInstallPrompt(event);
+        };
+        const handleInstalled = () => {
+            setIsInstalled(true);
+            setInstallPrompt(null);
+        };
+
+        window.addEventListener('beforeinstallprompt', handleInstallPrompt);
+        window.addEventListener('appinstalled', handleInstalled);
+
+        return () => {
+            if (previousManifest) manifestLink?.setAttribute('href', previousManifest);
+            if (previousTheme) themeMeta?.setAttribute('content', previousTheme);
+            document.title = previousTitle;
+            window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
+            window.removeEventListener('appinstalled', handleInstalled);
+        };
+    }, []);
 
     useEffect(() => {
         const unsubscribe = onSnapshot(collection(firestore, 'atendimento-fila'), (snapshot) => {
@@ -127,6 +161,14 @@ const PainelAtendimento = () => {
         });
     };
 
+    const installPanel = async () => {
+        if (!installPrompt) return;
+        await installPrompt.prompt();
+        const choice = await installPrompt.userChoice;
+        if (choice.outcome === 'accepted') setIsInstalled(true);
+        setInstallPrompt(null);
+    };
+
     return (
         <div className={`dashboard-layout public-queue-shell ${!panelOptions.showSideMenu ? 'public-queue-menu-hidden' : ''} ${!panelOptions.showHeader ? 'public-queue-header-hidden' : ''} ${!panelOptions.showRecentCalls ? 'public-queue-recent-hidden' : ''} ${!panelOptions.showServiceQueues ? 'public-queue-services-hidden' : ''} ${!panelOptions.showNews ? 'public-queue-news-hidden' : ''}`}>
             {panelOptions.showSideMenu && <AdminSidebar />}
@@ -140,6 +182,11 @@ const PainelAtendimento = () => {
                         <strong>{new Date().toLocaleDateString('pt-BR')}</strong>
                         <span>{waiting.length} aguardando</span>
                         <div className="public-queue-voice-controls">
+                            {!isInstalled && installPrompt && (
+                                <button type="button" onClick={installPanel} title="Instalar painel neste computador">
+                                    <LiaDownloadSolid /> Instalar painel
+                                </button>
+                            )}
                             <button type="button" onClick={toggleVoice} title={voiceEnabled ? 'Desativar voz' : 'Ativar voz'}>
                                 {voiceEnabled ? <LiaVolumeUpSolid /> : <LiaVolumeMuteSolid />}
                                 {voiceEnabled ? 'Voz ativa' : 'Voz desligada'}

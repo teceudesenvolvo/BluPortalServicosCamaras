@@ -29,6 +29,14 @@ const SERVICES = [
     'PIEL',
 ];
 
+const REQUEST_COLLECTIONS = {
+    'Balcão do Cidadão': 'balcao-cidadao',
+    'Assessoria ao Microempreendedor': 'assessoria-microempreendedor',
+    Ouvidoria: 'ouvidoria',
+    'Procuradoria da Mulher': 'procuradoria-mulher',
+    PIEL: 'piel-atendimentos',
+};
+
 const isToday = (value) => {
     const date = value?.toDate ? value.toDate() : new Date(value);
     if (Number.isNaN(date.getTime())) return false;
@@ -44,9 +52,28 @@ const getTime = (value) => {
     return new Date(value).getTime() || 0;
 };
 
+const getAppointmentSortTime = (ticket) => {
+    const dateValue = ticket?.appointmentDate;
+    const timeValue = ticket?.appointmentTime;
+    if (!dateValue || !timeValue) return Number.POSITIVE_INFINITY;
+
+    let normalizedDate = '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateValue))) {
+        normalizedDate = String(dateValue);
+    } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(String(dateValue))) {
+        const [day, month, year] = String(dateValue).split('/');
+        normalizedDate = `${year}-${month}-${day}`;
+    }
+
+    if (!normalizedDate) return Number.POSITIVE_INFINITY;
+    const parsed = new Date(`${normalizedDate}T${String(timeValue).slice(0, 5)}:00-03:00`).getTime();
+    return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
+};
+
 const queueOrder = (a, b) => {
     const priorityDifference = Number(Boolean(b.prioridade)) - Number(Boolean(a.prioridade));
     return priorityDifference
+        || getAppointmentSortTime(a) - getAppointmentSortTime(b)
         || getTime(a.ordemFilaEm || a.criadoEm) - getTime(b.ordemFilaEm || b.criadoEm);
 };
 
@@ -114,6 +141,16 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                 senhaAtual: null,
                 ticketAtualId: null,
                 atualizadoEm: now,
+            }, { merge: true }));
+        }
+        const ticketService = ticket.setor || 'Balcão do Cidadão';
+        const requestCollection = ticket.collectionName || REQUEST_COLLECTIONS[ticketService];
+        if (status === 'Concluído' && ticket.protocolo && ticketService === 'Balcão do Cidadão' && requestCollection) {
+            updates.push(setDoc(doc(firestore, requestCollection, ticket.protocolo), {
+                status: 'Documento em emissão',
+                statusFila: 'Atendimento Presencial Concluído',
+                atendimentoPresencialConcluidoEm: now,
+                ultimaAtualizacao: now,
             }, { merge: true }));
         }
         await Promise.all(updates);

@@ -551,7 +551,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                 <option value="Concluído">Concluído</option>
                                 <option value="Documentação Reprovada">Documentação Reprovada</option>
                                 <option value="Documentação Reenviada">Documentação Reenviada</option>
-                                <option value="Documento sendo preparado">Documento sendo preparado</option>
+                                <option value="Documento em emissão">Documento em emissão</option>
                                 <option value="Documento Pronto">Documento Pronto</option>
                                 <option value="Cancelado">Cancelado</option>
                             </select>
@@ -758,7 +758,7 @@ const AdminBalcaoSolicitacoes = () => {
 
     /* ── Filtragem ── */
     const assuntosList = ['Todos', 'Informações Gerais', 'Emissão de Documentos', 'Agendamento', 'Outros'];
-    const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Concluído', 'Não Classificado'];
+    const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Documento em emissão', 'Concluído', 'Não Classificado'];
 
     const filteredSolicitacoes = solicitacoes.filter(item => {
         const searchLower = searchTerm.toLowerCase();

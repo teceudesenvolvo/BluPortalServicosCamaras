@@ -14,7 +14,9 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": ".",
+  "id": "/portal-servicos",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "theme_color": "#00128A",
   "background_color": "#ffffff"

@@ -26,6 +26,11 @@ const ESTADO_CIVIL_OPTIONS = [
     { value: 'uniao-estavel', label: 'União estável' },
 ];
 
+const getBirthMonthDay = (value) => {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return '';
+    return String(value).slice(5);
+};
+
 // *******************
 // Componente Principal: Perfil
 // *******************
@@ -136,6 +141,8 @@ const Perfil = () => {
                 // Sobrecreve a chave antiga com a nova URL
                 dataToSave.avatarBase64 = uploadResult.url; 
             }
+
+            dataToSave.aniversarioMesDia = getBirthMonthDay(dataToSave.dataNascimento);
 
             await updateDoc(userRef, dataToSave);
             setProfileData(dataToSave); // Atualiza o estado principal
@@ -255,6 +262,7 @@ const Perfil = () => {
                                         ))}
                                     </select>
                                 </div>
+                                <div className="data-item-edit"><label>Data de Nascimento:</label><input type="date" name="dataNascimento" value={editableProfileData.dataNascimento || ''} onChange={handleProfileChange} max={new Date().toISOString().slice(0, 10)} /></div>
                                 <div className="data-item-edit"><label>Sexo:</label><input type="text" name="sexo" value={editableProfileData.sexo || ''} onChange={handleProfileChange} /></div>
                             </div>
                             <div className="data-card">
@@ -340,6 +348,7 @@ const Perfil = () => {
                                 <div className="data-item"><strong>Telefone:</strong><span>{profileData.phone || 'N/A'}</span></div>
                                 <div className="data-item"><strong>CPF:</strong><span>{profileData.cpf || 'N/A'}</span></div>
                                 <div className="data-item"><strong>Estado Civil:</strong><span>{profileData.estadoCivil || 'N/A'}</span></div>
+                                <div className="data-item"><strong>Data de Nascimento:</strong><span>{profileData.dataNascimento || 'N/A'}</span></div>
                                 <div className="data-item"><strong>Sexo:</strong><span>{profileData.sexo || 'N/A'}</span></div>
                             </div>
 

@@ -1,0 +1,28 @@
+{
+  "id": "/painel-atendimento",
+  "short_name": "Painel Câmara",
+  "name": "Painel de Atendimento - Câmara de Paraipaba",
+  "description": "Painel de chamadas e filas de atendimento da Câmara Municipal de Paraipaba.",
+  "icons": [
+    {
+      "src": "/logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/painel-atendimento?source=pwa",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "theme_color": "#062b49",
+  "background_color": "#061f35",
+  "categories": ["government", "productivity", "utilities"]
+}

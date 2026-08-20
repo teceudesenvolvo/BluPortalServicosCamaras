@@ -18,6 +18,7 @@ import {
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { useTheme } from '../../contexts/ThemeContext';
+import { openQueuePanelWindow } from '../../utils/openQueuePanelWindow';
 
 // Lightbox para visualizar arquivos inline
 const FileViewerModal = ({ file, onClose }) => {
@@ -81,7 +82,7 @@ const formatConfigForForm = (data = {}) => {
     return { ...getDefaultDailyAvailability(), ...formattedData };
 };
 
-const FIXED_STATUSES = ['Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Concluído', 'Cancelado'];
+const FIXED_STATUSES = ['Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Documento em emissão', 'Concluído', 'Cancelado'];
 
 const STATUS_COLORS = {
     'Aguardando Atendimento': '#f59e0b',
@@ -90,6 +91,7 @@ const STATUS_COLORS = {
     'Em Análise': '#8b5cf6',
     'Documentação Reprovada': '#ef4444',
     'Documentação Reenviada': '#14b8a6',
+    'Documento em emissão': '#f97316',
     Concluído: '#22c55e',
     Cancelado: '#64748b',
 };
@@ -778,6 +780,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                 <option value="Agendado">Agendado</option>
                                 <option value="Aguardando Atendimento">Aguardando Atendimento</option>
                                 <option value="Em Análise">Em Análise</option>
+                                <option value="Documento em emissão">Documento em emissão</option>
                                 <option value="Concluído">Concluído</option>
                                 <option value="Cancelado">Cancelado</option>
                             </select>
@@ -1318,7 +1321,7 @@ const AdminBalcaoDashboard = () => {
                         <button type="button" onClick={() => navigate('/recepcao')} className="admin-action-button action-reception">
                             <LiaUsersSolid /><span className="admin-action-label">Recepção</span>
                         </button>
-                        <button type="button" onClick={() => navigate('/painel-atendimento')} className="admin-action-button action-queue">
+                        <button type="button" onClick={openQueuePanelWindow} className="admin-action-button action-queue">
                             <LiaClipboardListSolid /><span className="admin-action-label">Painel da Fila</span>
                         </button>
                         <button

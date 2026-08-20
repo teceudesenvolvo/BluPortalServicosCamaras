@@ -295,7 +295,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                 <label>Alterar Status</label>
                                 <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="form-input">
                                     <option value="Agendamento Liberado">Agendamento Liberado</option>
-                                    <option value="Documento sendo preparado">Documento sendo preparado</option>
+                                    <option value="Documento em emissão">Documento em emissão</option>
                                     <option value="Documento Pronto">Documento Pronto</option>
                                     <option value="Agendado">Agendado</option>
                                     <option value="Aguardando Atendimento">Aguardando Atendimento</option>
@@ -303,7 +303,7 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                                     <option value="Concluído">Concluído</option>
                                     <option value="Documentação Reprovada">Documentação Reprovada</option>
                                     <option value="Documentação Reenviada">Documentação Reenviada</option>
-                                    <option value="Documento sendo preparado">Documento sendo preparado</option>
+                                    <option value="Documento em emissão">Documento em emissão</option>
                                     <option value="Documento Pronto">Documento Pronto</option>
                                     <option value="Cancelado">Cancelado</option>
                                 </select>

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 // Importa o hook de autenticação e a instância do auth
 import { useAuth } from '../contexts/FirebaseAuthContext';
 import { auth, firestore } from '../firebase';
+import config from '../config';
 
 import Brasao from '../assets/logo-paraipaba.png';
 import Logo from '../assets/logo-paraipaba-azul.png';
@@ -25,6 +26,7 @@ const CadastroPage = () => {
         cpf: '',
         estadoCivil: '',
         sexo: '',
+        dataNascimento: '',
         cep: '',
         address: '',
         numero: '',
@@ -129,6 +131,7 @@ const CadastroPage = () => {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
             const user = userCredential.user;
+            const cityName = config.cityCollection.charAt(0).toUpperCase() + config.cityCollection.slice(1);
 
             // Salva informações adicionais do usuário no Firestore
             await setDoc(doc(firestore, 'users', user.uid), {
@@ -138,6 +141,8 @@ const CadastroPage = () => {
                 cpf: formData.cpf,
                 estadoCivil: formData.estadoCivil,
                 sexo: formData.sexo,
+                dataNascimento: formData.dataNascimento || '',
+                aniversarioMesDia: formData.dataNascimento ? formData.dataNascimento.slice(5) : '',
                 cep: formData.cep,
                 address: formData.address,
                 numero: formData.numero,
@@ -147,6 +152,33 @@ const CadastroPage = () => {
                 state: formData.state,
                 tipo: 'Cidadão', // Define o tipo padrão do usuário
                 createdAt: serverTimestamp(),
+            });
+
+            await addDoc(collection(firestore, 'mail'), {
+                to: user.email,
+                emailOnly: true,
+                templateType: 'welcome-app-download',
+                userId: user.uid,
+                timestamp: serverTimestamp(),
+                message: {
+                    subject: `Bem-vindo(a) ao Portal de Serviços da Câmara Municipal de ${cityName}`,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; color: #10233f; line-height: 1.6;">
+                            <h2 style="margin-bottom: 12px;">Seu cadastro foi criado com sucesso.</h2>
+                            <p>Olá, ${formData.name}!</p>
+                            <p>Para acompanhar seus atendimentos, receber notificações e ficar por dentro do que acontece na Câmara Municipal de ${cityName}, baixe agora o aplicativo oficial da Câmara.</p>
+                            <p style="margin: 18px 0;">
+                                <a href="https://servicos.camaraparaipaba.ce.gov.br/download-app" style="display: inline-block; background: #025AA1; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 10px; font-weight: 700;">
+                                    Baixar aplicativo da Câmara
+                                </a>
+                            </p>
+                            <p>Se preferir, você também pode acessar diretamente este link:</p>
+                            <p><a href="https://servicos.camaraparaipaba.ce.gov.br/download-app">https://servicos.camaraparaipaba.ce.gov.br/download-app</a></p>
+                            <p>Conte com a gente.</p>
+                            <p><strong>Câmara Municipal de ${cityName}</strong><br />Desenvolvido por Blu Tecnologias</p>
+                        </div>
+                    `,
+                },
             });
 
             navigate('/dashboard', { replace: true });
@@ -238,6 +270,7 @@ const CadastroPage = () => {
                                         <option value="nao-binario">Não Binário</option>
                                     </select>
                                 </div>
+                                <input type="date" name="dataNascimento" value={formData.dataNascimento} onChange={handleChange} max={new Date().toISOString().slice(0, 10)} />
                             </>
                         )}
 

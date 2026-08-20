@@ -643,6 +643,13 @@ exports.sendMailOnNewRequest = onDocumentCreated(
       const snapshot = event.data;
       if (!snapshot) return;
       const mailData = snapshot.data();
+      if (mailData.emailOnly) {
+        console.log(
+            "Email transacional preservado para processamento externo:",
+            mailData.templateType || "generic",
+        );
+        return null;
+      }
       try {
         if (mailData.userId) {
           const db = admin.firestore();
@@ -807,6 +814,322 @@ exports.getBalcaoPublicBalance = onRequest(
     },
 );
 
+/**
+ * Converts the stored appointment date and time to Fortaleza local time.
+ * @param {string} dateValue Appointment date in YYYY-MM-DD or DD/MM/YYYY
+ * @param {string} timeValue Appointment time in HH:mm
+ * @return {number} UTC timestamp or NaN when the values are invalid
+ */
+function getBalcaoAppointmentTimestamp(dateValue, timeValue) {
+  const isoMatch = String(dateValue || "").match(
+      /^(\d{4})-(\d{2})-(\d{2})$/,
+  );
+  const brMatch = String(dateValue || "").match(
+      /^(\d{2})\/(\d{2})\/(\d{4})$/,
+  );
+  const timeMatch = String(timeValue || "").match(/^(\d{1,2}):(\d{2})/);
+  if ((!isoMatch && !brMatch) || !timeMatch) return NaN;
+
+  const year = isoMatch ? isoMatch[1] : brMatch[3];
+  const month = isoMatch ? isoMatch[2] : brMatch[2];
+  const day = isoMatch ? isoMatch[3] : brMatch[1];
+  const hour = String(timeMatch[1]).padStart(2, "0");
+  const minute = timeMatch[2];
+
+  // Paraipaba uses America/Fortaleza (UTC-03) without daylight saving time.
+  return Date.parse(`${year}-${month}-${day}T${hour}:${minute}:00-03:00`);
+}
+
+/**
+ * Returns today's date key in the America/Fortaleza timezone.
+ * @return {string} Date in YYYY-MM-DD format
+ */
+function getFortalezaTodayKey() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Fortaleza",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+/**
+ * Normalizes supported appointment date formats to YYYY-MM-DD.
+ * @param {string} value Stored appointment date
+ * @return {string} Normalized date or an empty string
+ */
+function normalizeAppointmentDateKey(value) {
+  const text = String(value || "").trim();
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) return text;
+  const brMatch = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return brMatch ? `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}` : "";
+}
+
+/**
+ * Returns today's MM-DD key in Fortaleza.
+ * @return {string} Current month-day key
+ */
+function getFortalezaTodayMonthDay() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Fortaleza",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const month = parts.find((part) => part.type === "month")?.value || "";
+  const day = parts.find((part) => part.type === "day")?.value || "";
+  return month && day ? `${month}-${day}` : "";
+}
+
+// Sends a reminder at 07:00 for every appointment scheduled for today.
+exports.notificarAgendamentosDoDia = onSchedule(
+    {
+      schedule: "0 7 * * *",
+      timeZone: "America/Fortaleza",
+    },
+    async () => {
+      const db = admin.firestore();
+      const todayKey = getFortalezaTodayKey();
+      const appointmentCollections = [
+        {name: "balcao-cidadao", sector: "Balcão do Cidadão"},
+        {
+          name: "assessoria-microempreendedor",
+          sector: "Assessoria ao Microempreendedor",
+        },
+        {name: "ouvidoria", sector: "Ouvidoria"},
+        {name: "procuradoria-mulher", sector: "Procuradoria da Mulher"},
+        {name: "piel-atendimentos", sector: "PIEL"},
+      ];
+
+      const snapshots = await Promise.all(appointmentCollections.map(
+          async (item) => ({
+            ...item,
+            snapshot: await db.collection(item.name)
+                .where("status", "==", "Agendado")
+                .limit(1000)
+                .get(),
+          }),
+      ));
+
+      let batch = db.batch();
+      let batchOperations = 0;
+      let created = 0;
+
+      for (const item of snapshots) {
+        for (const docSnap of item.snapshot.docs) {
+          const data = docSnap.data() || {};
+          const appointmentDate = data.appointmentDate ||
+            data.dadosSolicitacao?.appointmentDate;
+          if (normalizeAppointmentDateKey(appointmentDate) !== todayKey) {
+            continue;
+          }
+
+          const userId = data.userId || data.dadosUsuario?.uid ||
+            data.dadosUsuario?.id;
+          if (!userId || userId === "anonimo" || userId === "recepcao") {
+            console.warn(`Agendamento ${docSnap.id} sem usuário notificável.`);
+            continue;
+          }
+
+          const appointmentTime = data.appointmentTime ||
+            data.dadosSolicitacao?.appointmentTime || "horário informado";
+          const notificationId = [
+            "appointment-reminder",
+            todayKey,
+            item.name,
+            docSnap.id,
+          ].join("_");
+          const notificationRef = db.collection("notifications")
+              .doc(notificationId);
+          const title = "Lembrete: seu atendimento é hoje";
+          const description = `Seu atendimento no ${item.sector} está ` +
+            `agendado para hoje às ${appointmentTime}. Protocolo: ` +
+            `${docSnap.id}.`;
+
+          batch.set(notificationRef, {
+            userId,
+            targetUserId: userId,
+            userEmail: data.dadosUsuario?.email || "",
+            flavorId: "paraipaba",
+            tituloNotification: title,
+            descricaoNotification: description,
+            message: description,
+            protocolo: docSnap.id,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            read: false,
+            isRead: false,
+            source: "appointment-daily-reminder",
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            data: {
+              screen: "Notificacoes",
+              type: "appointment-reminder",
+              solicitacaoId: docSnap.id,
+              protocolo: docSnap.id,
+              collection: item.name,
+              sector: item.sector,
+              appointmentDate: todayKey,
+              appointmentTime,
+            },
+          }, {merge: false});
+          batchOperations += 1;
+          created += 1;
+
+          if (batchOperations >= 450) {
+            await batch.commit();
+            batch = db.batch();
+            batchOperations = 0;
+          }
+        }
+      }
+
+      if (batchOperations > 0) await batch.commit();
+      console.log(`${created} lembrete(s) de atendimento enviado(s) para ` +
+        `${todayKey}.`);
+    },
+);
+
+// Sends a birthday greeting at midnight to users with a registered birth date.
+exports.notificarAniversariantesDoDia = onSchedule(
+    {
+      schedule: "0 0 * * *",
+      timeZone: "America/Fortaleza",
+    },
+    async () => {
+      const db = admin.firestore();
+      const todayMonthDay = getFortalezaTodayMonthDay();
+      if (!todayMonthDay) return;
+
+      const snapshot = await db.collection("users")
+          .where("aniversarioMesDia", "==", todayMonthDay)
+          .limit(2000)
+          .get();
+
+      if (snapshot.empty) {
+        console.log(`Nenhum aniversariante encontrado para ${todayMonthDay}.`);
+        return;
+      }
+
+      let batch = db.batch();
+      let ops = 0;
+      let created = 0;
+
+      for (const docSnap of snapshot.docs) {
+        const userData = docSnap.data() || {};
+        const userId = docSnap.id;
+        if (!userId) continue;
+
+        const notificationRef = db.collection("notifications").doc(
+            `birthday_${todayMonthDay}_${userId}`,
+        );
+        batch.set(notificationRef, {
+          userId,
+          targetUserId: userId,
+          userEmail: userData.email || "",
+          flavorId: "paraipaba",
+          tituloNotification: "Feliz Aniversário!",
+          descricaoNotification:
+            "A Câmara Municipal de Paraipaba deseja um dia especial para você.",
+          message:
+            "A Câmara Municipal de Paraipaba deseja um dia especial para você.",
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          read: false,
+          isRead: false,
+          source: "birthday-greeting",
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          data: {
+            screen: "Notificacoes",
+            type: "birthday-greeting",
+            monthDay: todayMonthDay,
+          },
+        }, {merge: false});
+        ops += 1;
+        created += 1;
+
+        if (ops >= 450) {
+          await batch.commit();
+          batch = db.batch();
+          ops = 0;
+        }
+      }
+
+      if (ops > 0) {
+        await batch.commit();
+      }
+
+      console.log(`${created} notificação(ões) de aniversário enviada(s).`);
+    },
+);
+
+// Releases missed appointments so the citizen can choose a new date.
+exports.liberarAgendamentosBalcaoNaoComparecidos = onSchedule(
+    {
+      schedule: "every 15 minutes",
+      timeZone: "America/Fortaleza",
+      region: "southamerica-east1",
+      cpu: "gcf_gen1",
+    },
+    async () => {
+      const db = admin.firestore();
+      const snapshot = await db.collection("balcao-cidadao")
+          .where("status", "==", "Agendado")
+          .limit(1000)
+          .get();
+      const now = Date.now();
+      const missed = snapshot.docs.filter((docSnap) => {
+        const data = docSnap.data() || {};
+        const appointmentDate = data.appointmentDate ||
+          data.dadosSolicitacao?.appointmentDate;
+        const appointmentTime = data.appointmentTime ||
+          data.dadosSolicitacao?.appointmentTime;
+        const appointmentTimestamp = getBalcaoAppointmentTimestamp(
+            appointmentDate,
+            appointmentTime,
+        );
+        const hasConfirmedArrival = Boolean(
+            data.chegadaRecepcaoEm ||
+            data.senhaAtendimento ||
+            ["Aguardando Atendimento Presencial", "Chamando",
+              "Em Atendimento", "Atendimento Presencial Concluído"]
+                .includes(data.statusFila),
+        );
+        return Number.isFinite(appointmentTimestamp) &&
+          appointmentTimestamp < now && !hasConfirmedArrival;
+      });
+
+      if (!missed.length) {
+        console.log("Nenhum agendamento ausente para liberar.");
+        return;
+      }
+
+      const batch = db.batch();
+
+      missed.forEach((docSnap) => {
+        const data = docSnap.data() || {};
+        const appointmentDate = data.appointmentDate ||
+          data.dadosSolicitacao?.appointmentDate;
+        const appointmentTime = data.appointmentTime ||
+          data.dadosSolicitacao?.appointmentTime;
+        batch.update(docSnap.ref, {
+          status: "Agendamento Liberado",
+          statusFila: "Não compareceu",
+          agendamentoAnteriorData: appointmentDate,
+          agendamentoAnteriorHorario: appointmentTime,
+          agendamentoLiberadoAutomaticamenteEm:
+            admin.firestore.FieldValue.serverTimestamp(),
+          ultimaAtualizacao: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+
+      await batch.commit();
+      console.log(
+          `${missed.length} agendamento(s) ausente(s) marcado(s) como ` +
+          `"Agendamento Liberado" sem reabrir os horarios perdidos.`,
+      );
+    },
+);
+
 exports.notifyUsersOnNewsPublished = onDocumentWritten(
     "noticias/{noticiaId}",
     async (event) => {
@@ -825,6 +1148,71 @@ exports.notifyUsersOnNewsPublished = onDocumentWritten(
 
       await notifyUsersAboutNews(event.params.noticiaId, afterData,
           "news-trigger");
+      return null;
+    },
+);
+
+// Invites the citizen to rate the in-person service once the request moves
+// into the document preparation/emission stage.
+exports.notifyBalcaoServiceEvaluation = onDocumentWritten(
+    {
+      document: "balcao-cidadao/{solicitacaoId}",
+    },
+    async (event) => {
+      const beforeData = event.data.before ?
+        event.data.before.data() || {} : {};
+      const afterData = event.data.after ?
+        event.data.after.data() || {} : {};
+      if (!event.data.after || !event.data.after.exists) return null;
+
+      const targetStatuses = [
+        "Documento em emissão",
+        "Documento em preparação",
+        "Documento sendo preparado",
+      ];
+      if (!targetStatuses.includes(afterData.status) ||
+          beforeData.status === afterData.status) {
+        return null;
+      }
+
+      const userId = afterData.userId || afterData.dadosUsuario?.id;
+      if (!userId || userId === "recepcao" || userId === "anonimo") {
+        return null;
+      }
+
+      const db = admin.firestore();
+      const notificationRef = db.collection("notifications").doc(
+          `service-evaluation_${event.params.solicitacaoId}`,
+      );
+      const title = "Como foi seu atendimento?";
+      const description = "Seu atendimento presencial foi concluído. " +
+        "Avalie sua experiência no Balcão do Cidadão.";
+
+      await notificationRef.set({
+        userId,
+        targetUserId: userId,
+        userEmail: afterData.dadosUsuario?.email || "",
+        flavorId: "paraipaba",
+        tituloNotification: title,
+        descricaoNotification: description,
+        message: description,
+        protocolo: event.params.solicitacaoId,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        read: false,
+        isRead: false,
+        source: "service-evaluation",
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        data: {
+          screen: "Notificacoes",
+          type: "service-evaluation",
+          solicitacaoId: event.params.solicitacaoId,
+          protocolo: event.params.solicitacaoId,
+          collection: "balcao-cidadao",
+          webPath: `/avaliar-atendimento/${event.params.solicitacaoId}`,
+        },
+      }, {merge: true});
+
       return null;
     },
 );
