@@ -20,6 +20,12 @@ const isToday = (value) => {
         && date.getDate() === today.getDate();
 };
 
+const getCitizenNameClass = (name = '') => {
+    if (name.length > 36) return 'very-long';
+    if (name.length > 24) return 'long';
+    return '';
+};
+
 const PainelAtendimento = () => {
     const [tickets, setTickets] = useState([]);
     const [news, setNews] = useState([]);
@@ -237,9 +243,9 @@ const PainelAtendimento = () => {
                             <span>{current?.status === 'Em Atendimento' ? 'Em atendimento' : 'Chamando agora'}</span>
                             {current ? (
                                 <>
-                                    <strong>{current.senha}</strong>
+                                    <h2 className={`public-citizen-name ${getCitizenNameClass(current.nome)}`}>{current.nome}</h2>
                                     <div className="public-counter-name">{current.guiche || 'Dirija-se ao atendimento'}</div>
-                                    <p>{current.nome}</p>
+                                    <div className="public-ticket-reference"><span>Senha</span><strong>{current.senha}</strong></div>
                                     <small>{current.setor || 'Balcão do Cidadão'}</small>
                                 </>
                             ) : (
@@ -252,8 +258,8 @@ const PainelAtendimento = () => {
                             {recentCalls.length === 0 && <p className="queue-empty">As chamadas aparecerão aqui.</p>}
                             {recentCalls.map(ticket => (
                                 <article key={ticket.id}>
+                                    <div><b>{ticket.nome}</b><span>{ticket.guiche || 'Atendimento'} · {ticket.setor || 'Balcão do Cidadão'}</span></div>
                                     <strong>{ticket.senha}</strong>
-                                    <div><b>{ticket.guiche || 'Atendimento'}</b><span>{ticket.setor || 'Balcão do Cidadão'}</span></div>
                                 </article>
                             ))}
                         </aside>}

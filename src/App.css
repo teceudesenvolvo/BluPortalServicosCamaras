@@ -5494,14 +5494,18 @@ body{
 .public-queue-layout { display: grid; grid-template-columns: 1.3fr .7fr; gap: 18px; }
 .public-current-call { display: flex; min-height: 420px; flex-direction: column; justify-content: center; align-items: center; border-radius: 24px; background: linear-gradient(145deg, rgba(255,255,255,.88), rgba(219,239,255,.72)); text-align: center; box-shadow: 0 20px 55px rgba(2,47,86,.12); }
 .public-current-call > span { color: #025AA1; font-weight: 900; text-transform: uppercase; }
-.public-current-call > strong { color: #01477e; font-size: clamp(5rem, 12vw, 9rem); line-height: 1; }
+.public-citizen-name { max-width: min(900px, 88%); margin: 16px 0 8px; color: #10233f; font-size: 4.5rem; line-height: 1.02; font-weight: 950; overflow-wrap: anywhere; }
+.public-citizen-name.long { font-size: 3.5rem; }
+.public-citizen-name.very-long { font-size: 2.75rem; line-height: 1.08; }
 .public-counter-name { margin: 12px 0; padding: 12px 28px; border-radius: 14px; background: #16a34a; color: #fff; font-size: 1.65rem; font-weight: 900; }
-.public-current-call p { margin: 5px 0; color: #10233f; font-size: 1.5rem; font-weight: 900; }
+.public-ticket-reference { display: inline-flex; align-items: baseline; gap: 8px; margin: 5px 0; color: #64748b; }
+.public-ticket-reference span { font-size: .78rem; font-weight: 900; text-transform: uppercase; }
+.public-ticket-reference strong { color: #01477e; font-size: 1.35rem; }
 .public-current-call small { color: #64748b; font-weight: 800; }
 .public-no-call { margin-top: 30px; color: #64748b; font-size: 1.5rem; font-weight: 800; }
 .public-recent-calls { padding: 20px; border-radius: 24px; background: rgba(255,255,255,.72); }
-.public-recent-calls article { display: grid; grid-template-columns: 76px 1fr; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(2,90,161,.1); }
-.public-recent-calls article > strong { color: #025AA1; font-size: 1.5rem; }
+.public-recent-calls article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(2,90,161,.1); }
+.public-recent-calls article > strong { color: #025AA1; font-size: 1.05rem; }
 .public-recent-calls b, .public-recent-calls span { display: block; color: #10233f; }
 .public-recent-calls span { color: #64748b; }
 .public-service-queues { grid-column: 1 / -1; padding: 20px; border-radius: 22px; background: rgba(255,255,255,.64); }
@@ -5669,8 +5673,9 @@ body{
 }
 
 .public-current-call > span { color: #65c8ff; letter-spacing: .04em; }
-.public-current-call > strong { color: #ffffff; text-shadow: 0 0 42px rgba(72, 186, 255, .32); }
-.public-current-call p { color: var(--queue-text); }
+.public-citizen-name { color: var(--queue-text); text-shadow: 0 0 42px rgba(72, 186, 255, .2); }
+.public-ticket-reference { color: var(--queue-muted); }
+.public-ticket-reference strong { color: #6dccff; }
 .public-current-call small, .public-no-call { color: var(--queue-muted); }
 .public-counter-name { background: linear-gradient(135deg, #0b8e62, #19b979); box-shadow: 0 12px 30px rgba(19, 168, 112, .25), inset 0 1px 0 rgba(255,255,255,.2); }
 
@@ -5885,9 +5890,9 @@ body{
         overflow: hidden;
     }
 
-    .public-current-call > strong {
-        font-size: clamp(4.5rem, 8.5vh, 7rem);
-    }
+    .public-citizen-name { font-size: 4.5rem; }
+    .public-citizen-name.long { font-size: 3.5rem; }
+    .public-citizen-name.very-long { font-size: 2.75rem; }
 
     .public-counter-name {
         margin: 7px 0;
@@ -5895,10 +5900,8 @@ body{
         font-size: clamp(1.2rem, 1.8vw, 1.65rem);
     }
 
-    .public-current-call p {
-        margin: 3px 0;
-        font-size: clamp(1.1rem, 1.5vw, 1.45rem);
-    }
+    .public-ticket-reference { margin: 3px 0; }
+    .public-ticket-reference strong { font-size: 1.25rem; }
 
     .public-queue-page .public-recent-calls {
         min-height: 0;
@@ -6013,6 +6016,10 @@ body{
     .public-queue-voice-controls { flex-direction: column; align-items: stretch; }
     .public-queue-layout { grid-template-columns: 1fr; }
     .public-current-call { min-height: 330px; }
+    .public-citizen-name { font-size: 2.5rem; }
+    .public-citizen-name.long { font-size: 2rem; }
+    .public-citizen-name.very-long { font-size: 1.65rem; }
+    .public-ticket-reference strong { font-size: 1.1rem; }
     .public-service-queues { grid-column: auto; }
     .public-service-queues > div { grid-template-columns: 1fr 1fr; }
     .queue-panel-floating-settings { right: 14px; bottom: 74px; }
