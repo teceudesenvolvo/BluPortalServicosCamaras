@@ -55,11 +55,17 @@ const flowSteps = [
     'Usuário',
     'Solicitação',
     'Anexos',
-    'Impressão',
+    'Protocolo e fila',
     'Início',
 ];
 
-const todayKey = () => new Date().toISOString().slice(0, 10);
+const todayKey = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 
 const queuePrefixes = {
     'Balcão do Cidadão': 'B',
@@ -154,6 +160,62 @@ const createQueueTicket = async ({ protocolo, nome, assunto, appointmentDate, ap
     });
 };
 
+const createWalkInQueueTicket = async ({ protocolo, nome, assunto, setor, collectionName }) => {
+    const dateKey = todayKey();
+    const prefix = queuePrefixes[setor] || 'B';
+    const counterRef = doc(firestore, 'atendimento-fila-meta', `${dateKey}-${prefix}`);
+    const walkInRef = doc(firestore, 'atendimento-fila-meta', `${dateKey}-encaixes-recepcao`);
+    const queueRef = doc(collection(firestore, 'atendimento-fila'));
+
+    return runTransaction(firestore, async (transaction) => {
+        const [counterSnap, walkInSnap] = await Promise.all([
+            transaction.get(counterRef),
+            transaction.get(walkInRef),
+        ]);
+        const currentWalkIns = walkInSnap.exists() ? Number(walkInSnap.data().total || 0) : 0;
+        if (currentWalkIns >= 20) {
+            const error = new Error('O limite de 20 encaixes sem agendamento para hoje foi atingido.');
+            error.code = 'reception/walk-in-limit';
+            throw error;
+        }
+
+        const next = (counterSnap.exists() ? counterSnap.data().ultimoNumero || 0 : 0) + 1;
+        const nextWalkIn = currentWalkIns + 1;
+        const password = `${prefix}${String(next).padStart(3, '0')}`;
+        const now = new Date();
+
+        transaction.set(counterRef, { ultimoNumero: next, data: dateKey, setor, prefixo: prefix }, { merge: true });
+        transaction.set(walkInRef, {
+            total: nextWalkIn,
+            limite: 20,
+            data: dateKey,
+            atualizadoEm: now,
+        }, { merge: true });
+        transaction.set(queueRef, {
+            senha: password,
+            protocolo,
+            nome,
+            assunto,
+            appointmentDate: null,
+            appointmentTime: null,
+            agendamentoOrdenacaoEm: null,
+            collectionName: collectionName || getReceptionCollection(setor),
+            setor: setor || 'Balcão do Cidadão',
+            prioridade: false,
+            status: 'Aguardando',
+            tipoEntrada: 'Encaixe',
+            semAgendamento: true,
+            encaixeNumeroDia: nextWalkIn,
+            criadoEm: now,
+            ordemFilaEm: now,
+            chamadoEm: null,
+            criadoPor: auth.currentUser?.email || 'Recepção',
+        });
+
+        return { password, walkInNumber: nextWalkIn };
+    });
+};
+
 const RecepcaoAtendimento = () => {
     const [flowStep, setFlowStep] = useState(0);
     const [attendanceType, setAttendanceType] = useState('');
@@ -165,6 +227,9 @@ const RecepcaoAtendimento = () => {
     const [appointment, setAppointment] = useState(null);
     const [queuePassword, setQueuePassword] = useState('');
     const [createdProtocol, setCreatedProtocol] = useState('');
+    const [createdRequestCollection, setCreatedRequestCollection] = useState('');
+    const [walkInDecision, setWalkInDecision] = useState('');
+    const [walkInNumber, setWalkInNumber] = useState(null);
     const [loading, setLoading] = useState(false);
     const [uiOptionsOpen, setUiOptionsOpen] = useState(false);
     const [showHeader, setShowHeader] = useState(true);
@@ -204,6 +269,9 @@ const RecepcaoAtendimento = () => {
         setAppointment(null);
         setQueuePassword('');
         setCreatedProtocol('');
+        setCreatedRequestCollection('');
+        setWalkInDecision('');
+        setWalkInNumber(null);
         setRequestForm({ assunto: '', tipoDocumento: '', nome: '', cpf: '', telefone: '', descricao: '' });
     };
 
@@ -488,6 +556,9 @@ const RecepcaoAtendimento = () => {
 
             await setDoc(docRef, payload);
             setCreatedProtocol(docRef.id);
+            setCreatedRequestCollection(collectionName);
+            setWalkInDecision('');
+            setWalkInNumber(null);
             if (shouldPrint) printProtocolReceipt({
                 title: 'Comprovante de Atendimento da Recepção',
                 protocol: docRef.id,
@@ -513,6 +584,45 @@ const RecepcaoAtendimento = () => {
         } catch (error) {
             console.error('Erro ao criar solicitação pela recepção:', error);
             alert('Erro ao criar atendimento.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleWalkInChoice = async (joinQueue) => {
+        if (!createdProtocol || loading || walkInDecision) return;
+        if (!joinQueue) {
+            setWalkInDecision('request-only');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const result = await createWalkInQueueTicket({
+                protocolo: createdProtocol,
+                nome: requestForm.nome,
+                assunto: requestForm.assunto || requestForm.tipoDocumento,
+                setor: selectedSector,
+                collectionName: createdRequestCollection || getReceptionCollection(selectedSector),
+            });
+            await updateDoc(doc(firestore, createdRequestCollection || getReceptionCollection(selectedSector), createdProtocol), {
+                statusFila: 'Aguardando Atendimento Presencial',
+                senhaAtendimento: result.password,
+                tipoEntradaFila: 'Encaixe',
+                entradaFilaEm: new Date(),
+                ultimaAtualizacao: new Date(),
+            });
+            setQueuePassword(result.password);
+            setWalkInNumber(result.walkInNumber);
+            setWalkInDecision('queued');
+        } catch (error) {
+            console.error('Erro ao encaixar atendimento na fila:', error);
+            if (error.code === 'reception/walk-in-limit') {
+                setWalkInDecision('limit-reached');
+                alert('A solicitação foi criada, mas o limite diário de 20 encaixes sem agendamento já foi atingido.');
+            } else {
+                alert('A solicitação foi criada, mas não foi possível realizar o encaixe na fila. Tente novamente.');
+            }
         } finally {
             setLoading(false);
         }
@@ -828,6 +938,40 @@ const RecepcaoAtendimento = () => {
                             <p><strong>{isCreateFlow ? 'Protocolo:' : 'Senha:'}</strong> {isCreateFlow ? createdProtocol : queuePassword}</p>
                             <p><strong>Setor:</strong> {selectedSector}</p>
                             <p>Protocolo gerado com sucesso. A impressão é opcional.</p>
+                            {isCreateFlow && !walkInDecision && (
+                                <div className="reception-walk-in-choice">
+                                    <div>
+                                        <strong>Deseja encaixar este cidadão na fila de hoje?</strong>
+                                        <span>São permitidos até 20 atendimentos sem agendamento por dia.</span>
+                                    </div>
+                                    <div className="reception-walk-in-actions">
+                                        <button type="button" className="btn-primary btn-save-status" onClick={() => handleWalkInChoice(true)} disabled={loading}>
+                                            <LiaCheckCircleSolid /> {loading ? 'Encaixando...' : 'Encaixar na fila'}
+                                        </button>
+                                        <button type="button" className="btn-secondary" onClick={() => handleWalkInChoice(false)} disabled={loading}>
+                                            Somente criar solicitação
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            {isCreateFlow && walkInDecision === 'queued' && (
+                                <div className="reception-walk-in-result success" role="status">
+                                    <LiaCheckCircleSolid />
+                                    <div><strong>Encaixe confirmado</strong><span>Senha {queuePassword} · Encaixe {walkInNumber} de 20 do dia</span></div>
+                                </div>
+                            )}
+                            {isCreateFlow && walkInDecision === 'request-only' && (
+                                <div className="reception-walk-in-result neutral" role="status">
+                                    <LiaClipboardListSolid />
+                                    <div><strong>Solicitação criada sem entrada na fila</strong><span>O protocolo permanece disponível para acompanhamento.</span></div>
+                                </div>
+                            )}
+                            {isCreateFlow && walkInDecision === 'limit-reached' && (
+                                <div className="reception-walk-in-result warning" role="status">
+                                    <LiaClipboardListSolid />
+                                    <div><strong>Limite diário atingido</strong><span>A solicitação foi criada, mas não entrou na fila de hoje.</span></div>
+                                </div>
+                            )}
                         </>
                     ) : (
                         <>
@@ -916,7 +1060,7 @@ const RecepcaoAtendimento = () => {
                         </div>
                     )}
 
-                    {flowStep === 5 && (createdProtocol || queuePassword) && (
+                    {flowStep === 5 && ((isCreateFlow && createdProtocol && walkInDecision) || (isConfirmFlow && queuePassword)) && (
                         <div className="reception-step-actions">
                             <button type="button" className="btn-primary" onClick={() => setFlowStep(6)}>
                                 Continuar

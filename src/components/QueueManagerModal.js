@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     collection,
     doc,
@@ -52,6 +52,12 @@ const getTime = (value) => {
     return new Date(value).getTime() || 0;
 };
 
+const formatTicketDate = (value) => {
+    if (!value) return 'Data não informada';
+    const date = value?.toDate ? value.toDate() : new Date(value);
+    return Number.isNaN(date.getTime()) ? 'Data não informada' : date.toLocaleDateString('pt-BR');
+};
+
 const getAppointmentSortTime = (ticket) => {
     const dateValue = ticket?.appointmentDate;
     const timeValue = ticket?.appointmentTime;
@@ -83,14 +89,13 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
     const [service, setService] = useState(lockedService || 'Balcão do Cidadão');
     const [selectedCounter, setSelectedCounter] = useState('');
     const [newCounterName, setNewCounterName] = useState('');
+    const [counterFeedback, setCounterFeedback] = useState(null);
     const [activeTab, setActiveTab] = useState('fila');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         const unsubscribeTickets = onSnapshot(collection(firestore, 'atendimento-fila'), (snapshot) => {
-            setTickets(snapshot.docs
-                .map(item => ({ id: item.id, ...item.data() }))
-                .filter(item => isToday(item.criadoEm)));
+            setTickets(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
         });
         const unsubscribeCounters = onSnapshot(collection(firestore, 'atendimento-guiches'), (snapshot) => {
             const items = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
@@ -102,23 +107,55 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
         };
     }, []);
 
-    const filteredTickets = useMemo(() => tickets.filter(ticket => (
+    const serviceMatches = useCallback((ticket) => (
         service === 'Todos os serviços' || (ticket.setor || 'Balcão do Cidadão') === service
-    )), [tickets, service]);
+    ), [service]);
+    const todayTickets = useMemo(() => tickets.filter(ticket => isToday(ticket.criadoEm)), [tickets]);
+    const filteredTickets = useMemo(() => todayTickets.filter(serviceMatches), [serviceMatches, todayTickets]);
+    const counterByTicketId = useMemo(() => new Map(counters
+        .filter(counter => counter.ticketAtualId)
+        .map(counter => [counter.ticketAtualId, counter])), [counters]);
+    const busyCounterIds = useMemo(() => new Set([
+        ...counters.filter(counter => counter.ticketAtualId).map(counter => counter.id),
+        ...tickets
+            .filter(ticket => ['Chamando', 'Em Atendimento'].includes(ticket.status) && ticket.guicheId)
+            .map(ticket => ticket.guicheId),
+    ]), [counters, tickets]);
     const availableCounters = useMemo(() => counters.filter(counter => (
         counter.ativo !== false
+        && !busyCounterIds.has(counter.id)
         && (!lockedService || !counter.servicos?.length || counter.servicos.includes(lockedService))
-    )), [counters, lockedService]);
+    )), [busyCounterIds, counters, lockedService]);
     const waiting = useMemo(() => filteredTickets.filter(ticket => ticket.status === 'Aguardando').sort(queueOrder), [filteredTickets]);
-    const active = useMemo(() => filteredTickets.filter(ticket => ['Chamando', 'Em Atendimento'].includes(ticket.status)), [filteredTickets]);
+    const active = useMemo(() => tickets
+        .filter(ticket => serviceMatches(ticket) && (['Chamando', 'Em Atendimento'].includes(ticket.status) || counterByTicketId.has(ticket.id)))
+        .map(ticket => {
+            const linkedCounter = counterByTicketId.get(ticket.id);
+            return linkedCounter ? {
+                ...ticket,
+                guicheId: ticket.guicheId || linkedCounter.id,
+                guiche: ticket.guiche || linkedCounter.nome,
+            } : ticket;
+        })
+        .sort((a, b) => getTime(b.chamadoEm || b.criadoEm) - getTime(a.chamadoEm || a.criadoEm)), [counterByTicketId, serviceMatches, tickets]);
     const completed = filteredTickets.filter(ticket => ticket.status === 'Concluído').length;
     const absent = filteredTickets.filter(ticket => ticket.status === 'Ausente').length;
+    const suggestedCounterName = useMemo(() => {
+        const highestNumber = counters.reduce((highest, counter) => {
+            const number = Number(String(counter.nome || '').match(/\d+/)?.[0] || 0);
+            return Math.max(highest, number);
+        }, 0);
+        return `Guichê ${String(highestNumber + 1).padStart(2, '0')}`;
+    }, [counters]);
 
     useEffect(() => {
         if (selectedCounter && availableCounters.some(counter => counter.id === selectedCounter)) return;
+        // A criação do guichê chega primeiro no estado local e depois no snapshot.
+        // Preserve a seleção nesse intervalo para não voltar ao primeiro guichê ocupado.
+        if (selectedCounter && !counters.some(counter => counter.id === selectedCounter)) return;
         const firstAvailable = availableCounters[0];
         setSelectedCounter(firstAvailable?.id || '');
-    }, [availableCounters, selectedCounter]);
+    }, [availableCounters, counters, selectedCounter]);
 
     const updateTicket = async (ticket, status, extra = {}) => {
         const now = new Date();
@@ -181,8 +218,9 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                 const counter = counterSnap.data();
                 if (counter?.ticketAtualId) {
                     const currentTicketSnap = await transaction.get(doc(firestore, 'atendimento-fila', counter.ticketAtualId));
-                    if (currentTicketSnap.exists() && ['Chamando', 'Em Atendimento'].includes(currentTicketSnap.data().status)) {
-                        throw new Error(`${counter.nome} já possui uma chamada ativa.`);
+                    const currentTicket = currentTicketSnap.exists() ? currentTicketSnap.data() : null;
+                    if (currentTicket && ['Chamando', 'Em Atendimento'].includes(currentTicket.status)) {
+                        throw new Error(`${counter.nome} já possui uma chamada ativa. Encerre-a na lista "Em atendimento" antes de chamar outra senha.`);
                     }
                 }
                 transaction.update(ticketRef, {
@@ -284,18 +322,36 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
     };
 
     const createCounter = async () => {
-        const nome = newCounterName.trim();
-        if (!nome) return;
-        const counterRef = doc(collection(firestore, 'atendimento-guiches'));
-        await setDoc(counterRef, {
-            nome,
-            ativo: true,
-            servicos: service === 'Todos os serviços' ? SERVICES.slice(1) : [service],
-            criadoEm: new Date(),
-            criadoPor: auth.currentUser?.email || 'admin',
-        });
-        setSelectedCounter(counterRef.id);
-        setNewCounterName('');
+        const nome = newCounterName.trim() || suggestedCounterName;
+        if (loading) return;
+        setLoading(true);
+        setCounterFeedback(null);
+        try {
+            const counterRef = doc(collection(firestore, 'atendimento-guiches'));
+            setSelectedCounter(counterRef.id);
+            const counterData = {
+                nome,
+                ativo: true,
+                servicos: service === 'Todos os serviços' ? SERVICES.slice(1) : [service],
+                senhaAtual: null,
+                ticketAtualId: null,
+                criadoEm: new Date(),
+                criadoPor: auth.currentUser?.email || 'admin',
+            };
+            await setDoc(counterRef, counterData);
+            setCounters(current => current.some(counter => counter.id === counterRef.id)
+                ? current
+                : [...current, { id: counterRef.id, ...counterData }].sort((a, b) => (a.nome || '').localeCompare(b.nome || '')));
+            setNewCounterName('');
+            setCounterFeedback({ type: 'success', text: `${nome} criado e selecionado para as próximas chamadas.` });
+        } catch (error) {
+            setSelectedCounter('');
+            const message = error.message || 'Não foi possível criar o guichê.';
+            setCounterFeedback({ type: 'error', text: message });
+            alert(message);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const toggleCounter = async (counter) => {
@@ -303,6 +359,16 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
             ativo: counter.ativo === false,
             atualizadoEm: new Date(),
         });
+    };
+
+    const clearOrphanedCounter = async (counter) => {
+        await updateDoc(doc(firestore, 'atendimento-guiches', counter.id), {
+            senhaAtual: null,
+            ticketAtualId: null,
+            atualizadoEm: new Date(),
+            atualizadoPor: auth.currentUser?.email || 'admin',
+        });
+        setCounterFeedback({ type: 'success', text: `A pendência de ${counter.nome} foi removida. O guichê está disponível novamente.` });
     };
 
     const transferTicket = async (ticket, targetService) => {
@@ -387,11 +453,12 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                                 <div className="queue-manager-list">
                                     {active.length === 0 && <p className="queue-empty">Nenhuma chamada ativa.</p>}
                                     {active.map(ticket => (
-                                        <article key={ticket.id} className={`queue-manager-ticket active ${ticket.status === 'Em Atendimento' ? 'serving' : ''}`}>
+                                        <article key={ticket.id} className={`queue-manager-ticket active ${ticket.status === 'Em Atendimento' ? 'serving' : ''} ${!isToday(ticket.criadoEm) ? 'overdue' : ''}`}>
                                             <strong>{ticket.senha}</strong>
                                             <div className="queue-ticket-info">
                                                 <b>{ticket.nome}</b>
                                                 <span>{ticket.guiche || 'Guichê não informado'} · {ticket.status}</span>
+                                                <small>{!isToday(ticket.criadoEm) ? `Pendente desde ${formatTicketDate(ticket.criadoEm)}` : 'Chamada de hoje'}</small>
                                             </div>
                                             <div className="queue-ticket-actions">
                                                 {ticket.status === 'Chamando' && <button title="Rechamar" onClick={() => updateTicket(ticket, 'Chamando', { chamadoEm: new Date(), chamadas: (ticket.chamadas || 1) + 1 })}><LiaRedoAltSolid /></button>}
@@ -418,14 +485,19 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                 {activeTab === 'guiches' && (
                     <div className="queue-counters-panel">
                         <div className="queue-counter-create">
-                            <input className="form-input" value={newCounterName} onChange={(event) => setNewCounterName(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && createCounter()} placeholder="Ex.: Guichê 01" />
-                            <button type="button" className="btn-primary" onClick={createCounter}><LiaPlusSolid /> Criar guichê</button>
+                            <input className="form-input" value={newCounterName} onChange={(event) => { setNewCounterName(event.target.value); setCounterFeedback(null); }} onKeyDown={(event) => event.key === 'Enter' && createCounter()} placeholder={`Nome opcional — próximo: ${suggestedCounterName}`} />
+                            <button type="button" className="btn-primary" onClick={createCounter} disabled={loading}><LiaPlusSolid /> {loading ? 'Criando...' : `Criar ${newCounterName.trim() || suggestedCounterName}`}</button>
                         </div>
+                        {counterFeedback && <p className={`queue-counter-feedback ${counterFeedback.type}`} role="status">{counterFeedback.text}</p>}
                         <div className="queue-counter-grid">
                             {counters.filter(counter => !lockedService || !counter.servicos?.length || counter.servicos.includes(lockedService)).map(counter => (
-                                <article key={counter.id} className={counter.ativo === false ? 'disabled' : ''}>
-                                    <div><span>{counter.ativo === false ? 'Fechado' : 'Disponível'}</span><strong>{counter.nome}</strong><small>{(counter.servicos || []).join(' · ') || 'Todos os serviços'}</small></div>
-                                    <button onClick={() => toggleCounter(counter)}>{counter.ativo === false ? 'Abrir guichê' : 'Fechar guichê'}</button>
+                                <article key={counter.id} className={counter.ativo === false ? 'disabled' : busyCounterIds.has(counter.id) ? 'busy' : ''}>
+                                    <div><span>{counter.ativo === false ? 'Fechado' : busyCounterIds.has(counter.id) ? 'Em atendimento' : 'Disponível'}</span><strong>{counter.nome}</strong><small>{(counter.servicos || []).join(' · ') || 'Todos os serviços'}</small></div>
+                                    {counter.ticketAtualId && !tickets.some(ticket => ticket.id === counter.ticketAtualId) ? (
+                                        <button type="button" onClick={() => clearOrphanedCounter(counter)}>Liberar pendência</button>
+                                    ) : (
+                                        <button type="button" onClick={() => toggleCounter(counter)} disabled={busyCounterIds.has(counter.id)}>{counter.ativo === false ? 'Abrir guichê' : busyCounterIds.has(counter.id) ? 'Atendimento aberto' : 'Fechar guichê'}</button>
+                                    )}
                                 </article>
                             ))}
                             {counters.length === 0 && <p className="queue-empty">Crie o primeiro guichê para começar as chamadas.</p>}
