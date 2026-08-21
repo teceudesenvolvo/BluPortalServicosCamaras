@@ -121,11 +121,10 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
             .filter(ticket => ['Chamando', 'Em Atendimento'].includes(ticket.status) && ticket.guicheId)
             .map(ticket => ticket.guicheId),
     ]), [counters, tickets]);
-    const availableCounters = useMemo(() => counters.filter(counter => (
+    const serviceCounters = useMemo(() => counters.filter(counter => (
         counter.ativo !== false
-        && !busyCounterIds.has(counter.id)
         && (!lockedService || !counter.servicos?.length || counter.servicos.includes(lockedService))
-    )), [busyCounterIds, counters, lockedService]);
+    )), [counters, lockedService]);
     const waiting = useMemo(() => filteredTickets.filter(ticket => ticket.status === 'Aguardando').sort(queueOrder), [filteredTickets]);
     const active = useMemo(() => tickets
         .filter(ticket => serviceMatches(ticket) && (['Chamando', 'Em Atendimento'].includes(ticket.status) || counterByTicketId.has(ticket.id)))
@@ -149,13 +148,13 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
     }, [counters]);
 
     useEffect(() => {
-        if (selectedCounter && availableCounters.some(counter => counter.id === selectedCounter)) return;
+        if (selectedCounter && serviceCounters.some(counter => counter.id === selectedCounter)) return;
         // A criação do guichê chega primeiro no estado local e depois no snapshot.
         // Preserve a seleção nesse intervalo para não voltar ao primeiro guichê ocupado.
         if (selectedCounter && !counters.some(counter => counter.id === selectedCounter)) return;
-        const firstAvailable = availableCounters[0];
-        setSelectedCounter(firstAvailable?.id || '');
-    }, [availableCounters, counters, selectedCounter]);
+        const firstCounter = serviceCounters[0];
+        setSelectedCounter(firstCounter?.id || '');
+    }, [counters, selectedCounter, serviceCounters]);
 
     const updateTicket = async (ticket, status, extra = {}) => {
         const now = new Date();
@@ -216,18 +215,40 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                     throw new Error('A senha já foi movimentada por outro atendente.');
                 }
                 const counter = counterSnap.data();
+                if (!counterSnap.exists() || counter?.ativo === false) {
+                    throw new Error('O guichê selecionado não está disponível.');
+                }
                 if (counter?.ticketAtualId) {
-                    const currentTicketSnap = await transaction.get(doc(firestore, 'atendimento-fila', counter.ticketAtualId));
+                    const currentTicketRef = doc(firestore, 'atendimento-fila', counter.ticketAtualId);
+                    const currentTicketSnap = await transaction.get(currentTicketRef);
                     const currentTicket = currentTicketSnap.exists() ? currentTicketSnap.data() : null;
                     if (currentTicket && ['Chamando', 'Em Atendimento'].includes(currentTicket.status)) {
-                        throw new Error(`${counter.nome} já possui uma chamada ativa. Encerre-a na lista "Em atendimento" antes de chamar outra senha.`);
+                        const now = new Date();
+                        transaction.update(currentTicketRef, {
+                            status: 'Concluído',
+                            concluidoEm: now,
+                            atualizadoEm: now,
+                            atualizadoPor: auth.currentUser?.email || 'admin',
+                        });
+
+                        const currentService = currentTicket.setor || 'Balcão do Cidadão';
+                        const requestCollection = currentTicket.collectionName || REQUEST_COLLECTIONS[currentService];
+                        if (currentTicket.protocolo && currentService === 'Balcão do Cidadão' && requestCollection) {
+                            transaction.set(doc(firestore, requestCollection, currentTicket.protocolo), {
+                                status: 'Documento em emissão',
+                                statusFila: 'Atendimento Presencial Concluído',
+                                atendimentoPresencialConcluidoEm: now,
+                                ultimaAtualizacao: now,
+                            }, { merge: true });
+                        }
                     }
                 }
+                const now = new Date();
                 transaction.update(ticketRef, {
                     status: 'Chamando',
                     guicheId: selectedCounter,
                     guiche: counter.nome,
-                    chamadoEm: new Date(),
+                    chamadoEm: now,
                     chamadoPor: auth.currentUser?.email || 'admin',
                     chamadas: (ticketSnap.data().chamadas || 0) + 1,
                 });
@@ -235,7 +256,7 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                     ativo: true,
                     senhaAtual: nextTicket.senha,
                     ticketAtualId: nextTicket.id,
-                    atualizadoEm: new Date(),
+                    atualizadoEm: now,
                 }, { merge: true });
             });
         } catch (error) {
@@ -411,7 +432,11 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                                 <span>Guichê responsável</span>
                                 <select className="form-input" value={selectedCounter} onChange={(event) => setSelectedCounter(event.target.value)}>
                                     <option value="">Selecione um guichê</option>
-                                    {availableCounters.map(counter => <option key={counter.id} value={counter.id}>{counter.nome}</option>)}
+                                    {serviceCounters.map(counter => (
+                                        <option key={counter.id} value={counter.id}>
+                                            {counter.nome}{busyCounterIds.has(counter.id) ? ' · atendimento em andamento' : ''}
+                                        </option>
+                                    ))}
                                 </select>
                             </label>
                             <button type="button" className="queue-call-next" onClick={callNext} disabled={loading || waiting.length === 0}>
