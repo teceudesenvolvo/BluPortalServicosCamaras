@@ -5,7 +5,9 @@ import {
     LiaCalendarAltSolid,
     LiaCommentDotsSolid,
     LiaClockSolid,
+    LiaPrintSolid,
     LiaStarSolid,
+    LiaTimesSolid,
     LiaUserCheckSolid,
     LiaUserPlusSolid,
     LiaUserTimesSolid,
@@ -14,6 +16,7 @@ import {
 import AdminSidebar from '../../components/AdminSidebar';
 import { useTheme } from '../../contexts/ThemeContext';
 import { firestore } from '../../firebase';
+import { printTableReport } from '../../utils/printReport';
 
 const toDate = (value) => {
     if (!value) return null;
@@ -55,6 +58,13 @@ const AdminAtendimentosGuiches = () => {
     const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date()));
     const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
     const [selectedCounter, setSelectedCounter] = useState('all');
+    const [reportOpen, setReportOpen] = useState(false);
+    const [reportPeriod, setReportPeriod] = useState('monthly');
+    const [reportDate, setReportDate] = useState(dateKey(new Date()));
+    const [reportMonth, setReportMonth] = useState(monthKey(new Date()));
+    const [reportYear, setReportYear] = useState(String(new Date().getFullYear()));
+    const [reportCounter, setReportCounter] = useState('all');
+    const [reportAttendant, setReportAttendant] = useState('all');
     const [selectedYear, selectedMonthNumber] = selectedMonth.split('-');
     const availableYears = useMemo(() => {
         const years = new Set([new Date().getFullYear(), Number(selectedYear)]);
@@ -123,12 +133,13 @@ const AdminAtendimentosGuiches = () => {
         });
         return [...options.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { numeric: true }));
     }, [attendances, counters]);
-    const selectedCounterData = useMemo(() => counterOptions.find(counter => counter.value === selectedCounter), [counterOptions, selectedCounter]);
-    const matchesSelectedCounter = useCallback((item = {}) => {
-        if (selectedCounter === 'all') return true;
-        if (selectedCounterData?.id && item.guicheId === selectedCounterData.id) return true;
-        return Boolean(selectedCounterData?.name && String(item.guiche || item.guicheAtendimento || '').trim().toLocaleLowerCase('pt-BR') === selectedCounterData.name.trim().toLocaleLowerCase('pt-BR'));
-    }, [selectedCounter, selectedCounterData]);
+    const matchesCounter = useCallback((item = {}, counterValue = 'all') => {
+        if (counterValue === 'all') return true;
+        const counterData = counterOptions.find(counter => counter.value === counterValue);
+        if (counterData?.id && item.guicheId === counterData.id) return true;
+        return Boolean(counterData?.name && String(item.guiche || item.guicheAtendimento || '').trim().toLocaleLowerCase('pt-BR') === counterData.name.trim().toLocaleLowerCase('pt-BR'));
+    }, [counterOptions]);
+    const matchesSelectedCounter = useCallback((item = {}) => matchesCounter(item, selectedCounter), [matchesCounter, selectedCounter]);
 
     useEffect(() => {
         if (selectedCounter !== 'all' && !counterOptions.some(counter => counter.value === selectedCounter)) setSelectedCounter('all');
@@ -241,6 +252,77 @@ const AdminAtendimentosGuiches = () => {
     const missedAppointments = missedAppointmentIds.size;
     const walkIns = monthQueueTickets.filter(item => item.semAgendamento || item.tipoEntrada === 'Encaixe').length;
 
+    const attendantOptions = useMemo(() => {
+        const options = new Map();
+        attendances.forEach(item => {
+            const name = String(item.atendenteNome || '').trim();
+            if (!name && !item.atendenteUid) return;
+            const value = item.atendenteUid
+                ? `uid:${item.atendenteUid}`
+                : `name:${name.toLocaleLowerCase('pt-BR')}`;
+            options.set(value, { value, name: name || 'Atendente não identificado' });
+        });
+        return [...options.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    }, [attendances]);
+
+    const reportRows = useMemo(() => attendances.filter(item => {
+        const itemDate = dateKey(item.dataAtendimento);
+        const matchesPeriod = reportPeriod === 'daily'
+            ? itemDate === reportDate
+            : reportPeriod === 'monthly'
+                ? itemDate.startsWith(reportMonth)
+                : itemDate.startsWith(`${reportYear}-`);
+        if (!matchesPeriod || !matchesCounter(item, reportCounter)) return false;
+        if (reportAttendant === 'all') return true;
+        if (reportAttendant.startsWith('uid:')) return item.atendenteUid === reportAttendant.slice(4);
+        return String(item.atendenteNome || '').trim().toLocaleLowerCase('pt-BR') === reportAttendant.slice(5);
+    }).sort((a, b) => {
+        const dateDifference = (toDate(a.dataAtendimento)?.getTime() || 0) - (toDate(b.dataAtendimento)?.getTime() || 0);
+        if (dateDifference) return dateDifference;
+        return (toDate(a.horarioInicio)?.getTime() || 0) - (toDate(b.horarioInicio)?.getTime() || 0);
+    }), [attendances, matchesCounter, reportAttendant, reportCounter, reportDate, reportMonth, reportPeriod, reportYear]);
+
+    const openReport = () => {
+        setReportDate(selectedDate);
+        setReportMonth(selectedMonth);
+        setReportYear(selectedYear);
+        setReportCounter(selectedCounter);
+        setReportAttendant('all');
+        setReportOpen(true);
+    };
+
+    const generateReport = () => {
+        const periodLabel = reportPeriod === 'daily'
+            ? `Dia ${toDate(`${reportDate}T12:00:00`)?.toLocaleDateString('pt-BR')}`
+            : reportPeriod === 'monthly'
+                ? `${MONTHS[Number(reportMonth.slice(5, 7)) - 1]} de ${reportMonth.slice(0, 4)}`
+                : `Ano de ${reportYear}`;
+        const counterLabel = reportCounter === 'all'
+            ? 'Todos os guichês'
+            : counterOptions.find(item => item.value === reportCounter)?.name || 'Guichê selecionado';
+        const attendantLabel = reportAttendant === 'all'
+            ? 'Todos os atendentes'
+            : attendantOptions.find(item => item.value === reportAttendant)?.name || 'Atendente selecionado';
+
+        printTableReport({
+            title: 'Relatório de Atendimentos dos Guichês',
+            subtitle: `${periodLabel} | ${counterLabel} | ${attendantLabel}`,
+            columns: [
+                { label: '#', width: '3%', render: (_, index) => index + 1 },
+                { label: 'Data', width: '8%', render: item => toDate(item.dataAtendimento)?.toLocaleDateString('pt-BR') || 'N/A' },
+                { label: 'Horário', width: '8%', render: item => `${formatTime(item.horarioInicio)} - ${formatTime(item.horarioFim)}` },
+                { label: 'Guichê', width: '8%', render: item => item.guiche || 'Não informado' },
+                { label: 'Atendente', width: '13%', render: item => item.atendenteNome || 'Não informado' },
+                { label: 'Cidadão / Beneficiário', width: '15%', render: item => item.nome || 'Não informado' },
+                { label: 'CPF', width: '11%', render: item => formatCpf(item.cpf) },
+                { label: 'Serviço', width: '12%', render: item => item.assunto || item.setor || 'Atendimento' },
+                { label: 'Protocolo', width: '11%', render: item => item.protocolo || 'Não informado' },
+                { label: 'Observações', width: '11%', render: () => '' },
+            ],
+            rows: reportRows,
+        });
+    };
+
     return (
         <div className="dashboard-layout">
             <AdminSidebar />
@@ -270,6 +352,9 @@ const AdminAtendimentosGuiches = () => {
                                 {counterOptions.map(counter => <option key={counter.value} value={counter.value}>{counter.name}</option>)}
                             </select>
                         </label>
+                        <button type="button" className="counter-report-button" onClick={openReport}>
+                            <LiaPrintSolid /> Relatório
+                        </button>
                     </div>
                 </header>
 
@@ -333,6 +418,59 @@ const AdminAtendimentosGuiches = () => {
                         {!reviewsError && recentComments.length === 0 && <p className="queue-empty">Nenhum comentário recebido neste período.</p>}
                     </div>
                 </section>
+
+                {reportOpen && (
+                    <div className="modal-overlay counter-report-overlay" role="presentation" onMouseDown={event => {
+                        if (event.target === event.currentTarget) setReportOpen(false);
+                    }}>
+                        <section className="modal-content counter-report-modal" role="dialog" aria-modal="true" aria-labelledby="counter-report-title">
+                            <header className="modal-header">
+                                <div>
+                                    <h3 id="counter-report-title">Gerar relatório de atendimentos</h3>
+                                    <p>Escolha o período, o guichê e o atendente que deseja analisar.</p>
+                                </div>
+                                <button type="button" className="modal-close-btn" onClick={() => setReportOpen(false)} aria-label="Fechar">
+                                    <LiaTimesSolid />
+                                </button>
+                            </header>
+                            <div className="counter-report-form">
+                                <label>
+                                    <span>Tipo de relatório</span>
+                                    <select value={reportPeriod} onChange={event => setReportPeriod(event.target.value)}>
+                                        <option value="daily">Diário</option>
+                                        <option value="monthly">Mensal</option>
+                                        <option value="annual">Anual</option>
+                                    </select>
+                                </label>
+                                {reportPeriod === 'daily' && <label><span>Data</span><input type="date" value={reportDate} onChange={event => setReportDate(event.target.value)} /></label>}
+                                {reportPeriod === 'monthly' && <label><span>Mês</span><input type="month" value={reportMonth} onChange={event => setReportMonth(event.target.value)} /></label>}
+                                {reportPeriod === 'annual' && <label><span>Ano</span><select value={reportYear} onChange={event => setReportYear(event.target.value)}>{availableYears.map(year => <option key={year} value={year}>{year}</option>)}</select></label>}
+                                <label>
+                                    <span>Guichê</span>
+                                    <select value={reportCounter} onChange={event => setReportCounter(event.target.value)}>
+                                        <option value="all">Todos os guichês</option>
+                                        {counterOptions.map(counter => <option key={counter.value} value={counter.value}>{counter.name}</option>)}
+                                    </select>
+                                </label>
+                                <label>
+                                    <span>Atendente</span>
+                                    <select value={reportAttendant} onChange={event => setReportAttendant(event.target.value)}>
+                                        <option value="all">Todos os atendentes</option>
+                                        {attendantOptions.map(attendant => <option key={attendant.value} value={attendant.value}>{attendant.name}</option>)}
+                                    </select>
+                                </label>
+                            </div>
+                            <div className="counter-report-preview">
+                                <span>Registros encontrados</span>
+                                <strong>{reportRows.length}</strong>
+                            </div>
+                            <footer className="counter-report-actions">
+                                <button type="button" className="btn-secondary" onClick={() => setReportOpen(false)}>Cancelar</button>
+                                <button type="button" className="btn-primary" onClick={generateReport}><LiaPrintSolid /> Imprimir / Salvar PDF</button>
+                            </footer>
+                        </section>
+                    </div>
+                )}
             </main>
         </div>
     );

@@ -172,7 +172,7 @@ export const printTableReport = ({ title, subtitle, columns, rows }) => {
                     </thead>
                     <tbody>${tableRows}</tbody>
                 </table>
-                <footer class="report-footer">Camara AI - Desenvolvido por Blu Tecnologias</footer>
+                <footer class="report-footer">Câmara Municipal de Paraipaba · Câmara AI · Desenvolvido por Blu Tecnologias</footer>
             </body>
         </html>
     `);
