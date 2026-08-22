@@ -1643,6 +1643,59 @@ function processDeletion(snapshot, promises, collName) {
   promises.push(snapshot.ref.delete());
 }
 
+// Concludes requests five days after the document-ready notification.
+exports.concluirDocumentosProntosBalcao = onSchedule(
+    {
+      schedule: "15 2 * * *",
+      timeZone: "America/Fortaleza",
+    },
+    async () => {
+      const db = admin.firestore();
+      const now = Date.now();
+      const readySnapshot = await db.collection("balcao-cidadao")
+          .where("status", "==", "Documento Pronto")
+          .get();
+
+      let batch = db.batch();
+      let operations = 0;
+      let completed = 0;
+
+      for (const requestDoc of readySnapshot.docs) {
+        const data = requestDoc.data() || {};
+        const deadline = data.documentoProntoConclusaoPrevistaEm;
+        const notifiedAt = data.documentoProntoNotificadoEm;
+        const deadlineMs = deadline?.toMillis ? deadline.toMillis() :
+          new Date(deadline || 0).getTime();
+        const notifiedAtMs = notifiedAt?.toMillis ? notifiedAt.toMillis() :
+          new Date(notifiedAt || 0).getTime();
+        const effectiveDeadline = deadlineMs ||
+          (notifiedAtMs ? notifiedAtMs + 5 * 24 * 60 * 60 * 1000 : 0);
+
+        if (!effectiveDeadline || effectiveDeadline > now) continue;
+
+        batch.update(requestDoc.ref, {
+          status: "Concluído",
+          concluidoAutomaticamenteEm:
+            admin.firestore.FieldValue.serverTimestamp(),
+          motivoConclusaoAutomatica:
+            "Cinco dias após a notificação de documento pronto",
+          deletionTimestamp: now + 5 * 24 * 60 * 60 * 1000,
+        });
+        operations += 1;
+        completed += 1;
+
+        if (operations >= 450) {
+          await batch.commit();
+          batch = db.batch();
+          operations = 0;
+        }
+      }
+
+      if (operations > 0) await batch.commit();
+      console.log(`${completed} documento(s) pronto(s) concluído(s).`);
+    },
+);
+
 // Função agendada para apagar solicitações expiradas
 exports.cleanupExpiredRequests = onSchedule(
     {

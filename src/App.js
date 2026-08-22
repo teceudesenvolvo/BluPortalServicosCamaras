@@ -59,6 +59,8 @@ import RecepcaoAtendimento from './pages/pagesAdmin/RecepcaoAtendimento';
 import PainelAtendimento from './pages/pagesAdmin/PainelAtendimento';
 import AdminTvCamara from './pages/pagesAdmin/AdminTvCamara';
 import AdminMicroempreendedor from './pages/pagesAdmin/AdminMicroempreendedor';
+import AdminAvaliacoes from './pages/pagesAdmin/AdminAvaliacoes';
+import AdminAtendimentosGuiches from './pages/pagesAdmin/AdminAtendimentosGuiches';
 
 
 function App() {
@@ -112,11 +114,13 @@ function App() {
           <Route path="/admin-users" element={<AdminUsers />} />
           <Route path="/admin-piel" element={<AdminPiel />} />
           <Route path="/admin-balcao/agendamentos" element={<AdminBalcaoAgendamentos />} />
+          <Route path="/admin-balcao/atendimentos-guiches" element={<AdminAtendimentosGuiches />} />
           <Route path="/admin-mail" element={<AdminMail />} />
           <Route path="/admin-notifications" element={<AdminNotifications />} />
           <Route path="/admin-mensagens" element={<AdminMensagens />} />
           <Route path="/admin-tv-camara" element={<AdminTvCamara />} />
           <Route path="/admin-microempreendedor" element={<AdminMicroempreendedor />} />
+          <Route path="/admin-avaliacoes" element={<AdminAvaliacoes />} />
           <Route path="/admin-migration" element={<AdminMigration />} />
           <Route path="/recepcao" element={<RecepcaoAtendimento />} />
           <Route path="/painel-atendimento" element={<PainelAtendimento />} />

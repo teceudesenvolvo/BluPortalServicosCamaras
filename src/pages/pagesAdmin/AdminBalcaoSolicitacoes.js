@@ -55,6 +55,18 @@ const toBrazilianDate = (date) => {
     return `${day}/${month}/${year}`;
 };
 
+const DOCUMENT_READY_NOTIFICATION = {
+    title: 'Seu documento está pronto para retirada',
+    body: 'Seu documento está disponível para retirada na Câmara Municipal. A retirada deve ser feita pelo titular ou por um parente de primeiro grau, que deverá apresentar um documento oficial de identificação. Compareça dentro do horário de atendimento.',
+};
+
+const getDocumentReadyFields = () => ({
+    status: 'Documento Pronto',
+    documentoProntoNotificadoEm: serverTimestamp(),
+    documentoProntoConclusaoPrevistaEm: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+    deletionTimestamp: null,
+});
+
 const AdminAppointmentSection = ({ solicitacao, onCreateAppointment }) => {
     const [formData, setFormData] = useState({
         appointmentDate: solicitacao?.appointmentDate || '',
@@ -624,6 +636,9 @@ const AdminBalcaoSolicitacoes = () => {
     const [solicitacoes, setSolicitacoes] = useState([]);
     const [firstKey, setFirstKey] = useState(null); // Chave do primeiro item da página atual
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedItems, setSelectedItems] = useState([]);
+    const [bulkStatus, setBulkStatus] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showQueueManager, setShowQueueManager] = useState(false);
 
@@ -758,7 +773,7 @@ const AdminBalcaoSolicitacoes = () => {
 
     /* ── Filtragem ── */
     const assuntosList = ['Todos', 'Informações Gerais', 'Emissão de Documentos', 'Agendamento', 'Outros'];
-    const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Documento em emissão', 'Concluído', 'Não Classificado'];
+    const statusList = ['Todas', 'Aguardando Atendimento', 'Agendamento Liberado', 'Agendado', 'Em Análise', 'Documentação Reprovada', 'Documentação Reenviada', 'Documento em emissão', 'Documento Pronto', 'Concluído', 'Não Classificado'];
 
     const filteredSolicitacoes = solicitacoes.filter(item => {
         const searchLower = searchTerm.toLowerCase();
@@ -786,6 +801,20 @@ const AdminBalcaoSolicitacoes = () => {
     });
 
     const paginatedFilteredSolicitacoes = filteredSolicitacoes;
+
+    const handleSelectAll = () => {
+        const pageIds = paginatedFilteredSolicitacoes.map(item => item.id);
+        const pageIsSelected = pageIds.length > 0 && pageIds.every(id => selectedItems.includes(id));
+        setSelectedItems(current => pageIsSelected
+            ? current.filter(id => !pageIds.includes(id))
+            : [...new Set([...current, ...pageIds])]);
+    };
+
+    const handleSelectItem = (id) => {
+        setSelectedItems(current => current.includes(id)
+            ? current.filter(itemId => itemId !== id)
+            : [...current, id]);
+    };
 
     const handlePrintFilteredResults = () => {
         printTableReport({
@@ -867,14 +896,46 @@ const AdminBalcaoSolicitacoes = () => {
         }
     };
 
+    const handleBulkStatusChange = async () => {
+        if (!bulkStatus) return alert('Selecione o novo status.');
+        if (selectedItems.length === 0) return alert('Selecione pelo menos uma solicitação.');
+        if (!window.confirm(`Alterar ${selectedItems.length} solicitação(ões) para “${bulkStatus}”?`)) return;
+
+        setLoading(true);
+        try {
+            const selectedRequests = solicitacoes.filter(item => selectedItems.includes(item.id));
+            await Promise.all(selectedRequests.map(async item => {
+                const updateData = bulkStatus === 'Documento Pronto' ? getDocumentReadyFields() : {
+                    status: bulkStatus,
+                    deletionTimestamp: ['Concluído', 'Cancelado'].includes(bulkStatus)
+                        ? Date.now() + 5 * 24 * 60 * 60 * 1000
+                        : null,
+                };
+                await updateDoc(doc(firestore, 'balcao-cidadao', item.id), updateData);
+                await sendNotification(item, bulkStatus === 'Documento Pronto' ? DOCUMENT_READY_NOTIFICATION : {
+                    title: 'Status de Solicitação Atualizado',
+                    body: `O status da sua solicitação (Protocolo: ${item.id}) foi alterado para: ${bulkStatus}.`,
+                });
+            }));
+            setSelectedItems([]);
+            setBulkStatus('');
+            setSelectionMode(false);
+            await fetchSolicitacoes(null, hasActiveFilters);
+            alert('Solicitações atualizadas com sucesso.');
+        } catch (error) {
+            console.error('Erro ao atualizar solicitações em lote:', error);
+            alert('Não foi possível atualizar todas as solicitações selecionadas.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleStatusChange = async (id, newStatus) => {
         try {
             const itemRef = doc(firestore, 'balcao-cidadao', id);
             let updateData = { status: newStatus };
             if (newStatus === 'Documento Pronto') {
-                updateData['dadosSolicitacao.assunto'] = 'Entrega de Documentos';
-                updateData['dadosSolicitacao.entregaDeDocumentos'] = true;
-                updateData.status = 'Agendamento Liberado';
+                updateData = getDocumentReadyFields();
             }
             if (newStatus === 'Concluído' || newStatus === 'Cancelado') {
                 updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
@@ -884,7 +945,9 @@ const AdminBalcaoSolicitacoes = () => {
             await updateDoc(itemRef, updateData);
             await sendNotification(
                 { ...selectedSolicitacao, id, status: newStatus },
-                { title: "Status de Solicitação Atualizado", body: `O status da sua solicitação (Protocolo: ${id}) foi alterado para: ${newStatus}.` }
+                newStatus === 'Documento Pronto'
+                    ? DOCUMENT_READY_NOTIFICATION
+                    : { title: "Status de Solicitação Atualizado", body: `O status da sua solicitação (Protocolo: ${id}) foi alterado para: ${newStatus}.` }
             );
             alert('Status atualizado!');
             setSelectedSolicitacao(null);
@@ -1290,9 +1353,48 @@ const AdminBalcaoSolicitacoes = () => {
 
                 {/* Lista completa */}
                 <div className="data-card">
-                    <div className="card-header">
+                    <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                         <h3>Solicitações ({filteredSolicitacoes.length})</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
+                            {selectionMode && selectedItems.length > 0 && (
+                                <div className="admin-bulk-actions">
+                                    <span>{selectedItems.length} selecionada(s)</span>
+                                    <select value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value)} className="form-input">
+                                        <option value="">Alterar status para...</option>
+                                        {statusList.filter(status => status !== 'Todas').map(status => <option key={status} value={status}>{status}</option>)}
+                                        <option value="Cancelado">Cancelado</option>
+                                    </select>
+                                    <button type="button" onClick={handleBulkStatusChange} className="btn-primary">Aplicar</button>
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                className={selectionMode ? 'btn-secondary' : 'btn-primary'}
+                                onClick={() => {
+                                    setSelectionMode(current => {
+                                        if (current) {
+                                            setSelectedItems([]);
+                                            setBulkStatus('');
+                                        }
+                                        return !current;
+                                    });
+                                }}
+                            >
+                                {selectionMode ? 'Cancelar seleção' : 'Selecionar'}
+                            </button>
+                        </div>
                     </div>
+
+                    {selectionMode && !loading && paginatedFilteredSolicitacoes.length > 0 && (
+                        <label className="admin-select-page-row">
+                            <input
+                                type="checkbox"
+                                checked={paginatedFilteredSolicitacoes.every(item => selectedItems.includes(item.id))}
+                                onChange={handleSelectAll}
+                            />
+                            <span>Selecionar todos desta página</span>
+                        </label>
+                    )}
 
                     {loading && <p>Carregando...</p>}
 
@@ -1322,6 +1424,16 @@ const AdminBalcaoSolicitacoes = () => {
                                     <span className="admin-card-unread-badge">
                                         {unreadCount}
                                     </span>
+                                )}
+                                {selectionMode && (
+                                    <div className="admin-card-selection" onClick={(event) => event.stopPropagation()}>
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedItems.includes(item.id)}
+                                            onChange={() => handleSelectItem(item.id)}
+                                            aria-label={`Selecionar solicitação ${item.id}`}
+                                        />
+                                    </div>
                                 )}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                     <span style={{

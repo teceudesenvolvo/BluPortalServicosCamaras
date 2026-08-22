@@ -12,7 +12,7 @@ import { uploadFileToStorage, deleteFileFromStorage } from '../../utils/firebase
 import { printProtocolReceipt } from '../../utils/printReport';
 
 // Ícones
-import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane, LiaPaperclipSolid, LiaUploadSolid, LiaTrashAltSolid } from "react-icons/lia";
+import { LiaPlusSolid, LiaTimesSolid, LiaPaperPlane, LiaPaperclipSolid, LiaUploadSolid, LiaTrashAltSolid, LiaStarSolid } from "react-icons/lia";
 
 const getMessageTimestamp = (timestamp) => {
     if (!timestamp) return 0;
@@ -197,7 +197,7 @@ const FIELD_LABELS = {
 };
 
 // Componente Modal para exibir detalhes
-const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmit, onUploadFiles }) => {
+const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmit, onUploadFiles, onReview }) => {
     const [message, setMessage] = useState('');
     const [uploading, setUploading] = useState(false);
     const [activeTab, setActiveTab] = useState('dados');
@@ -248,6 +248,11 @@ const SolicitacaoModal = ({ solicitacao, onClose, onSendMessage, onScheduleSubmi
                     {activeTab === 'dados' && (
                     <>
                     <div className="detail-item"><strong>Status:</strong> <span className={`status-badge ${getStatusClass(status)}`}>{status}</span></div>
+                    {solicitacao.atendimentoPresencialConcluidoEm && (
+                        <button type="button" className="btn-primary service-review-cta" onClick={() => onReview(solicitacao.id)}>
+                            <LiaStarSolid /> Avaliar atendimento
+                        </button>
+                    )}
                     <div className="detail-item"><strong>Data da Solicitação:</strong> {new Date(dataSolicitacao).toLocaleDateString('pt-BR')}</div>
                     {status === 'Agendado' && (
                         <>
@@ -692,6 +697,7 @@ const BalcaoCidadao = () => {
                     onSendMessage={handleSendMessage}
                     onScheduleSubmit={handleScheduleSubmit}
                     onUploadFiles={handleUploadFiles}
+                    onReview={(protocol) => navigate(`/avaliar-atendimento/${protocol}`)}
                 />
             </div>
         </div>

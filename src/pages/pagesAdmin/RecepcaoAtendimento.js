@@ -124,7 +124,7 @@ const getReceptionUploadPath = (sector, userId) => {
     return `${config.cityCollection}/balcao-cidadao/${userId}/anexos`;
 };
 
-const createQueueTicket = async ({ protocolo, nome, assunto, appointmentDate, appointmentTime, setor, collectionName }) => {
+const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDate, appointmentTime, setor, collectionName }) => {
     const dateKey = todayKey();
     const prefix = queuePrefixes[setor] || 'B';
     const counterRef = doc(firestore, 'atendimento-fila-meta', `${dateKey}-${prefix}`);
@@ -140,6 +140,7 @@ const createQueueTicket = async ({ protocolo, nome, assunto, appointmentDate, ap
             senha: password,
             protocolo,
             nome,
+            cpf: cpf || '',
             assunto,
             appointmentDate,
             appointmentTime,
@@ -160,7 +161,7 @@ const createQueueTicket = async ({ protocolo, nome, assunto, appointmentDate, ap
     });
 };
 
-const createWalkInQueueTicket = async ({ protocolo, nome, assunto, setor, collectionName }) => {
+const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, collectionName }) => {
     const dateKey = todayKey();
     const prefix = queuePrefixes[setor] || 'B';
     const counterRef = doc(firestore, 'atendimento-fila-meta', `${dateKey}-${prefix}`);
@@ -195,6 +196,7 @@ const createWalkInQueueTicket = async ({ protocolo, nome, assunto, setor, collec
             senha: password,
             protocolo,
             nome,
+            cpf: cpf || '',
             assunto,
             appointmentDate: null,
             appointmentTime: null,
@@ -601,6 +603,7 @@ const RecepcaoAtendimento = () => {
             const result = await createWalkInQueueTicket({
                 protocolo: createdProtocol,
                 nome: requestForm.nome,
+                cpf: requestForm.cpf,
                 assunto: requestForm.assunto || requestForm.tipoDocumento,
                 setor: selectedSector,
                 collectionName: createdRequestCollection || getReceptionCollection(selectedSector),
@@ -639,6 +642,7 @@ const RecepcaoAtendimento = () => {
             const senha = await createQueueTicket({
                 protocolo: appointment.id,
                 nome: getCitizenName(appointment),
+                cpf: appointment.dadosBeneficiario?.cpf || appointment.dadosUsuario?.cpf || '',
                 assunto: getAppointmentSubject(appointment),
                 appointmentDate: getAppointmentDate(appointment),
                 appointmentTime: getAppointmentTime(appointment),

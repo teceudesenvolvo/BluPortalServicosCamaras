@@ -16,7 +16,8 @@ import {
     LiaClipboardListSolid,
     LiaNewspaperSolid,
     LiaCommentsSolid,
-    LiaTvSolid
+    LiaTvSolid,
+    LiaStarSolid
 } from "react-icons/lia";
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, firestore } from '../firebase';
@@ -130,6 +131,7 @@ const AdminSidebar = () => {
         { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/admin-mensagens', roles: ['Admin', 'Balcão', 'Ouvidoria', 'Procuradoria'] },
         { title: 'Notícias do Site', icon: <LiaNewspaperSolid />, path: '/admin-noticias', roles: ['Admin'] },
         { title: 'TV Câmara', icon: <LiaTvSolid />, path: '/admin-tv-camara', roles: ['Admin'] },
+        { title: 'Avaliações', icon: <LiaStarSolid />, path: '/admin-avaliacoes', roles: ['Admin', 'Balcão'] },
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/admin-ouvidoria', roles: ['Admin', 'Ouvidoria'] },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/admin-procuradoria', roles: ['Admin', 'Procuradoria'] },
         { title: 'Vereadores', icon: <LiaUserFriendsSolid />, path: '/admin-vereadores', roles: ['Admin', 'Vereador'] },

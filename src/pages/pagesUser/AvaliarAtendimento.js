@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { LiaArrowLeftSolid, LiaCheckCircleSolid } from 'react-icons/lia';
+import { LiaArrowLeftSolid, LiaCheckCircleSolid, LiaStarSolid } from 'react-icons/lia';
 import Sidebar from '../../components/Sidebar';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { firestore } from '../../firebase';
@@ -13,7 +13,8 @@ const AvaliarAtendimento = () => {
     const { protocolo } = useParams();
     const { currentUser } = useAuth();
     const [solicitacao, setSolicitacao] = useState(null);
-    const [rating, setRating] = useState(0);
+    const [attendanceRating, setAttendanceRating] = useState(0);
+    const [serviceRating, setServiceRating] = useState(0);
     const [comment, setComment] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -35,7 +36,9 @@ const AvaliarAtendimento = () => {
                 }
 
                 const requestData = requestSnap.data() || {};
-                if (requestData.userId !== currentUser.uid) {
+                const attendanceFinished = Boolean(requestData.atendimentoPresencialConcluidoEm)
+                    || requestData.statusFila === 'Atendimento Presencial Concluído';
+                if (requestData.userId !== currentUser.uid || !attendanceFinished) {
                     setSolicitacao(null);
                     return;
                 }
@@ -43,7 +46,8 @@ const AvaliarAtendimento = () => {
                 setSolicitacao({ id: requestSnap.id, ...requestData });
                 if (reviewSnap.exists()) {
                     const review = reviewSnap.data() || {};
-                    setRating(review.nota || 0);
+                    setAttendanceRating(review.notaAtendimento || review.nota || 0);
+                    setServiceRating(review.notaServico || review.nota || 0);
                     setComment(review.comentario || '');
                     setSaved(true);
                 }
@@ -57,24 +61,31 @@ const AvaliarAtendimento = () => {
 
     const handleSubmit = async () => {
         if (!currentUser || !solicitacao) return;
-        if (!rating) {
-            alert('Selecione uma nota para continuar.');
+        if (!attendanceRating || !serviceRating) {
+            alert('Avalie o atendimento e o serviço para continuar.');
             return;
         }
 
         setSaving(true);
         try {
-            await setDoc(doc(collection(firestore, 'atendimento-avaliacoes'), `${protocolo}_${currentUser.uid}`), {
+            const reviewData = {
                 protocolo,
                 userId: currentUser.uid,
-                nota: rating,
+                nota: attendanceRating,
+                notaAtendimento: attendanceRating,
+                notaServico: serviceRating,
                 comentario: comment.trim(),
                 setor: 'Balcão do Cidadão',
                 assunto: solicitacao.dadosSolicitacao?.assunto || '',
                 statusSolicitacao: solicitacao.status || '',
-                createdAt: serverTimestamp(),
+                atendenteUid: solicitacao.atendenteUid || '',
+                atendenteNome: solicitacao.atendenteNome || '',
+                guicheAtendimento: solicitacao.guicheAtendimento || '',
+                sessaoGuicheId: solicitacao.sessaoGuicheId || '',
                 updatedAt: serverTimestamp(),
-            }, { merge: true });
+            };
+            if (!saved) reviewData.createdAt = serverTimestamp();
+            await setDoc(doc(collection(firestore, 'atendimento-avaliacoes'), `${protocolo}_${currentUser.uid}`), reviewData, { merge: true });
             setSaved(true);
             alert('Avaliação registrada com sucesso.');
         } catch (error) {
@@ -127,18 +138,8 @@ const AvaliarAtendimento = () => {
 
                             <div className="data-card">
                                 <div className="card-header"><h3>Sua avaliação</h3></div>
-                                <div className="profile-actions" style={{ justifyContent: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
-                                    {stars.map((value) => (
-                                        <button
-                                            key={value}
-                                            type="button"
-                                            className={rating === value ? 'btn-primary' : 'btn-secondary'}
-                                            onClick={() => setRating(value)}
-                                        >
-                                            {value} estrela{value > 1 ? 's' : ''}
-                                        </button>
-                                    ))}
-                                </div>
+                                <RatingField label="Atendimento do servidor" value={attendanceRating} onChange={setAttendanceRating} />
+                                <RatingField label="Qualidade do serviço recebido" value={serviceRating} onChange={setServiceRating} />
                                 <div className="form-group" style={{ marginTop: '20px' }}>
                                     <label>Comentário</label>
                                     <textarea
@@ -162,5 +163,27 @@ const AvaliarAtendimento = () => {
         </div>
     );
 };
+
+const RatingField = ({ label, value, onChange }) => (
+    <fieldset className="service-rating-field">
+        <legend>{label}</legend>
+        <div className="service-rating-stars" role="radiogroup" aria-label={label}>
+            {stars.map((star) => (
+                <button
+                    key={star}
+                    type="button"
+                    className={star <= value ? 'selected' : ''}
+                    onClick={() => onChange(star)}
+                    role="radio"
+                    aria-checked={value === star}
+                    aria-label={`${star} estrela${star > 1 ? 's' : ''}`}
+                >
+                    <LiaStarSolid />
+                </button>
+            ))}
+            <span>{value ? `${value} de 5` : 'Selecione uma nota'}</span>
+        </div>
+    </fieldset>
+);
 
 export default AvaliarAtendimento;

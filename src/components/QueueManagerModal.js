@@ -15,6 +15,7 @@ import {
     LiaPlayCircleSolid,
     LiaPlusSolid,
     LiaRedoAltSolid,
+    LiaStopCircleSolid,
     LiaTimesSolid,
     LiaUserClockSolid,
 } from 'react-icons/lia';
@@ -83,6 +84,17 @@ const queueOrder = (a, b) => {
         || getTime(a.ordemFilaEm || a.criadoEm) - getTime(b.ordemFilaEm || b.criadoEm);
 };
 
+const getTicketCpf = (ticket = {}) => ticket.cpf
+    || ticket.dadosBeneficiario?.cpf
+    || ticket.dadosUsuario?.cpf
+    || '';
+
+const getAttendant = () => ({
+    uid: auth.currentUser?.uid || '',
+    nome: auth.currentUser?.displayName || auth.currentUser?.email || 'Atendente',
+    email: auth.currentUser?.email || '',
+});
+
 const QueueManagerModal = ({ onClose, lockedService = '' }) => {
     const [tickets, setTickets] = useState([]);
     const [counters, setCounters] = useState([]);
@@ -125,6 +137,11 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
         counter.ativo !== false
         && (!lockedService || !counter.servicos?.length || counter.servicos.includes(lockedService))
     )), [counters, lockedService]);
+    const attendant = getAttendant();
+    const assignedCounter = useMemo(() => counters.find(counter => (
+        counter.sessaoAtiva === true && counter.atendenteUid === attendant.uid
+    )) || null, [attendant.uid, counters]);
+    const selectedCounterData = useMemo(() => counters.find(counter => counter.id === selectedCounter) || null, [counters, selectedCounter]);
     const waiting = useMemo(() => filteredTickets.filter(ticket => ticket.status === 'Aguardando').sort(queueOrder), [filteredTickets]);
     const active = useMemo(() => tickets
         .filter(ticket => serviceMatches(ticket) && (['Chamando', 'Em Atendimento'].includes(ticket.status) || counterByTicketId.has(ticket.id)))
@@ -148,13 +165,119 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
     }, [counters]);
 
     useEffect(() => {
+        if (assignedCounter) {
+            setSelectedCounter(assignedCounter.id);
+            return;
+        }
         if (selectedCounter && serviceCounters.some(counter => counter.id === selectedCounter)) return;
         // A criação do guichê chega primeiro no estado local e depois no snapshot.
         // Preserve a seleção nesse intervalo para não voltar ao primeiro guichê ocupado.
         if (selectedCounter && !counters.some(counter => counter.id === selectedCounter)) return;
         const firstCounter = serviceCounters[0];
         setSelectedCounter(firstCounter?.id || '');
-    }, [counters, selectedCounter, serviceCounters]);
+    }, [assignedCounter, counters, selectedCounter, serviceCounters]);
+
+    const writeCalendarRecord = (writer, ticketRefId, ticket, now) => {
+        if (!ticket?.sessaoGuicheId) return;
+        writer.set(doc(firestore, 'atendimento-calendario', `${ticket.sessaoGuicheId}_${ticketRefId}`), {
+            nome: ticket.nome || 'Cidadão',
+            cpf: getTicketCpf(ticket),
+            dataAtendimento: now,
+            horarioInicio: ticket.atendimentoIniciadoEm || ticket.chamadoEm || now,
+            horarioFim: now,
+            guicheId: ticket.guicheId || '',
+            guiche: ticket.guiche || '',
+            sessaoGuicheId: ticket.sessaoGuicheId,
+            atendenteUid: ticket.atendenteUid || '',
+            atendenteNome: ticket.atendenteNome || '',
+            protocolo: ticket.protocolo || '',
+            setor: ticket.setor || 'Balcão do Cidadão',
+        }, { merge: true });
+    };
+
+    const openCounterSession = async () => {
+        if (!selectedCounter || assignedCounter || loading) return;
+        setLoading(true);
+        setCounterFeedback(null);
+        try {
+            const sessionRef = doc(collection(firestore, 'atendimento-guiche-relatorios'));
+            const counterRef = doc(firestore, 'atendimento-guiches', selectedCounter);
+            await runTransaction(firestore, async (transaction) => {
+                const counterSnap = await transaction.get(counterRef);
+                if (!counterSnap.exists() || counterSnap.data().ativo === false) throw new Error('O guichê selecionado não está disponível.');
+                const counter = counterSnap.data();
+                if (counter.sessaoAtiva && counter.atendenteUid !== attendant.uid) {
+                    throw new Error(`${counter.nome} já está sendo utilizado por ${counter.atendenteNome || 'outro atendente'}.`);
+                }
+                const now = new Date();
+                transaction.set(sessionRef, {
+                    guicheId: selectedCounter,
+                    guiche: counter.nome,
+                    atendenteUid: attendant.uid,
+                    atendenteNome: attendant.nome,
+                    atendenteEmail: attendant.email,
+                    setor: service,
+                    iniciadoEm: now,
+                    encerradoEm: null,
+                    status: 'Aberta',
+                    totalAtendimentos: 0,
+                });
+                transaction.set(counterRef, {
+                    sessaoAtiva: true,
+                    sessaoId: sessionRef.id,
+                    sessaoIniciadaEm: now,
+                    atendenteUid: attendant.uid,
+                    atendenteNome: attendant.nome,
+                    atendenteEmail: attendant.email,
+                    atualizadoEm: now,
+                }, { merge: true });
+            });
+            setCounterFeedback({ type: 'success', text: `${selectedCounterData?.nome || 'Guichê'} aberto para ${attendant.nome}.` });
+        } catch (error) {
+            alert(error.message || 'Não foi possível abrir o guichê.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const closeCounterSession = async () => {
+        if (!assignedCounter || loading) return;
+        const hasActiveCall = tickets.some(ticket => ticket.guicheId === assignedCounter.id && ['Chamando', 'Em Atendimento'].includes(ticket.status));
+        if (hasActiveCall) {
+            alert('Conclua ou devolva a chamada atual antes de encerrar o guichê.');
+            return;
+        }
+        setLoading(true);
+        try {
+            const now = new Date();
+            const sessionTickets = tickets.filter(ticket => ticket.sessaoGuicheId === assignedCounter.sessaoId && ticket.status === 'Concluído');
+            await Promise.all([
+                setDoc(doc(firestore, 'atendimento-guiche-relatorios', assignedCounter.sessaoId), {
+                    encerradoEm: now,
+                    status: 'Encerrada',
+                    totalAtendimentos: sessionTickets.length,
+                    atualizadoEm: now,
+                }, { merge: true }),
+                setDoc(doc(firestore, 'atendimento-guiches', assignedCounter.id), {
+                    sessaoAtiva: false,
+                    sessaoId: null,
+                    sessaoIniciadaEm: null,
+                    atendenteUid: null,
+                    atendenteNome: null,
+                    atendenteEmail: null,
+                    senhaAtual: null,
+                    ticketAtualId: null,
+                    atualizadoEm: now,
+                }, { merge: true }),
+            ]);
+            setSelectedCounter('');
+            setCounterFeedback({ type: 'success', text: `Sessão encerrada com ${sessionTickets.length} atendimento(s) registrado(s).` });
+        } catch (error) {
+            alert(error.message || 'Não foi possível encerrar o guichê.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const updateTicket = async (ticket, status, extra = {}) => {
         const now = new Date();
@@ -186,15 +309,36 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                 status: 'Documento em emissão',
                 statusFila: 'Atendimento Presencial Concluído',
                 atendimentoPresencialConcluidoEm: now,
+                atendenteUid: ticket.atendenteUid || '',
+                atendenteNome: ticket.atendenteNome || '',
+                guicheAtendimento: ticket.guiche || '',
+                sessaoGuicheId: ticket.sessaoGuicheId || '',
                 ultimaAtualizacao: now,
+            }, { merge: true }));
+        }
+        if (status === 'Concluído' && ticket.sessaoGuicheId) {
+            const calendarRef = doc(firestore, 'atendimento-calendario', `${ticket.sessaoGuicheId}_${ticket.id}`);
+            updates.push(setDoc(calendarRef, {
+                nome: ticket.nome || 'Cidadão',
+                cpf: getTicketCpf(ticket),
+                dataAtendimento: now,
+                horarioInicio: ticket.atendimentoIniciadoEm || ticket.chamadoEm || now,
+                horarioFim: now,
+                guicheId: ticket.guicheId || '',
+                guiche: ticket.guiche || '',
+                sessaoGuicheId: ticket.sessaoGuicheId,
+                atendenteUid: ticket.atendenteUid || '',
+                atendenteNome: ticket.atendenteNome || '',
+                protocolo: ticket.protocolo || '',
+                setor: ticketService,
             }, { merge: true }));
         }
         await Promise.all(updates);
     };
 
     const callNext = async () => {
-        if (!selectedCounter) {
-            alert('Selecione ou crie um guichê antes de chamar.');
+        if (!assignedCounter) {
+            alert('Escolha um guichê e clique em “Usar este guichê” antes de iniciar as chamadas.');
             return;
         }
         const nextTicket = waiting[0];
@@ -206,7 +350,7 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
         try {
             await runTransaction(firestore, async (transaction) => {
                 const ticketRef = doc(firestore, 'atendimento-fila', nextTicket.id);
-                const counterRef = doc(firestore, 'atendimento-guiches', selectedCounter);
+                const counterRef = doc(firestore, 'atendimento-guiches', assignedCounter.id);
                 const [ticketSnap, counterSnap] = await Promise.all([
                     transaction.get(ticketRef),
                     transaction.get(counterRef),
@@ -217,6 +361,9 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                 const counter = counterSnap.data();
                 if (!counterSnap.exists() || counter?.ativo === false) {
                     throw new Error('O guichê selecionado não está disponível.');
+                }
+                if (!counter.sessaoAtiva || counter.atendenteUid !== attendant.uid) {
+                    throw new Error('Sua sessão neste guichê foi encerrada. Selecione o guichê novamente.');
                 }
                 if (counter?.ticketAtualId) {
                     const currentTicketRef = doc(firestore, 'atendimento-fila', counter.ticketAtualId);
@@ -230,6 +377,7 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                             atualizadoEm: now,
                             atualizadoPor: auth.currentUser?.email || 'admin',
                         });
+                        writeCalendarRecord(transaction, counter.ticketAtualId, currentTicket, now);
 
                         const currentService = currentTicket.setor || 'Balcão do Cidadão';
                         const requestCollection = currentTicket.collectionName || REQUEST_COLLECTIONS[currentService];
@@ -238,6 +386,10 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                                 status: 'Documento em emissão',
                                 statusFila: 'Atendimento Presencial Concluído',
                                 atendimentoPresencialConcluidoEm: now,
+                                atendenteUid: currentTicket.atendenteUid || attendant.uid,
+                                atendenteNome: currentTicket.atendenteNome || attendant.nome,
+                                guicheAtendimento: currentTicket.guiche || counter.nome || '',
+                                sessaoGuicheId: currentTicket.sessaoGuicheId || counter.sessaoId || '',
                                 ultimaAtualizacao: now,
                             }, { merge: true });
                         }
@@ -246,8 +398,12 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                 const now = new Date();
                 transaction.update(ticketRef, {
                     status: 'Chamando',
-                    guicheId: selectedCounter,
+                    guicheId: assignedCounter.id,
                     guiche: counter.nome,
+                    sessaoGuicheId: counter.sessaoId,
+                    atendenteUid: attendant.uid,
+                    atendenteNome: attendant.nome,
+                    atendenteEmail: attendant.email,
                     chamadoEm: now,
                     chamadoPor: auth.currentUser?.email || 'admin',
                     chamadas: (ticketSnap.data().chamadas || 0) + 1,
@@ -317,6 +473,10 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                         status: 'Chamando',
                         guicheId: ticket.guicheId,
                         guiche: counter.nome || ticket.guiche,
+                        sessaoGuicheId: counter.sessaoId || ticket.sessaoGuicheId || null,
+                        atendenteUid: counter.atendenteUid || attendant.uid,
+                        atendenteNome: counter.atendenteNome || attendant.nome,
+                        atendenteEmail: counter.atendenteEmail || attendant.email,
                         chamadoEm: now,
                         chamadoPor: auth.currentUser?.email || 'admin',
                         chamadas: (nextSnap.data().chamadas || 0) + 1,
@@ -349,7 +509,7 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
         setCounterFeedback(null);
         try {
             const counterRef = doc(collection(firestore, 'atendimento-guiches'));
-            setSelectedCounter(counterRef.id);
+            if (!assignedCounter) setSelectedCounter(counterRef.id);
             const counterData = {
                 nome,
                 ativo: true,
@@ -424,25 +584,43 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                         <div className="queue-manager-toolbar">
                             <label>
                                 <span>Fila de serviço</span>
-                                <select className="form-input" value={service} onChange={(event) => setService(event.target.value)} disabled={Boolean(lockedService)}>
+                                <select className="form-input" value={service} onChange={(event) => setService(event.target.value)} disabled={Boolean(lockedService || assignedCounter)}>
                                     {(lockedService ? [lockedService] : SERVICES).map(item => <option key={item}>{item}</option>)}
                                 </select>
                             </label>
                             <label>
                                 <span>Guichê responsável</span>
-                                <select className="form-input" value={selectedCounter} onChange={(event) => setSelectedCounter(event.target.value)}>
+                                <select className="form-input" value={selectedCounter} onChange={(event) => setSelectedCounter(event.target.value)} disabled={Boolean(assignedCounter)}>
                                     <option value="">Selecione um guichê</option>
                                     {serviceCounters.map(counter => (
-                                        <option key={counter.id} value={counter.id}>
-                                            {counter.nome}{busyCounterIds.has(counter.id) ? ' · atendimento em andamento' : ''}
+                                        <option key={counter.id} value={counter.id} disabled={counter.sessaoAtiva && counter.atendenteUid !== attendant.uid}>
+                                            {counter.nome}{counter.sessaoAtiva ? ` · ${counter.atendenteNome || 'em uso'}` : ''}
                                         </option>
                                     ))}
                                 </select>
                             </label>
-                            <button type="button" className="queue-call-next" onClick={callNext} disabled={loading || waiting.length === 0}>
-                                <LiaBullhornSolid /> {loading ? 'Chamando...' : 'Chamar próximo'}
-                            </button>
+                            {!assignedCounter ? (
+                                <button type="button" className="queue-use-counter" onClick={openCounterSession} disabled={loading || !selectedCounter}>
+                                    <LiaPlayCircleSolid /> {loading ? 'Abrindo...' : 'Usar este guichê'}
+                                </button>
+                            ) : (
+                                <div className="queue-session-actions">
+                                    <button type="button" className="queue-call-next" onClick={callNext} disabled={loading || waiting.length === 0}>
+                                        <LiaBullhornSolid /> {loading ? 'Chamando...' : 'Chamar próximo'}
+                                    </button>
+                                    <button type="button" className="queue-close-counter" onClick={closeCounterSession} disabled={loading}>
+                                        <LiaStopCircleSolid /> Encerrar guichê
+                                    </button>
+                                </div>
+                            )}
                         </div>
+                        {assignedCounter && (
+                            <div className="queue-active-session" role="status">
+                                <span>Guichê em uso</span>
+                                <strong>{assignedCounter.nome}</strong>
+                                <small>Atendente: {assignedCounter.atendenteNome || attendant.nome}. A troca será liberada ao encerrar o guichê.</small>
+                            </div>
+                        )}
 
                         <div className="queue-manager-stats">
                             <div><LiaUserClockSolid /><span>Aguardando</span><strong>{waiting.length}</strong></div>
@@ -521,7 +699,19 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                                     {counter.ticketAtualId && !tickets.some(ticket => ticket.id === counter.ticketAtualId) ? (
                                         <button type="button" onClick={() => clearOrphanedCounter(counter)}>Liberar pendência</button>
                                     ) : (
-                                        <button type="button" onClick={() => toggleCounter(counter)} disabled={busyCounterIds.has(counter.id)}>{counter.ativo === false ? 'Abrir guichê' : busyCounterIds.has(counter.id) ? 'Atendimento aberto' : 'Fechar guichê'}</button>
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleCounter(counter)}
+                                            disabled={busyCounterIds.has(counter.id) || (counter.sessaoAtiva && counter.atendenteUid === attendant.uid)}
+                                        >
+                                            {counter.sessaoAtiva && counter.atendenteUid === attendant.uid
+                                                ? 'Encerre na aba Fila'
+                                                : counter.ativo === false
+                                                    ? 'Abrir guichê'
+                                                    : busyCounterIds.has(counter.id)
+                                                        ? 'Atendimento aberto'
+                                                        : 'Fechar guichê'}
+                                        </button>
                                     )}
                                 </article>
                             ))}

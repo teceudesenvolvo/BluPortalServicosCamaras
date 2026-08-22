@@ -14,11 +14,10 @@ import {
     LiaPaperclipSolid, LiaDownloadSolid,
     LiaCogSolid, LiaCalendarCheckSolid, LiaClipboardListSolid,
     LiaClockSolid, LiaHourglassHalfSolid, LiaRedoAltSolid, LiaBullhornSolid, 
-    LiaUsersSolid, LiaUserSolid, LiaAddressCardSolid, LiaCheckCircleSolid
+    LiaUsersSolid, LiaUserSolid, LiaAddressCardSolid, LiaCheckCircleSolid, LiaCalendarAltSolid
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { useTheme } from '../../contexts/ThemeContext';
-import { openQueuePanelWindow } from '../../utils/openQueuePanelWindow';
 
 // Lightbox para visualizar arquivos inline
 const FileViewerModal = ({ file, onClose }) => {
@@ -1317,12 +1316,8 @@ const AdminBalcaoDashboard = () => {
                         <button onClick={fetchData} className="admin-action-button action-refresh admin-balcao-refresh-button" disabled={loading}>
                             <span className="admin-action-icon">↻</span><span className="admin-action-label">Atualizar dados</span>
                         </button>
-                        
-                        <button type="button" onClick={() => navigate('/recepcao')} className="admin-action-button action-reception">
-                            <LiaUsersSolid /><span className="admin-action-label">Recepção</span>
-                        </button>
-                        <button type="button" onClick={openQueuePanelWindow} className="admin-action-button action-queue">
-                            <LiaClipboardListSolid /><span className="admin-action-label">Painel da Fila</span>
+                        <button type="button" onClick={() => navigate('/admin-balcao/atendimentos-guiches')} className="admin-action-button action-calendar">
+                            <LiaCalendarAltSolid /><span className="admin-action-label">Calendário dos Guichês</span>
                         </button>
                         <button
                             type="button"
