@@ -1217,6 +1217,102 @@ exports.notifyBalcaoServiceEvaluation = onDocumentWritten(
     },
 );
 
+// Notifies the citizen whenever a counter starts or repeats their call.
+exports.notificarCidadaoChamadoNoGuiche = onDocumentWritten(
+    {
+      document: "atendimento-fila/{ticketId}",
+    },
+    async (event) => {
+      if (!event.data.after || !event.data.after.exists) return null;
+      const beforeData = event.data.before && event.data.before.exists ?
+        event.data.before.data() || {} : {};
+      const afterData = event.data.after.data() || {};
+      if (afterData.status !== "Chamando") return null;
+
+      const beforeCallMs = beforeData.chamadoEm?.toMillis ?
+        beforeData.chamadoEm.toMillis() : 0;
+      const afterCallMs = afterData.chamadoEm?.toMillis ?
+        afterData.chamadoEm.toMillis() : 0;
+      if (beforeData.status === "Chamando" &&
+          beforeCallMs === afterCallMs) return null;
+
+      const db = admin.firestore();
+      const allowedCollections = new Set([
+        "balcao-cidadao",
+        "assessoria-microempreendedor",
+        "ouvidoria",
+        "procuradoria-mulher",
+        "piel-atendimentos",
+      ]);
+      const collectionName = allowedCollections.has(afterData.collectionName) ?
+        afterData.collectionName : "balcao-cidadao";
+      let requestData = {};
+      if (afterData.protocolo) {
+        const requestSnapshot = await db.collection(collectionName)
+            .doc(afterData.protocolo).get();
+        if (requestSnapshot.exists) requestData = requestSnapshot.data() || {};
+      }
+
+      const userId = afterData.userId || afterData.targetUserId ||
+        requestData.userId || requestData.dadosUsuario?.uid ||
+        requestData.dadosUsuario?.id;
+      if (!userId || userId === "recepcao" || userId === "anonimo") {
+        console.log(
+            `Chamada ${event.params.ticketId} sem usuário notificável.`,
+        );
+        return null;
+      }
+
+      const beneficiary = requestData.dadosBeneficiario ||
+        requestData.beneficiario || requestData.beneficiary || {};
+      const beneficiaryName = beneficiary.name || beneficiary.nome || "";
+      const citizenName = afterData.beneficiarioNome || beneficiaryName ||
+        afterData.nome ||
+        requestData.dadosUsuario?.name || "Cidadão";
+      const counterName = afterData.guiche || "guichê de atendimento";
+      const description = `${citizenName}, o ${counterName} está chamando ` +
+        "você. Dirija-se ao guichê para iniciar seu atendimento.";
+      const notificationId = `counter-call_${event.params.ticketId}_` +
+        `${afterCallMs || Date.now()}`;
+
+      const writes = [db.collection("notifications").doc(notificationId).set({
+        userId,
+        targetUserId: userId,
+        userEmail: afterData.userEmail || requestData.dadosUsuario?.email || "",
+        flavorId: "paraipaba",
+        tituloNotification: `${counterName} está chamando você`,
+        descricaoNotification: description,
+        message: description,
+        protocolo: afterData.protocolo || "",
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        read: false,
+        isRead: false,
+        source: "counter-call",
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        data: {
+          screen: "Notificacoes",
+          type: "counter-call",
+          ticketId: event.params.ticketId,
+          protocolo: afterData.protocolo || "",
+          collection: collectionName,
+          guiche: counterName,
+          senha: afterData.senha || "",
+          beneficiario: citizenName,
+        },
+      })];
+      if (beneficiaryName && afterData.nome !== beneficiaryName) {
+        writes.push(event.data.after.ref.set({
+          nome: beneficiaryName,
+          beneficiarioNome: beneficiaryName,
+          solicitanteNome: requestData.dadosUsuario?.name || "",
+        }, {merge: true}));
+      }
+      await Promise.all(writes);
+      return null;
+    },
+);
+
 exports.notifyNewsNow = onRequest(
     {},
     async (req, res) => {

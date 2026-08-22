@@ -90,7 +90,16 @@ const normalizeDate = (value) => {
 
 const getAppointmentDate = (item) => item?.appointmentDate || item?.dadosSolicitacao?.appointmentDate || '';
 const getAppointmentTime = (item) => item?.appointmentTime || item?.dadosSolicitacao?.appointmentTime || '';
-const getCitizenName = (item) => item?.dadosBeneficiario?.name || item?.dadosUsuario?.name || 'Cidadão';
+const getBeneficiaryData = (item = {}) => item.dadosBeneficiario
+    || item.beneficiario
+    || item.beneficiary
+    || item.dadosSolicitacao?.beneficiario
+    || null;
+const getBeneficiaryName = (item) => String(getBeneficiaryData(item)?.name || getBeneficiaryData(item)?.nome || '').trim();
+const getRequesterName = (item) => String(item?.dadosUsuario?.name || item?.dadosUsuario?.nome || item?.solicitante?.name || '').trim();
+const getCitizenName = (item) => getBeneficiaryName(item) || getRequesterName(item) || 'Cidadão';
+const getCitizenCpf = (item) => getBeneficiaryData(item)?.cpf || item?.dadosUsuario?.cpf || '';
+const getCitizenPhone = (item) => getBeneficiaryData(item)?.phone || getBeneficiaryData(item)?.telefone || item?.dadosUsuario?.phone || item?.dadosUsuario?.telefone || '';
 const getAppointmentSubject = (item) => item?.dadosSolicitacao?.assunto || item?.dadosAssessoria?.tipo || item?.dadosManifestacao?.assunto || item?.dadosAtendimento?.tipoAtendimento || 'Atendimento';
 const getAppointmentSortKey = (item) => {
     const normalizedDate = normalizeDate(getAppointmentDate(item));
@@ -124,7 +133,7 @@ const getReceptionUploadPath = (sector, userId) => {
     return `${config.cityCollection}/balcao-cidadao/${userId}/anexos`;
 };
 
-const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDate, appointmentTime, setor, collectionName }) => {
+const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDate, appointmentTime, setor, collectionName, beneficiarioNome, solicitanteNome, userId, userEmail }) => {
     const dateKey = todayKey();
     const prefix = queuePrefixes[setor] || 'B';
     const counterRef = doc(firestore, 'atendimento-fila-meta', `${dateKey}-${prefix}`);
@@ -140,7 +149,11 @@ const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDat
             senha: password,
             protocolo,
             nome,
+            beneficiarioNome: beneficiarioNome || nome,
+            solicitanteNome: solicitanteNome || '',
             cpf: cpf || '',
+            userId: userId || '',
+            userEmail: userEmail || '',
             assunto,
             appointmentDate,
             appointmentTime,
@@ -642,7 +655,11 @@ const RecepcaoAtendimento = () => {
             const senha = await createQueueTicket({
                 protocolo: appointment.id,
                 nome: getCitizenName(appointment),
-                cpf: appointment.dadosBeneficiario?.cpf || appointment.dadosUsuario?.cpf || '',
+                beneficiarioNome: getBeneficiaryName(appointment),
+                solicitanteNome: getRequesterName(appointment),
+                cpf: getCitizenCpf(appointment),
+                userId: appointment.userId || appointment.dadosUsuario?.uid || appointment.dadosUsuario?.id || '',
+                userEmail: appointment.dadosUsuario?.email || appointment.email || '',
                 assunto: getAppointmentSubject(appointment),
                 appointmentDate: getAppointmentDate(appointment),
                 appointmentTime: getAppointmentTime(appointment),
@@ -669,8 +686,8 @@ const RecepcaoAtendimento = () => {
                 },
                 beneficiary: {
                     Nome: getCitizenName(appointment),
-                    CPF: appointment.dadosBeneficiario?.cpf || appointment.dadosUsuario?.cpf,
-                    Telefone: appointment.dadosBeneficiario?.phone || appointment.dadosUsuario?.phone || appointment.dadosUsuario?.telefone,
+                    CPF: getCitizenCpf(appointment),
+                    Telefone: getCitizenPhone(appointment),
                 },
                 details: {
                     Senha: senha,
@@ -786,8 +803,8 @@ const RecepcaoAtendimento = () => {
                         <div className="appointment-result-list">
                             {todayAppointments.map(result => (
                                 <button type="button" key={`today-${result.id}`} className={appointment?.id === result.id ? 'active' : ''} onClick={() => setAppointment(result)}>
-                                    <strong>{getCitizenName(result)}</strong>
-                                    <span>{result.setorAtendimento} • {result.id} • {getAppointmentDate(result)} • {getAppointmentTime(result) || 'Sem horário'}</span>
+                                    <strong>{getBeneficiaryName(result) ? `Beneficiário: ${getBeneficiaryName(result)}` : `Solicitante: ${getCitizenName(result)}`}</strong>
+                                    <span>{getBeneficiaryName(result) && getRequesterName(result) && getRequesterName(result) !== getBeneficiaryName(result) ? `Solicitante: ${getRequesterName(result)} • ` : ''}{result.setorAtendimento} • {result.id} • {getAppointmentDate(result)} • {getAppointmentTime(result) || 'Sem horário'}</span>
                                 </button>
                             ))}
                         </div>
@@ -797,8 +814,8 @@ const RecepcaoAtendimento = () => {
                         <div className="appointment-result-list">
                             {appointmentResults.map(result => (
                                 <button type="button" key={result.id} className={appointment?.id === result.id ? 'active' : ''} onClick={() => setAppointment(result)}>
-                                    <strong>{getCitizenName(result)}</strong>
-                                    <span>{result.setorAtendimento} • {result.id} • {getAppointmentDate(result) || 'Sem data'} • {getAppointmentTime(result) || 'Sem horário'}</span>
+                                    <strong>{getBeneficiaryName(result) ? `Beneficiário: ${getBeneficiaryName(result)}` : `Solicitante: ${getCitizenName(result)}`}</strong>
+                                    <span>{getBeneficiaryName(result) && getRequesterName(result) && getRequesterName(result) !== getBeneficiaryName(result) ? `Solicitante: ${getRequesterName(result)} • ` : ''}{result.setorAtendimento} • {result.id} • {getAppointmentDate(result) || 'Sem data'} • {getAppointmentTime(result) || 'Sem horário'}</span>
                                 </button>
                             ))}
                         </div>
@@ -811,9 +828,10 @@ const RecepcaoAtendimento = () => {
                     {appointment && (
                         <div className="selected-appointment-card">
                             <div>
-                                <strong>{getCitizenName(appointment)}</strong>
+                                <strong>{getBeneficiaryName(appointment) ? `Beneficiário: ${getBeneficiaryName(appointment)}` : `Solicitante: ${getCitizenName(appointment)}`}</strong>
                                 <span>Protocolo: {appointment.id}</span>
                             </div>
+                            {getBeneficiaryName(appointment) && getRequesterName(appointment) !== getBeneficiaryName(appointment) && <p>Solicitante: {getRequesterName(appointment) || 'Não informado'}</p>}
                             <p>Setor: {appointment.setorAtendimento || selectedSector}</p>
                             <p>Status: {appointment.status || 'Sem status'}</p>
                             <p>Data: {getAppointmentDate(appointment) || 'Não informado'}</p>
