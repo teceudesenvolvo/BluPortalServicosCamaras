@@ -55,11 +55,6 @@ const toBrazilianDate = (date) => {
     return `${day}/${month}/${year}`;
 };
 
-const DOCUMENT_READY_NOTIFICATION = {
-    title: 'Seu documento está pronto para retirada',
-    body: 'Seu documento está disponível para retirada na Câmara Municipal. A retirada deve ser feita pelo titular ou por um parente de primeiro grau, que deverá apresentar um documento oficial de identificação. Compareça dentro do horário de atendimento.',
-};
-
 const getDocumentReadyFields = () => ({
     status: 'Documento Pronto',
     documentoProntoNotificadoEm: serverTimestamp(),
@@ -858,8 +853,8 @@ const AdminBalcaoSolicitacoes = () => {
         }
     };
     const sendNotification = async (solicitacao, customMessage) => {
-        if (!solicitacao.userId || solicitacao.userId === "anonimo" || !solicitacao.dadosUsuario?.email) {
-            console.log("Usuário anônimo ou sem e-mail, notificação não enviada.");
+        if (!solicitacao.userId || solicitacao.userId === "anonimo" || solicitacao.userId === "recepcao") {
+            console.log("Usuário sem conta vinculada; notificação no aplicativo não enviada.");
             return;
         }
 
@@ -877,20 +872,10 @@ const AdminBalcaoSolicitacoes = () => {
                 timestamp: new Date(),
                 tituloNotification: notificationTitle,
                 descricaoNotification: notificationDescription,
-                userEmail: solicitacao.dadosUsuario.email,
+                userEmail: solicitacao.dadosUsuario?.email || '',
                 userId: solicitacao.userId
             });
 
-            // Adicionar email no Firestore
-            const mailRef = collection(firestore, 'mail');
-            await addDoc(mailRef, {
-                to: solicitacao.dadosUsuario.email,
-                message: {
-                    subject: notificationTitle,
-                    html: `<p>${notificationTitle}</p><p>${notificationDescription}</p>`,
-                },
-                timestamp: serverTimestamp()
-            });
         } catch (error) {
             console.error('Erro ao enviar notificação:', error);
         }
@@ -912,10 +897,12 @@ const AdminBalcaoSolicitacoes = () => {
                         : null,
                 };
                 await updateDoc(doc(firestore, 'balcao-cidadao', item.id), updateData);
-                await sendNotification(item, bulkStatus === 'Documento Pronto' ? DOCUMENT_READY_NOTIFICATION : {
-                    title: 'Status de Solicitação Atualizado',
-                    body: `O status da sua solicitação (Protocolo: ${item.id}) foi alterado para: ${bulkStatus}.`,
-                });
+                if (bulkStatus !== 'Documento Pronto') {
+                    await sendNotification(item, {
+                        title: 'Status de Solicitação Atualizado',
+                        body: `O status da sua solicitação (Protocolo: ${item.id}) foi alterado para: ${bulkStatus}.`,
+                    });
+                }
             }));
             setSelectedItems([]);
             setBulkStatus('');
@@ -943,12 +930,12 @@ const AdminBalcaoSolicitacoes = () => {
                 updateData.deletionTimestamp = null; // Clear if status is changed from Cancelado
             }
             await updateDoc(itemRef, updateData);
-            await sendNotification(
-                { ...selectedSolicitacao, id, status: newStatus },
-                newStatus === 'Documento Pronto'
-                    ? DOCUMENT_READY_NOTIFICATION
-                    : { title: "Status de Solicitação Atualizado", body: `O status da sua solicitação (Protocolo: ${id}) foi alterado para: ${newStatus}.` }
-            );
+            if (newStatus !== 'Documento Pronto') {
+                await sendNotification(
+                    { ...selectedSolicitacao, id, status: newStatus },
+                    { title: "Status de Solicitação Atualizado", body: `O status da sua solicitação (Protocolo: ${id}) foi alterado para: ${newStatus}.` }
+                );
+            }
             alert('Status atualizado!');
             setSelectedSolicitacao(null);
             fetchSolicitacoes(); // Atualiza a lista

@@ -8,6 +8,12 @@ const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin"); // Keep admin for database operations
 const {Logging} = require("@google-cloud/logging");
 const {SecretManagerServiceClient} = require("@google-cloud/secret-manager");
+const {
+  becameDocumentReady,
+  escapeHtml,
+  getReceptionEmail,
+  isReceptionWalkIn,
+} = require("./documentReadyAutomation");
 
 admin.initializeApp();
 
@@ -1326,6 +1332,98 @@ exports.notifyBalcaoServiceEvaluation = onDocumentWritten(
         },
       }, {merge: true});
 
+      return null;
+    },
+);
+
+// Sends the document-ready app notification to registered users and queues an
+// email exclusively for walk-ins created by reception.
+exports.notificarDocumentoProntoBalcao = onDocumentWritten(
+    {
+      document: "balcao-cidadao/{solicitacaoId}",
+      region: "southamerica-east1",
+      cpu: "gcf_gen1",
+    },
+    async (event) => {
+      if (!event.data.after || !event.data.after.exists) return null;
+
+      const beforeData = event.data.before && event.data.before.exists ?
+        event.data.before.data() || {} : {};
+      const afterData = event.data.after.data() || {};
+      if (!becameDocumentReady(beforeData, afterData)) return null;
+
+      const db = admin.firestore();
+      const requestId = event.params.solicitacaoId;
+      const userId = afterData.userId || afterData.targetUserId ||
+        afterData.dadosUsuario?.id || "";
+      const email = getReceptionEmail(afterData);
+      const receptionWalkIn = isReceptionWalkIn(afterData);
+      const title = "Seu documento está pronto para retirada";
+      const description = "Seu documento está disponível para retirada na " +
+        "Câmara Municipal. A retirada deve ser feita pelo titular ou por um " +
+        "parente de primeiro grau, com documento oficial de identificação.";
+      const writes = [];
+
+      if (userId && userId !== "recepcao" && userId !== "anonimo") {
+        writes.push(db.collection("notifications")
+            .doc(`document-ready_${requestId}`).set({
+              userId,
+              targetUserId: userId,
+              userEmail: afterData.dadosUsuario?.email || email,
+              flavorId: "paraipaba",
+              tituloNotification: title,
+              descricaoNotification: description,
+              message: description,
+              protocolo: requestId,
+              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+              read: false,
+              isRead: false,
+              source: "document-ready",
+              data: {
+                screen: "Notificacoes",
+                type: "document-ready",
+                solicitacaoId: requestId,
+                protocolo: requestId,
+                collection: "balcao-cidadao",
+              },
+            }, {merge: true}));
+      }
+
+      if (receptionWalkIn && email) {
+        const citizenName = escapeHtml(afterData.dadosBeneficiario?.name ||
+          afterData.dadosBeneficiario?.nome ||
+          afterData.dadosUsuario?.name || "Cidadão");
+        writes.push(db.collection("mail").doc(`document-ready-${requestId}`)
+            .set({
+              to: email,
+              emailOnly: true,
+              templateType: "reception-walk-in-document-ready",
+              protocolo: requestId,
+              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+              message: {
+                subject: title,
+                html: `<p>Olá, ${citizenName}.</p>` +
+                  `<p>${description}</p>` +
+                  "<p><strong>Protocolo:</strong> " +
+                  `${escapeHtml(requestId)}</p>` +
+                  "<p>Compareça dentro do horário de atendimento da Câmara " +
+                  "Municipal de Paraipaba.</p>",
+              },
+            }, {merge: true}));
+        writes.push(event.data.after.ref.set({
+          documentoProntoEmailEnfileiradoEm:
+            admin.firestore.FieldValue.serverTimestamp(),
+          documentoProntoEmailDestino: email,
+        }, {merge: true}));
+      }
+
+      await Promise.all(writes);
+      console.log(
+          `Documento pronto ${requestId}: notificacao=${Boolean(userId &&
+          userId !== "recepcao" && userId !== "anonimo")}, ` +
+          `emailRecepcao=${Boolean(receptionWalkIn && email)}.`,
+      );
       return null;
     },
 );
