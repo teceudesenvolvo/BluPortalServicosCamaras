@@ -3,7 +3,9 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import Chart from 'chart.js/auto';
 import {
     LiaCalendarAltSolid,
+    LiaChartBarSolid,
     LiaClockSolid,
+    LiaLightbulbSolid,
     LiaPrintSolid,
     LiaTimesSolid,
     LiaUserCheckSolid,
@@ -16,6 +18,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { firestore } from '../../firebase';
 import { printTableReport } from '../../utils/printReport';
 import { isWalkIn, mergeCompletedWalkIns } from '../../utils/attendanceCalendar';
+import { buildAttendanceConsultancy, buildAttendantTimeStats, buildDailyTimeSeries } from '../../utils/attendanceInsights';
 
 const toDate = (value) => {
     if (!value) return null;
@@ -55,6 +58,10 @@ const AdminAtendimentosGuiches = () => {
     const { theme } = useTheme();
     const chartRef = useRef(null);
     const chartInstance = useRef(null);
+    const timeChartRef = useRef(null);
+    const timeChartInstance = useRef(null);
+    const attendantTimeChartRef = useRef(null);
+    const attendantTimeChartInstance = useRef(null);
     const [calendarRecords, setAttendances] = useState([]);
     const [users, setUsers] = useState([]);
     const [queueTickets, setQueueTickets] = useState([]);
@@ -63,6 +70,7 @@ const AdminAtendimentosGuiches = () => {
     const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date()));
     const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
     const [selectedCounter, setSelectedCounter] = useState('all');
+    const [analysisAttendant, setAnalysisAttendant] = useState('all');
     const [reportOpen, setReportOpen] = useState(false);
     const [reportPeriod, setReportPeriod] = useState('monthly');
     const [reportDate, setReportDate] = useState(dateKey(new Date()));
@@ -233,6 +241,73 @@ const AdminAtendimentosGuiches = () => {
         return [...options.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
     }, [attendances, getAttendantName]);
 
+    const analysisAttendances = useMemo(() => monthAttendances.filter(item => {
+        if (analysisAttendant === 'all') return true;
+        if (analysisAttendant.startsWith('uid:')) return item.atendenteUid === analysisAttendant.slice(4);
+        return getAttendantName(item).trim().toLocaleLowerCase('pt-BR') === analysisAttendant.slice(5);
+    }), [analysisAttendant, getAttendantName, monthAttendances]);
+    const dailyTimeSeries = useMemo(() => buildDailyTimeSeries(analysisAttendances, selectedMonth), [analysisAttendances, selectedMonth]);
+    const attendantTimeStats = useMemo(() => buildAttendantTimeStats(analysisAttendances, getAttendantName), [analysisAttendances, getAttendantName]);
+    const consultancy = useMemo(() => buildAttendanceConsultancy(analysisAttendances, getAttendantName), [analysisAttendances, getAttendantName]);
+    const analysisAttendantLabel = analysisAttendant === 'all'
+        ? 'Todos os atendentes'
+        : attendantOptions.find(item => item.value === analysisAttendant)?.name || 'Atendente selecionado';
+
+    useEffect(() => {
+        if (analysisAttendant !== 'all' && !attendantOptions.some(item => item.value === analysisAttendant)) setAnalysisAttendant('all');
+    }, [analysisAttendant, attendantOptions]);
+
+    useEffect(() => {
+        if (!timeChartRef.current) return undefined;
+        timeChartInstance.current?.destroy();
+        const points = dailyTimeSeries.filter(item => item.measured > 0);
+        timeChartInstance.current = new Chart(timeChartRef.current, {
+            type: 'line',
+            data: {
+                labels: points.map(item => String(item.day)),
+                datasets: [
+                    { label: 'Espera média', data: points.map(item => item.averageWait), borderColor: '#ea580c', backgroundColor: 'rgba(234,88,12,.12)', tension: .3, spanGaps: true },
+                    { label: 'Atendimento médio', data: points.map(item => item.averageService), borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,.12)', tension: .3, spanGaps: true },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: { title: { display: true, text: 'Dia do mês', color: theme === 'dark' ? '#dbeafe' : '#64748b' }, ticks: { color: theme === 'dark' ? '#dbeafe' : '#475569' }, grid: { display: false } },
+                    y: { beginAtZero: true, title: { display: true, text: 'Minutos', color: theme === 'dark' ? '#dbeafe' : '#64748b' }, ticks: { color: theme === 'dark' ? '#dbeafe' : '#475569' }, grid: { color: theme === 'dark' ? 'rgba(148,197,229,.14)' : 'rgba(100,116,139,.12)' } },
+                },
+                plugins: { legend: { labels: { color: theme === 'dark' ? '#dbeafe' : '#334155' } } },
+            },
+        });
+        return () => timeChartInstance.current?.destroy();
+    }, [dailyTimeSeries, theme]);
+
+    useEffect(() => {
+        if (!attendantTimeChartRef.current) return undefined;
+        attendantTimeChartInstance.current?.destroy();
+        attendantTimeChartInstance.current = new Chart(attendantTimeChartRef.current, {
+            type: 'bar',
+            data: {
+                labels: attendantTimeStats.map(item => item.name),
+                datasets: [
+                    { label: 'Espera média', data: attendantTimeStats.map(item => item.averageWait), backgroundColor: '#fb923c', borderRadius: 6 },
+                    { label: 'Atendimento médio', data: attendantTimeStats.map(item => item.averageService), backgroundColor: '#38bdf8', borderRadius: 6 },
+                ],
+            },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                scales: {
+                    x: { beginAtZero: true, title: { display: true, text: 'Minutos', color: theme === 'dark' ? '#dbeafe' : '#64748b' }, ticks: { color: theme === 'dark' ? '#dbeafe' : '#475569' }, grid: { color: theme === 'dark' ? 'rgba(148,197,229,.14)' : 'rgba(100,116,139,.12)' } },
+                    y: { ticks: { color: theme === 'dark' ? '#dbeafe' : '#475569' }, grid: { display: false } },
+                },
+                plugins: { legend: { labels: { color: theme === 'dark' ? '#dbeafe' : '#334155' } } },
+            },
+        });
+        return () => attendantTimeChartInstance.current?.destroy();
+    }, [attendantTimeStats, theme]);
+
     const reportRows = useMemo(() => attendances.filter(item => {
         const itemDate = dateKey(item.dataAtendimento);
         const matchesPeriod = reportPeriod === 'daily'
@@ -371,6 +446,32 @@ const AdminAtendimentosGuiches = () => {
                 <section className="counter-ranking-layout">
                     <div className="data-card counter-ranking-chart"><div className="card-header"><h3>Atendimentos por dia</h3><span>{MONTHS[Number(selectedMonthNumber) - 1]} de {selectedYear} · {monthAttendances.length} atendimentos</span></div><div><canvas ref={chartRef} role="img" aria-label={`Volume diário de atendimentos: ${monthAttendances.length} no mês`} /></div></div>
                     <div className="data-card counter-ranking-list"><div className="card-header"><h3>Atendimentos por atendente</h3><span>{toDate(`${selectedDate}T12:00:00`)?.toLocaleDateString('pt-BR')}</span></div>{ranking.map((item, index) => <article key={item.key}><b>{index + 1}</b><div><strong>{item.nome}</strong><span>Atendimentos no dia</span></div><strong>{item.total}</strong></article>)}{ranking.length === 0 && <p className="queue-empty">Nenhum atendimento registrado nesta data.</p>}</div>
+                </section>
+
+                <section className="counter-time-analysis" aria-label="Análise dos tempos de atendimento">
+                    <div className="counter-analysis-header">
+                        <div><span>Análise operacional</span><h2><LiaChartBarSolid /> Tempos dos atendimentos</h2><p>Médias calculadas pelos registros de entrada, chamada, início e conclusão.</p></div>
+                        <label><span>Atendente</span><select value={analysisAttendant} onChange={event => setAnalysisAttendant(event.target.value)}><option value="all">Todos os atendentes</option>{attendantOptions.map(attendant => <option key={attendant.value} value={attendant.value}>{attendant.name}</option>)}</select></label>
+                    </div>
+                    <div className="counter-time-kpis">
+                        <article><span>Espera média</span><strong>{formatDuration(consultancy.averageWait)}</strong><small>{consultancy.waitMeasured} registros medidos</small></article>
+                        <article><span>90% das esperas em até</span><strong>{formatDuration(consultancy.p90Wait)}</strong><small>Maior espera: {formatDuration(consultancy.maxWait)}</small></article>
+                        <article><span>Atendimento médio</span><strong>{formatDuration(consultancy.averageService)}</strong><small>{consultancy.serviceMeasured} registros medidos</small></article>
+                        <article><span>Cobertura dos dados</span><strong>{consultancy.coverage}%</strong><small>{consultancy.measured} de {consultancy.total} atendimentos</small></article>
+                    </div>
+                    <div className="counter-time-charts">
+                        <div className="data-card"><div className="card-header"><h3>Evolução diária</h3><span>{analysisAttendantLabel}</span></div><div className="counter-time-chart"><canvas ref={timeChartRef} role="img" aria-label="Evolução diária dos tempos médios de espera e atendimento" /></div></div>
+                        <div className="data-card"><div className="card-header"><h3>Comparativo por atendente</h3><span>Tempo médio em minutos</span></div><div className="counter-time-chart"><canvas ref={attendantTimeChartRef} role="img" aria-label="Comparativo dos tempos médios por atendente" /></div></div>
+                    </div>
+                </section>
+
+                <section className={`counter-ai-consultancy ${consultancy.tone}`} aria-label="Consultoria automática dos atendimentos">
+                    <header><div className="counter-ai-icon"><LiaLightbulbSolid /></div><div><span>Consultoria inteligente baseada nos dados</span><h2>{consultancy.status}</h2><p>{MONTHS[Number(selectedMonthNumber) - 1]} de {selectedYear} · {analysisAttendantLabel} · {consultancy.total} atendimentos</p></div></header>
+                    <div className="counter-ai-columns">
+                        <div><h3>Parecer</h3>{consultancy.findings.map(item => <p key={item}>{item}</p>)}</div>
+                        <div><h3>O que podemos melhorar</h3><ul>{consultancy.recommendations.map(item => <li key={item}>{item}</li>)}</ul></div>
+                    </div>
+                    <small>Diagnóstico automático operacional. Os tempos ajudam a localizar gargalos e devem ser analisados junto ao tipo e à complexidade de cada atendimento.</small>
                 </section>
 
                 {reportOpen && (
