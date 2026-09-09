@@ -180,6 +180,9 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
     const writeCalendarRecord = (writer, ticketRefId, ticket, now) => {
         if (!ticket?.sessaoGuicheId) return;
         writer.set(doc(firestore, 'atendimento-calendario', `${ticket.sessaoGuicheId}_${ticketRefId}`), {
+            ticketId: ticketRefId,
+            semAgendamento: Boolean(ticket.semAgendamento || ticket.tipoEntrada === 'Encaixe'),
+            tipoEntrada: ticket.tipoEntrada || '',
             nome: ticket.nome || 'Cidadão',
             cpf: getTicketCpf(ticket),
             dataAtendimento: now,
@@ -319,6 +322,9 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
         if (status === 'Concluído' && ticket.sessaoGuicheId) {
             const calendarRef = doc(firestore, 'atendimento-calendario', `${ticket.sessaoGuicheId}_${ticket.id}`);
             updates.push(setDoc(calendarRef, {
+                ticketId: ticket.id,
+                semAgendamento: Boolean(ticket.semAgendamento || ticket.tipoEntrada === 'Encaixe'),
+                tipoEntrada: ticket.tipoEntrada || '',
                 nome: ticket.nome || 'Cidadão',
                 cpf: getTicketCpf(ticket),
                 dataAtendimento: now,

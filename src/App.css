@@ -11282,3 +11282,27 @@ color: #fff !important;
     border-radius: 14px;
   }
 }
+
+/* Agenda dos guichês: hierarquia legível mesmo em painéis estreitos. */
+.counter-summary-date { flex-basis: 100%; grid-column: 1 / -1; margin: 0; font-size: 1rem; color: inherit; }
+.counter-calendar-weekdays, .counter-calendar-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.counter-calendar-grid button { min-width: 0; height: 84px; }
+.counter-calendar-grid button > strong { white-space: nowrap; }
+.counter-day-list article { grid-template-columns: 64px minmax(0, 1fr); align-items: start; gap: 10px 16px; }
+.counter-day-list article > div { min-width: 0; }
+.counter-day-time { grid-row: span 2; white-space: nowrap; }
+.counter-day-citizen { display: grid; gap: 5px; line-height: 1.45; overflow-wrap: anywhere; }
+.counter-day-attendant { grid-column: 2; text-align: left; padding-top: 10px; border-top: 1px solid rgba(100,116,139,.16); display: grid; gap: 4px; line-height: 1.4; overflow-wrap: anywhere; }
+.counter-day-attendant > span { font-size: .75rem; }
+.counter-day-attendant > strong { font-size: .88rem; }
+.counter-ranking-layout .card-header { display: flex; flex-wrap: wrap; gap: 8px; }
+.counter-ranking-list article > div { min-width: 0; overflow-wrap: anywhere; }
+.counter-ranking-list article > strong { color: #0284c7; }
+@media (max-width: 768px) {
+    .counter-calendar-grid { gap: 4px; }
+    .counter-calendar-grid button { height: 64px; padding: 5px; }
+    .counter-day-list article { grid-template-columns: 52px minmax(0, 1fr); padding: 12px; gap: 10px; }
+    .counter-day-attendant { grid-column: 2; }
+}
+.counter-day-citizen .counter-walk-in-badge { justify-self: start; padding: 3px 8px; border-radius: 6px; background: #dcfce7; color: #166534; font-size: .72rem; font-weight: 700; }
+[data-theme="dark"] .counter-day-citizen .counter-walk-in-badge { background: #14532d; color: #dcfce7; }
