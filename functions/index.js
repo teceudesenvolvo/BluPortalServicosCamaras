@@ -69,6 +69,23 @@ const youtubeCloudLogTargets = {
   },
 };
 
+const receptionLinkedCollections = [
+  "balcao-cidadao",
+  "assessoria-microempreendedor",
+  "ouvidoria",
+  "procuradoria-mulher",
+  "piel-atendimentos",
+];
+
+/**
+ * Normalizes email values for linking reception records to app users.
+ * @param {string} email Email to normalize.
+ * @return {string} Normalized email.
+ */
+function normalizeEmail(email = "") {
+  return String(email).trim().toLowerCase();
+}
+
 /**
  * Applies CORS headers to HTTP responses.
  * @param {object} res Express response object
@@ -682,6 +699,101 @@ exports.sendMailOnNewRequest = onDocumentCreated(
         console.error("Erro ao processar notificação in-app:", error);
         return null;
       }
+    },
+);
+
+exports.linkReceptionRequestsOnUserCreated = onDocumentCreated(
+    {
+      document: "users/{userId}",
+    },
+    async (event) => {
+      if (!event.data || !event.data.exists) return null;
+
+      const userData = event.data.data() || {};
+      const email = userData.email || "";
+      const normalizedEmail = normalizeEmail(email);
+      if (!normalizedEmail) return null;
+
+      const db = admin.firestore();
+      const userId = event.params.userId;
+      const linkedUserData = {
+        id: userId,
+        uid: userId,
+        name: userData.name || userData.nome || "",
+        email,
+        cpf: userData.cpf || "",
+        telefone: userData.telefone || userData.phone || "",
+        phone: userData.phone || userData.telefone || "",
+      };
+      const linkedAt = admin.firestore.FieldValue.serverTimestamp();
+      const updates = [];
+
+      const requestSnapshots = await Promise.all(
+          receptionLinkedCollections.map(async (collectionName) => ({
+            collectionName,
+            snapshot: await db.collection(collectionName)
+                .where(
+                    "emailVinculoUsuarioNormalizado",
+                    "==",
+                    normalizedEmail,
+                )
+                .get(),
+          })),
+      );
+
+      requestSnapshots.forEach(({collectionName, snapshot}) => {
+        snapshot.docs.forEach((docSnap) => {
+          const requestData = docSnap.data() || {};
+          if (requestData.userId !== "recepcao") return;
+
+          updates.push({
+            ref: db.collection(collectionName).doc(docSnap.id),
+            data: {
+              userId,
+              targetUserId: userId,
+              dadosUsuario: linkedUserData,
+              aguardandoVinculoUsuario: false,
+              vinculadoAoUsuarioEm: linkedAt,
+              vinculadoAoUsuarioPor: "cadastro-email",
+              ultimaAtualizacao: linkedAt,
+            },
+          });
+        });
+      });
+
+      const queueSnapshot = await db.collection("atendimento-fila")
+          .where("userEmailNormalizado", "==", normalizedEmail)
+          .get();
+
+      queueSnapshot.docs.forEach((docSnap) => {
+        const queueData = docSnap.data() || {};
+        if (queueData.userId !== "recepcao") return;
+
+        updates.push({
+          ref: db.collection("atendimento-fila").doc(docSnap.id),
+          data: {
+            userId,
+            targetUserId: userId,
+            userEmail: email,
+            vinculadoAoUsuarioEm: linkedAt,
+            vinculadoAoUsuarioPor: "cadastro-email",
+          },
+        });
+      });
+
+      for (let index = 0; index < updates.length; index += 450) {
+        const batch = db.batch();
+        updates.slice(index, index + 450).forEach((update) => {
+          batch.update(update.ref, update.data);
+        });
+        await batch.commit();
+      }
+
+      console.log(
+          `Vinculados ${updates.length} registro(s) da recepcao ao usuario ` +
+          `${userId}.`,
+      );
+      return null;
     },
 );
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { addDoc, collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, doc, getDocs, query, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
 
 // Importa o hook de autenticação e a instância do auth
 import { useAuth } from '../contexts/FirebaseAuthContext';
@@ -10,6 +10,87 @@ import config from '../config';
 
 import Brasao from '../assets/logo-paraipaba.png';
 import Logo from '../assets/logo-paraipaba-azul.png';
+
+const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
+const receptionLinkedCollections = [
+    'balcao-cidadao',
+    'assessoria-microempreendedor',
+    'ouvidoria',
+    'procuradoria-mulher',
+    'piel-atendimentos',
+];
+
+const commitBatchUpdates = async (updates) => {
+    const chunkSize = 450;
+    for (let index = 0; index < updates.length; index += chunkSize) {
+        const batch = writeBatch(firestore);
+        updates.slice(index, index + chunkSize).forEach(({ ref, data }) => batch.update(ref, data));
+        await batch.commit();
+    }
+};
+
+const linkReceptionRequestsToUser = async (user, formData) => {
+    const normalizedEmail = normalizeEmail(user.email || formData.email);
+    if (!normalizedEmail) return;
+
+    const linkedUserData = {
+        id: user.uid,
+        uid: user.uid,
+        name: `${formData.name} ${formData.surname}`.trim(),
+        email: user.email,
+        cpf: formData.cpf,
+        telefone: formData.telefone,
+        phone: formData.telefone,
+    };
+    const linkedAt = new Date();
+    const requestUpdates = [];
+    const seenRefs = new Set();
+
+    await Promise.all(receptionLinkedCollections.map(async (collectionName) => {
+        const snapshot = await getDocs(query(
+            collection(firestore, collectionName),
+            where('emailVinculoUsuarioNormalizado', '==', normalizedEmail)
+        ));
+
+        snapshot.docs.forEach((docSnap) => {
+            if (docSnap.data()?.userId !== 'recepcao') return;
+            const key = `${collectionName}/${docSnap.id}`;
+            if (seenRefs.has(key)) return;
+            seenRefs.add(key);
+            requestUpdates.push({
+                ref: doc(firestore, collectionName, docSnap.id),
+                data: {
+                    userId: user.uid,
+                    targetUserId: user.uid,
+                    dadosUsuario: linkedUserData,
+                    aguardandoVinculoUsuario: false,
+                    vinculadoAoUsuarioEm: linkedAt,
+                    vinculadoAoUsuarioPor: 'cadastro-email',
+                    ultimaAtualizacao: linkedAt,
+                },
+            });
+        });
+    }));
+
+    const queueSnapshot = await getDocs(query(
+        collection(firestore, 'atendimento-fila'),
+        where('userEmailNormalizado', '==', normalizedEmail)
+    ));
+    const queueUpdates = queueSnapshot.docs
+        .filter((docSnap) => docSnap.data()?.userId === 'recepcao')
+        .map((docSnap) => ({
+            ref: doc(firestore, 'atendimento-fila', docSnap.id),
+            data: {
+                userId: user.uid,
+                targetUserId: user.uid,
+                userEmail: user.email,
+                vinculadoAoUsuarioEm: linkedAt,
+                vinculadoAoUsuarioPor: 'cadastro-email',
+            },
+        }));
+
+    await commitBatchUpdates([...requestUpdates, ...queueUpdates]);
+};
 
 const CadastroPage = () => {
     const navigate = useNavigate();
@@ -180,6 +261,12 @@ const CadastroPage = () => {
                     `,
                 },
             });
+
+            try {
+                await linkReceptionRequestsToUser(user, formData);
+            } catch (linkError) {
+                console.error('Erro ao vincular encaixes da recepção ao usuário:', linkError);
+            }
 
             navigate('/dashboard', { replace: true });
         } catch (err) {

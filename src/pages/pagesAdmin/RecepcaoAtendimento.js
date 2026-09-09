@@ -102,6 +102,7 @@ const getCitizenName = (item) => getBeneficiaryName(item) || getRequesterName(it
 const getCitizenCpf = (item) => getBeneficiaryData(item)?.cpf || item?.dadosUsuario?.cpf || '';
 const getCitizenPhone = (item) => getBeneficiaryData(item)?.phone || getBeneficiaryData(item)?.telefone || item?.dadosUsuario?.phone || item?.dadosUsuario?.telefone || '';
 const getAppointmentSubject = (item) => item?.dadosSolicitacao?.assunto || item?.dadosAssessoria?.tipo || item?.dadosManifestacao?.assunto || item?.dadosAtendimento?.tipoAtendimento || 'Atendimento';
+const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
 const getAppointmentSortKey = (item) => {
     const normalizedDate = normalizeDate(getAppointmentDate(item));
     const time = String(getAppointmentTime(item) || '23:59').slice(0, 5);
@@ -175,7 +176,7 @@ const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDat
     });
 };
 
-const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, collectionName }) => {
+const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, collectionName, userEmail }) => {
     const dateKey = todayKey();
     const prefix = queuePrefixes[setor] || 'B';
     const counterRef = doc(firestore, 'atendimento-fila-meta', `${dateKey}-${prefix}`);
@@ -217,6 +218,9 @@ const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, c
             agendamentoOrdenacaoEm: null,
             collectionName: collectionName || getReceptionCollection(setor),
             setor: setor || 'Balcão do Cidadão',
+            userId: 'recepcao',
+            userEmail: userEmail || '',
+            userEmailNormalizado: normalizeEmail(userEmail),
             prioridade: false,
             status: 'Aguardando',
             tipoEntrada: 'Encaixe',
@@ -465,6 +469,7 @@ const RecepcaoAtendimento = () => {
             const docRef = doc(collection(firestore, collectionName));
             const uploadedFiles = [];
             const receptionUserId = auth.currentUser?.uid || 'recepcao';
+            const normalizedCitizenEmail = normalizeEmail(requestForm.email);
 
             for (const file of attachedFiles) {
                 const folderPath = getReceptionUploadPath(selectedSector, receptionUserId);
@@ -493,6 +498,7 @@ const RecepcaoAtendimento = () => {
                 cpf: requestForm.cpf,
                 phone: requestForm.telefone,
                 email: requestForm.email.trim(),
+                emailNormalizado: normalizedCitizenEmail,
                 parentesco: 'Atendimento presencial',
             };
 
@@ -500,6 +506,9 @@ const RecepcaoAtendimento = () => {
                 dadosUsuario: baseUserData,
                 userId: 'recepcao',
                 origem: 'recepcao',
+                emailVinculoUsuario: requestForm.email.trim(),
+                emailVinculoUsuarioNormalizado: normalizedCitizenEmail,
+                aguardandoVinculoUsuario: Boolean(normalizedCitizenEmail),
                 setorAtendimento: selectedSector,
                 ultimaAtualizacao: new Date(),
             };
@@ -645,6 +654,7 @@ const RecepcaoAtendimento = () => {
                 assunto: requestForm.assunto || requestForm.tipoDocumento,
                 setor: selectedSector,
                 collectionName: createdRequestCollection || getReceptionCollection(selectedSector),
+                userEmail: requestForm.email.trim(),
             });
             await updateDoc(doc(firestore, createdRequestCollection || getReceptionCollection(selectedSector), createdProtocol), {
                 statusFila: 'Aguardando Atendimento Presencial',
