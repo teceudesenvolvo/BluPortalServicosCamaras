@@ -5677,6 +5677,10 @@ body{
 .queue-section-title > span { display: grid; place-items: center; min-width: 28px; height: 28px; border-radius: 10px; color: #fff; background: #025AA1; font-weight: 900; }
 .queue-manager-list { display: grid; gap: 9px; max-height: 390px; overflow: auto; }
 .queue-empty { color: #64748b; font-weight: 700; }
+.queue-parallel-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: -3px 0 12px; }
+.queue-parallel-summary span, .queue-parallel-summary strong { padding: 6px 9px; border-radius: 999px; font-size: .76rem; }
+.queue-parallel-summary span { color: #475569; background: rgba(255, 255, 255, .72); }
+.queue-parallel-summary strong { margin-left: auto; color: #075985; background: #e0f2fe; }
 
 .queue-manager-ticket {
     display: grid;
@@ -5689,6 +5693,8 @@ body{
     background: rgba(255, 255, 255, .88);
 }
 .queue-manager-ticket.active { grid-template-columns: 64px minmax(0, 1fr) auto; }
+.queue-manager-ticket.priority { border-left: 4px solid #d97706; }
+.queue-manager-ticket.regular { border-left: 4px solid #0284c7; }
 .queue-position { color: #94a3b8; font-weight: 900; }
 .queue-manager-ticket > strong { display: grid; place-items: center; min-height: 48px; border-radius: 12px; background: #025AA1; color: #fff; font-size: 1.1rem; }
 .queue-ticket-info { min-width: 0; }

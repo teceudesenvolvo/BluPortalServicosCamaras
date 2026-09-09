@@ -20,6 +20,7 @@ import {
     LiaUserClockSolid,
 } from 'react-icons/lia';
 import { auth, firestore } from '../firebase';
+import { buildAlternatingQueue, getLastCalledPriority } from '../utils/queueOrdering';
 
 const SERVICES = [
     'Todos os serviços',
@@ -57,31 +58,6 @@ const formatTicketDate = (value) => {
     if (!value) return 'Data não informada';
     const date = value?.toDate ? value.toDate() : new Date(value);
     return Number.isNaN(date.getTime()) ? 'Data não informada' : date.toLocaleDateString('pt-BR');
-};
-
-const getAppointmentSortTime = (ticket) => {
-    const dateValue = ticket?.appointmentDate;
-    const timeValue = ticket?.appointmentTime;
-    if (!dateValue || !timeValue) return Number.POSITIVE_INFINITY;
-
-    let normalizedDate = '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateValue))) {
-        normalizedDate = String(dateValue);
-    } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(String(dateValue))) {
-        const [day, month, year] = String(dateValue).split('/');
-        normalizedDate = `${year}-${month}-${day}`;
-    }
-
-    if (!normalizedDate) return Number.POSITIVE_INFINITY;
-    const parsed = new Date(`${normalizedDate}T${String(timeValue).slice(0, 5)}:00-03:00`).getTime();
-    return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
-};
-
-const queueOrder = (a, b) => {
-    const priorityDifference = Number(Boolean(b.prioridade)) - Number(Boolean(a.prioridade));
-    return priorityDifference
-        || getAppointmentSortTime(a) - getAppointmentSortTime(b)
-        || getTime(a.ordemFilaEm || a.criadoEm) - getTime(b.ordemFilaEm || b.criadoEm);
 };
 
 const getTicketCpf = (ticket = {}) => ticket.cpf
@@ -142,7 +118,13 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
         counter.sessaoAtiva === true && counter.atendenteUid === attendant.uid
     )) || null, [attendant.uid, counters]);
     const selectedCounterData = useMemo(() => counters.find(counter => counter.id === selectedCounter) || null, [counters, selectedCounter]);
-    const waiting = useMemo(() => filteredTickets.filter(ticket => ticket.status === 'Aguardando').sort(queueOrder), [filteredTickets]);
+    const lastCalledPriority = useMemo(() => getLastCalledPriority(filteredTickets), [filteredTickets]);
+    const waiting = useMemo(() => buildAlternatingQueue(
+        filteredTickets.filter(ticket => ticket.status === 'Aguardando'),
+        lastCalledPriority,
+    ), [filteredTickets, lastCalledPriority]);
+    const priorityWaiting = waiting.filter(ticket => Boolean(ticket.prioridade)).length;
+    const regularWaiting = waiting.length - priorityWaiting;
     const active = useMemo(() => tickets
         .filter(ticket => serviceMatches(ticket) && (['Chamando', 'Em Atendimento'].includes(ticket.status) || counterByTicketId.has(ticket.id)))
         .map(ticket => {
@@ -646,10 +628,15 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                         <div className="queue-manager-columns">
                             <section>
                                 <div className="queue-section-title"><h3>Próximos da fila</h3><span>{waiting.length}</span></div>
+                                <div className="queue-parallel-summary">
+                                    <span><b>{priorityWaiting}</b> prioritários</span>
+                                    <span><b>{regularWaiting}</b> normais</span>
+                                    {waiting[0] && <strong>Próxima: {waiting[0].prioridade ? 'prioridade' : 'normal'}</strong>}
+                                </div>
                                 <div className="queue-manager-list">
                                     {waiting.length === 0 && <p className="queue-empty">Nenhuma senha aguardando neste serviço.</p>}
                                     {waiting.map((ticket, index) => (
-                                        <article key={ticket.id} className="queue-manager-ticket">
+                                        <article key={ticket.id} className={`queue-manager-ticket ${ticket.prioridade ? 'priority' : 'regular'}`}>
                                             <div className="queue-position">{index + 1}</div>
                                             <strong>{ticket.senha}</strong>
                                             <div className="queue-ticket-info">
