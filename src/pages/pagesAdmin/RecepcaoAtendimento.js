@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, doc, getDocs, limit, query, runTransaction, setDoc, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, getDocs, limit, query, runTransaction, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import {
     LiaCheckCircleSolid,
     LiaClipboardListSolid,
@@ -14,6 +14,7 @@ import { auth, firestore } from '../../firebase';
 import config from '../../config';
 import { printProtocolReceipt } from '../../utils/printReport';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
+import { buildReceptionWelcomeEmail, isValidOptionalEmail } from '../../utils/receptionWelcomeEmail';
 import { openQueuePanelWindow } from '../../utils/openQueuePanelWindow';
 
 const receptionSectors = ['Balcão do Cidadão', 'Assessoria ao Microempreendedor', 'Ouvidoria', 'Procuradoria da Mulher', 'PIEL'];
@@ -249,12 +250,14 @@ const RecepcaoAtendimento = () => {
     const [uiOptionsOpen, setUiOptionsOpen] = useState(false);
     const [showHeader, setShowHeader] = useState(true);
     const [showSideMenu, setShowSideMenu] = useState(true);
+    const [welcomeEmailStatus, setWelcomeEmailStatus] = useState('');
     const [requestForm, setRequestForm] = useState({
         assunto: '',
         tipoDocumento: '',
         nome: '',
         cpf: '',
         telefone: '',
+        email: '',
         descricao: '',
     });
 
@@ -287,7 +290,8 @@ const RecepcaoAtendimento = () => {
         setCreatedRequestCollection('');
         setWalkInDecision('');
         setWalkInNumber(null);
-        setRequestForm({ assunto: '', tipoDocumento: '', nome: '', cpf: '', telefone: '', descricao: '' });
+        setWelcomeEmailStatus('');
+        setRequestForm({ assunto: '', tipoDocumento: '', nome: '', cpf: '', telefone: '', email: '', descricao: '' });
     };
 
     const handleRequestChange = (event) => {
@@ -309,7 +313,7 @@ const RecepcaoAtendimento = () => {
     const canGoNext = () => {
         if (flowStep === 0) return !!selectedSector;
         if (flowStep === 1) return !!attendanceType;
-        if (flowStep === 2 && isCreateFlow) return !!requestForm.nome.trim();
+        if (flowStep === 2 && isCreateFlow) return !!requestForm.nome.trim() && isValidOptionalEmail(requestForm.email);
         if (flowStep === 2 && isConfirmFlow) return !!appointment && appointmentIsToday;
         if (flowStep === 3 && isCreateFlow) return !!requestForm.tipoDocumento.trim();
         if (flowStep === 3 && isConfirmFlow) return true;
@@ -451,6 +455,10 @@ const RecepcaoAtendimento = () => {
             return;
         }
 
+        if (!isValidOptionalEmail(requestForm.email)) {
+            alert('Informe um e-mail válido ou deixe o campo em branco.');
+            return;
+        }
         setLoading(true);
         try {
             const collectionName = getReceptionCollection(selectedSector);
@@ -484,6 +492,7 @@ const RecepcaoAtendimento = () => {
                 name: requestForm.nome,
                 cpf: requestForm.cpf,
                 phone: requestForm.telefone,
+                email: requestForm.email.trim(),
                 parentesco: 'Atendimento presencial',
             };
 
@@ -570,6 +579,22 @@ const RecepcaoAtendimento = () => {
             }
 
             await setDoc(docRef, payload);
+            if (requestForm.email.trim()) {
+                try {
+                    await setDoc(doc(firestore, 'mail', `reception-welcome-${docRef.id}`), {
+                        to: requestForm.email.trim(),
+                        emailOnly: true,
+                        templateType: 'reception-welcome-app-download',
+                        protocolo: docRef.id,
+                        timestamp: serverTimestamp(),
+                        message: buildReceptionWelcomeEmail(requestForm.nome, config.cityCollection),
+                    });
+                    setWelcomeEmailStatus('Boas-vindas com o link do aplicativo encaminhadas para envio por e-mail.');
+                } catch (emailError) {
+                    console.error('Erro ao encaminhar boas-vindas:', emailError);
+                    setWelcomeEmailStatus('Atendimento salvo. Não foi possível encaminhar o e-mail de boas-vindas.');
+                }
+            }
             setCreatedProtocol(docRef.id);
             setCreatedRequestCollection(collectionName);
             setWalkInDecision('');
@@ -864,6 +889,12 @@ const RecepcaoAtendimento = () => {
                             <input name="telefone" value={requestForm.telefone} onChange={handleRequestChange} className="form-input" />
                         </div>
                     </div>
+                    <div className="form-group">
+                        <label htmlFor="reception-email">E-mail (opcional)</label>
+                        <input id="reception-email" type="email" name="email" autoComplete="email" value={requestForm.email} onChange={handleRequestChange} className="form-input" aria-describedby="reception-email-help" aria-invalid={!isValidOptionalEmail(requestForm.email)} />
+                        <small id="reception-email-help" style={{ display: 'block', marginTop: 8 }}>Ao informar o e-mail, o cidadão receberá boas-vindas e o link para baixar o aplicativo da Câmara.</small>
+                        {!isValidOptionalEmail(requestForm.email) && <p role="alert">Informe um e-mail válido ou deixe o campo em branco.</p>}
+                    </div>
                 </div>
             );
         }
@@ -960,6 +991,7 @@ const RecepcaoAtendimento = () => {
                             <p><strong>{isCreateFlow ? 'Protocolo:' : 'Senha:'}</strong> {isCreateFlow ? createdProtocol : queuePassword}</p>
                             <p><strong>Setor:</strong> {selectedSector}</p>
                             <p>Protocolo gerado com sucesso. A impressão é opcional.</p>
+                            {isCreateFlow && welcomeEmailStatus && <p role="status">{welcomeEmailStatus}</p>}
                             {isCreateFlow && !walkInDecision && (
                                 <div className="reception-walk-in-choice">
                                     <div>
