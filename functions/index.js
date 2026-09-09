@@ -1174,10 +1174,11 @@ exports.notificarAniversariantesDoDia = onSchedule(
     },
 );
 
-// Releases missed appointments so the citizen can choose a new date.
+// Releases missed appointments at the end of the day so late citizens can
+// still be received as walk-ins before the day closes.
 exports.liberarAgendamentosBalcaoNaoComparecidos = onSchedule(
     {
-      schedule: "every 15 minutes",
+      schedule: "55 23 * * *",
       timeZone: "America/Fortaleza",
       region: "southamerica-east1",
       cpu: "gcf_gen1",

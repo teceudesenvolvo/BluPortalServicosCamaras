@@ -103,6 +103,17 @@ const getCitizenCpf = (item) => getBeneficiaryData(item)?.cpf || item?.dadosUsua
 const getCitizenPhone = (item) => getBeneficiaryData(item)?.phone || getBeneficiaryData(item)?.telefone || item?.dadosUsuario?.phone || item?.dadosUsuario?.telefone || '';
 const getAppointmentSubject = (item) => item?.dadosSolicitacao?.assunto || item?.dadosAssessoria?.tipo || item?.dadosManifestacao?.assunto || item?.dadosAtendimento?.tipoAtendimento || 'Atendimento';
 const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
+const getAppointmentTimestamp = (item) => {
+    const normalizedDate = normalizeDate(getAppointmentDate(item));
+    const time = String(getAppointmentTime(item) || '').match(/^(\d{1,2}):(\d{2})/);
+    if (!normalizedDate || !time) return null;
+    const parsed = new Date(`${normalizedDate}T${String(time[1]).padStart(2, '0')}:${time[2]}:00-03:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+const appointmentIsLateToday = (item) => {
+    const appointmentTime = getAppointmentTimestamp(item);
+    return Boolean(appointmentTime && normalizeDate(getAppointmentDate(item)) === todayKey() && appointmentTime < new Date());
+};
 const getAppointmentSortKey = (item) => {
     const normalizedDate = normalizeDate(getAppointmentDate(item));
     const time = String(getAppointmentTime(item) || '23:59').slice(0, 5);
@@ -176,7 +187,7 @@ const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDat
     });
 };
 
-const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, collectionName, userEmail }) => {
+const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, collectionName, userId, userEmail, beneficiarioNome, solicitanteNome }) => {
     const dateKey = todayKey();
     const prefix = queuePrefixes[setor] || 'B';
     const counterRef = doc(firestore, 'atendimento-fila-meta', `${dateKey}-${prefix}`);
@@ -211,6 +222,8 @@ const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, c
             senha: password,
             protocolo,
             nome,
+            beneficiarioNome: beneficiarioNome || nome,
+            solicitanteNome: solicitanteNome || '',
             cpf: cpf || '',
             assunto,
             appointmentDate: null,
@@ -218,7 +231,7 @@ const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, c
             agendamentoOrdenacaoEm: null,
             collectionName: collectionName || getReceptionCollection(setor),
             setor: setor || 'Balcão do Cidadão',
-            userId: 'recepcao',
+            userId: userId || 'recepcao',
             userEmail: userEmail || '',
             userEmailNormalizado: normalizeEmail(userEmail),
             prioridade: false,
@@ -269,6 +282,7 @@ const RecepcaoAtendimento = () => {
         if (!appointment) return false;
         return normalizeDate(getAppointmentDate(appointment)) === todayKey();
     }, [appointment]);
+    const appointmentLateToday = useMemo(() => appointmentIsLateToday(appointment), [appointment]);
 
     const isCreateFlow = attendanceType === 'create';
     const isConfirmFlow = attendanceType === 'confirm';
@@ -685,9 +699,27 @@ const RecepcaoAtendimento = () => {
             return;
         }
 
+        if (appointmentLateToday && !window.confirm('Este agendamento está em atraso. Deseja encaixar este cidadão na fila de hoje?')) {
+            return;
+        }
+
         setLoading(true);
         try {
-            const senha = await createQueueTicket({
+            const collectionName = appointment.collectionName || getReceptionCollection(appointment.setorAtendimento || selectedSector);
+            const queueResult = appointmentLateToday
+                ? await createWalkInQueueTicket({
+                    protocolo: appointment.id,
+                    nome: getCitizenName(appointment),
+                    beneficiarioNome: getBeneficiaryName(appointment),
+                    solicitanteNome: getRequesterName(appointment),
+                    cpf: getCitizenCpf(appointment),
+                    userId: appointment.userId || appointment.dadosUsuario?.uid || appointment.dadosUsuario?.id || '',
+                    userEmail: appointment.dadosUsuario?.email || appointment.email || '',
+                    assunto: getAppointmentSubject(appointment),
+                    setor: appointment.setorAtendimento || selectedSector,
+                    collectionName,
+                })
+                : await createQueueTicket({
                 protocolo: appointment.id,
                 nome: getCitizenName(appointment),
                 beneficiarioNome: getBeneficiaryName(appointment),
@@ -699,12 +731,14 @@ const RecepcaoAtendimento = () => {
                 appointmentDate: getAppointmentDate(appointment),
                 appointmentTime: getAppointmentTime(appointment),
                 setor: appointment.setorAtendimento || selectedSector,
-                collectionName: appointment.collectionName || getReceptionCollection(appointment.setorAtendimento || selectedSector),
+                collectionName,
             });
+            const senha = typeof queueResult === 'string' ? queueResult : queueResult.password;
 
-            await updateDoc(doc(firestore, appointment.collectionName || 'balcao-cidadao', appointment.id), {
+            await updateDoc(doc(firestore, collectionName, appointment.id), {
                 statusFila: 'Aguardando Atendimento Presencial',
                 senhaAtendimento: senha,
+                tipoEntradaFila: appointmentLateToday ? 'Encaixe' : 'Agendamento',
                 chegadaRecepcaoEm: new Date(),
                 ultimaAtualizacao: new Date(),
             });
@@ -726,6 +760,7 @@ const RecepcaoAtendimento = () => {
                 },
                 details: {
                     Senha: senha,
+                    Entrada: appointmentLateToday ? 'Encaixe por atraso no agendamento' : 'Agendamento confirmado',
                     Assunto: getAppointmentSubject(appointment),
                     'Data Agendada': getAppointmentDate(appointment),
                     'Horário Agendado': getAppointmentTime(appointment),
@@ -871,6 +906,9 @@ const RecepcaoAtendimento = () => {
                             <p>Status: {appointment.status || 'Sem status'}</p>
                             <p>Data: {getAppointmentDate(appointment) || 'Não informado'}</p>
                             <p>Horário: {getAppointmentTime(appointment) || 'Não informado'}</p>
+                            {appointmentLateToday && (
+                                <div className="appointment-warning">Este agendamento está em atraso. Ao continuar, a recepção poderá encaixar o cidadão na fila de hoje.</div>
+                            )}
                             {!appointmentIsToday && (
                                 <div className="appointment-warning">Este agendamento não é para hoje. A confirmação presencial está bloqueada.</div>
                             )}
@@ -950,6 +988,7 @@ const RecepcaoAtendimento = () => {
                     <p><strong>Protocolo:</strong> {appointment?.id}</p>
                     <p><strong>Data:</strong> {getAppointmentDate(appointment)}</p>
                     <p><strong>Horário:</strong> {getAppointmentTime(appointment)}</p>
+                    {appointmentLateToday && <p><strong>Entrada:</strong> Encaixe por atraso no agendamento</p>}
                 </div>
             );
         }
