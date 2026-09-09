@@ -16,8 +16,18 @@ import { printProtocolReceipt } from '../../utils/printReport';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { buildReceptionWelcomeEmail, isValidOptionalEmail } from '../../utils/receptionWelcomeEmail';
 import { openQueuePanelWindow } from '../../utils/openQueuePanelWindow';
+import { useSystemControl } from '../../contexts/SystemControlContext';
 
-const receptionSectors = ['Balcão do Cidadão', 'Assessoria ao Microempreendedor', 'Ouvidoria', 'Procuradoria da Mulher', 'PIEL'];
+const RECEPTION_MODULES = {
+    'Balcão do Cidadão': 'balcao',
+    'Assessoria ao Microempreendedor': 'microempreendedor',
+    PROCON: 'procon',
+    Ouvidoria: 'ouvidoria',
+    'Procuradoria da Mulher': 'procuradoria',
+    PIEL: 'piel',
+};
+
+const receptionSectors = ['Balcão do Cidadão', 'Assessoria ao Microempreendedor', 'PROCON', 'Ouvidoria', 'Procuradoria da Mulher', 'PIEL'];
 const documentTypeOptions = {
     'Balcão do Cidadão': [
         { value: 'cin', label: 'Carteira de Identidade Nacional (CIN)' },
@@ -41,6 +51,13 @@ const documentTypeOptions = {
         { value: 'Título de Eleitor', label: 'Título de Eleitor' },
         { value: 'Transferência de Domicílio', label: 'Transferência de Domicílio' },
         { value: 'Consulta de Situação Eleitoral', label: 'Consulta de Situação Eleitoral' },
+        { value: 'Outros', label: 'Outros' },
+    ],
+    PROCON: [
+        { value: 'Orientação ao consumidor', label: 'Orientação ao consumidor' },
+        { value: 'Registro de reclamação', label: 'Registro de reclamação' },
+        { value: 'Consulta de processo', label: 'Consulta de processo' },
+        { value: 'Negociação com fornecedor', label: 'Negociação com fornecedor' },
         { value: 'Outros', label: 'Outros' },
     ],
     'Assessoria ao Microempreendedor': [
@@ -74,6 +91,7 @@ const queuePrefixes = {
     Ouvidoria: 'O',
     'Procuradoria da Mulher': 'P',
     PIEL: 'E',
+    PROCON: 'C',
 };
 
 const normalizeDate = (value) => {
@@ -128,6 +146,7 @@ const appointmentCollections = [
     { name: 'ouvidoria', sector: 'Ouvidoria' },
     { name: 'procuradoria-mulher', sector: 'Procuradoria da Mulher' },
     { name: 'piel-atendimentos', sector: 'PIEL' },
+    { name: 'procon-agendamentos', sector: 'PROCON' },
 ];
 
 const getReceptionCollection = (sector) => {
@@ -135,6 +154,7 @@ const getReceptionCollection = (sector) => {
     if (sector === 'Ouvidoria') return 'ouvidoria';
     if (sector === 'Procuradoria da Mulher') return 'procuradoria-mulher';
     if (sector === 'PIEL') return 'piel-atendimentos';
+    if (sector === 'PROCON') return 'procon-atendimentos';
     return 'balcao-cidadao';
 };
 
@@ -143,6 +163,7 @@ const getReceptionUploadPath = (sector, userId) => {
     if (sector === 'Ouvidoria') return `${config.cityCollection}/ouvidoria/${userId}/anexos`;
     if (sector === 'Procuradoria da Mulher') return `procuradoria-mulher/${userId}/anexos`;
     if (sector === 'PIEL') return `${config.cityCollection}/piel/${userId}/anexos`;
+    if (sector === 'PROCON') return `${config.cityCollection}/procon/${userId}/anexos`;
     return `${config.cityCollection}/balcao-cidadao/${userId}/anexos`;
 };
 
@@ -250,6 +271,13 @@ const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, c
 };
 
 const RecepcaoAtendimento = () => {
+    const { settings } = useSystemControl();
+    const availableSectors = useMemo(() => receptionSectors.filter(sector => (
+        settings.modules?.[RECEPTION_MODULES[sector]]?.admin !== false
+    )), [settings.modules]);
+    const availableAppointmentCollections = useMemo(() => appointmentCollections.filter(item => (
+        availableSectors.includes(item.sector)
+    )), [availableSectors]);
     const [flowStep, setFlowStep] = useState(0);
     const [attendanceType, setAttendanceType] = useState('');
     const [selectedSector, setSelectedSector] = useState('');
@@ -268,6 +296,13 @@ const RecepcaoAtendimento = () => {
     const [showHeader, setShowHeader] = useState(true);
     const [showSideMenu, setShowSideMenu] = useState(true);
     const [welcomeEmailStatus, setWelcomeEmailStatus] = useState('');
+
+    useEffect(() => {
+        if (selectedSector && !availableSectors.includes(selectedSector)) {
+            setSelectedSector('');
+            setFlowStep(0);
+        }
+    }, [availableSectors, selectedSector]);
     const [requestForm, setRequestForm] = useState({
         assunto: '',
         tipoDocumento: '',
@@ -367,7 +402,7 @@ const RecepcaoAtendimento = () => {
         setAppointmentResults([]);
 
         try {
-            const snapshots = await Promise.all(appointmentCollections.map(async (item) => {
+            const snapshots = await Promise.all(availableAppointmentCollections.map(async (item) => {
                 const snapshot = await getDocs(query(
                     collection(firestore, item.name),
                     where('status', '==', 'Agendado'),
@@ -433,7 +468,7 @@ const RecepcaoAtendimento = () => {
         setQueuePassword('');
 
         try {
-            const selectedCollection = appointmentCollections.find((item) => item.sector === selectedSector);
+            const selectedCollection = availableAppointmentCollections.find((item) => item.sector === selectedSector);
             if (!selectedCollection) {
                 setTodayAppointments([]);
                 return;
@@ -528,7 +563,27 @@ const RecepcaoAtendimento = () => {
             };
 
             let payload;
-            if (selectedSector === 'Assessoria ao Microempreendedor') {
+            if (selectedSector === 'PROCON') {
+                payload = {
+                    ...commonFields,
+                    userDataAtTimeOfComplaint: {
+                        userId: 'recepcao',
+                        name: requestForm.nome,
+                        email: requestForm.email.trim(),
+                        phone: requestForm.telefone,
+                        cpf: requestForm.cpf,
+                    },
+                    dadosBeneficiario: beneficiaryData,
+                    protocolo: docRef.id,
+                    assuntoDenuncia: requestForm.assunto || requestForm.tipoDocumento,
+                    tipoReclamacao: requestForm.tipoDocumento,
+                    descricao: requestForm.descricao,
+                    arquivos: uploadedFiles,
+                    status: 'Recebida',
+                    situacao: 'Em Análise',
+                    createdAt: new Date(),
+                };
+            } else if (selectedSector === 'Assessoria ao Microempreendedor') {
                 payload = {
                     ...commonFields,
                     dadosAssessoria: {
@@ -602,6 +657,19 @@ const RecepcaoAtendimento = () => {
             }
 
             await setDoc(docRef, payload);
+            if (selectedSector === 'PROCON') {
+                const consumerKey = requestForm.cpf.replace(/\D/g, '') || docRef.id;
+                await setDoc(doc(firestore, 'procon-consumidores', consumerKey), {
+                    nome: requestForm.nome,
+                    cpf: requestForm.cpf,
+                    telefone: requestForm.telefone,
+                    email: requestForm.email.trim(),
+                    emailNormalizado: normalizedCitizenEmail,
+                    origem: 'recepcao',
+                    ultimoAtendimentoId: docRef.id,
+                    updatedAt: serverTimestamp(),
+                }, { merge: true });
+            }
             if (requestForm.email.trim()) {
                 try {
                     await setDoc(doc(firestore, 'mail', `reception-welcome-${docRef.id}`), {
@@ -808,7 +876,7 @@ const RecepcaoAtendimento = () => {
                     <span>1 Passo</span>
                     <strong>Selecione o setor da Câmara</strong>
                     <div className="reception-sector-grid">
-                        {receptionSectors.map(sector => (
+                        {availableSectors.map(sector => (
                             <button
                                 type="button"
                                 key={sector}

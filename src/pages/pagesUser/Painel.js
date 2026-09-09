@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/FirebaseAuthContext'; // Para obter dado
 import Sidebar from '../../components/Sidebar'; 
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../../firebase';
+import { useSystemControl } from '../../contexts/SystemControlContext';
+import { findModuleByPath } from '../../config/systemModules';
 import {
     LiaUserFriendsSolid,
     LiaUserAstronautSolid,
@@ -43,6 +45,7 @@ const getAvatarSrc = (avatarBase64) => {
 const DashboardPage = () => {
     const navigate = useNavigate(); 
     const { currentUser: user, loading } = useAuth(); // Corrigido: usa currentUser e o renomeia para user
+    const { settings } = useSystemControl();
     
     // Estados para os dados do perfil do usuário
     const [loggedInUserData, setLoggedInUserData] = useState(null);
@@ -51,7 +54,7 @@ const DashboardPage = () => {
     // 2. Dados do Grid de Serviços (Principais)
     // O ideal é que o path reflita o ítem do menu lateral
     const serviceGridItems = [
-        // { title: 'Procon', icon: <LiaBookOpenSolid />, path: '/procon-atendimentos' },
+        { title: 'PROCON', description: 'Registre reclamações, acompanhe protocolos e agende atendimento presencial.', icon: <LiaShieldAltSolid />, path: '/procon', accent: '#0369a1' },
         // { title: 'Atendimento Jurídico', icon: <LiaBalanceScaleLeftSolid />, path: '/juridico' },
         { title: 'Balcão do Cidadão', description: 'Solicite documentos, acompanhe pedidos e agendamentos.', icon: <LiaUserFriendsSolid />, path: '/balcao', accent: '#025AA1' },
         { title: 'Microempreendedor', description: 'Receba orientação para MEI, finanças, impostos e melhorias do negócio.', icon: <LiaUserFriendsSolid />, path: '/microempreendedor', accent: '#047857' },
@@ -61,6 +64,10 @@ const DashboardPage = () => {
         // { title: 'Vereadores', icon: <LiaUsersSolid />, path: '/vereadores' },
         // Pode adicionar mais se necessário
     ];
+    const visibleServiceGridItems = serviceGridItems.filter(item => {
+        const module = findModuleByPath(item.path);
+        return !module || settings.modules?.[module.id]?.portal !== false;
+    });
     
     // Handler para navegação do menu lateral
     const handleMenuItemClick = (path) => {
@@ -129,7 +136,7 @@ const DashboardPage = () => {
                     
                     <div className="header-title-section">
                         <span className="user-dashboard-eyebrow">Portal de Serviços</span>
-                        <h1>Câmara Municipal de Paraipaba</h1>
+                        <h1>{settings.tenant?.name}</h1>
                         <p>Olá, {loggedInUserData?.nome?.split(' ')[0] || 'cidadão'}. Resolva seus atendimentos de forma simples, acompanhe solicitações e acesse os serviços digitais da Câmara.</p>
                     </div>
                     <div className="user-profile">
@@ -173,7 +180,7 @@ const DashboardPage = () => {
                 </div>
 
                 <main className="services-grid-main">
-                    {serviceGridItems.map((item) => (
+                    {visibleServiceGridItems.map((item) => (
                         <ServiceCard 
                             key={item.title}
                             icon={item.icon}

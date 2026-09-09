@@ -11,7 +11,10 @@ import {
     LiaTimesSolid,
     LiaTvSolid,
     LiaCommentsSolid,
+    LiaShieldAltSolid,
 } from "react-icons/lia";
+import { useSystemControl } from '../contexts/SystemControlContext';
+import { findModuleByPath } from '../config/systemModules';
 //  import { FaGooglePlay, FaApple } from "react-icons/fa";
 
 
@@ -31,11 +34,12 @@ const Sidebar = ({ onItemClick }) => {
     const location = useLocation(); // Hook para obter a rota atual
     const [isHovered, setIsHovered] = useState(false);
     const [isMobileExpanded, setIsMobileExpanded] = useState(false);
+    const { settings } = useSystemControl();
 
     // Itens do menu agora são definidos diretamente aqui
     const menuItems = [
         { title: 'Início', icon: <LiaHomeSolid />, path: '/dashboard' },
-        // { title: 'Procon', icon: <LiaBookOpenSolid />, path: '/procon-atendimentos' },
+        { title: 'PROCON', icon: <LiaShieldAltSolid />, path: '/procon' },
         // { title: 'Atendimento Jurídico', icon: <LiaBalanceScaleLeftSolid />, path: '/juridico' },
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/balcao' },
         { title: 'Microempreendedor', icon: <LiaUserFriendsSolid />, path: '/microempreendedor' },
@@ -46,6 +50,10 @@ const Sidebar = ({ onItemClick }) => {
         // { title: 'Vereadores', icon: <LiaUsersSolid />, path: '/vereadores' },
         { title: 'Perfil', icon: <LiaUser />, path: '/perfil' },
     ];
+    const visibleMenuItems = menuItems.filter(item => {
+        const module = findModuleByPath(item.path);
+        return !module || settings.modules?.[module.id]?.portal !== false;
+    });
 
     const handleItemClick = (path) => {
         onItemClick(path);
@@ -89,15 +97,15 @@ const Sidebar = ({ onItemClick }) => {
                 </button>
 
                 <img
-                    src={Logo}
-                    alt="Logo Paraipaba"
+                    src={settings.branding?.compactLogoUrl || settings.branding?.logoUrl || Logo}
+                    alt={settings.branding?.logoAlt || 'Logo da Câmara'}
                     className="sidebar-logo"
                 />
             </div>
 
             {/* O menu agora permanece sempre visível através dos ícones */}
             <div className="sidebar-menu">
-                {menuItems.map((item) => (
+                {visibleMenuItems.map((item) => (
                     <SidebarItem
                         key={item.title} // A chave continua sendo o título
                         icon={item.icon}

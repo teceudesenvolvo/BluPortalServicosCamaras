@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { LiaAndroid, LiaApple, LiaExternalLinkAltSolid, LiaMobileAltSolid } from 'react-icons/lia';
 import Logo from '../assets/logo-paraipaba-azul.png';
+import { useSystemControl } from '../contexts/SystemControlContext';
 
 const ANDROID_URL = 'https://play.google.com/store/apps/details?id=com.blutecnologias.appcamara&pcampaignid=web_share';
 const IOS_URL = 'https://apps.apple.com/br/app/cm-paraipaba/id6769832252';
@@ -17,6 +18,7 @@ const detectMobileStore = () => {
 };
 
 const DownloadApp = () => {
+    const { settings } = useSystemControl();
     const detectedStore = useMemo(detectMobileStore, []);
 
     useEffect(() => {
@@ -30,9 +32,9 @@ const DownloadApp = () => {
     return (
         <main className="app-download-page">
             <section className="app-download-card">
-                <img src={Logo} alt="Câmara Municipal de Paraipaba" className="app-download-logo" />
+                <img src={settings.branding?.logoUrl || Logo} alt={settings.branding?.logoAlt || settings.tenant?.name || 'Câmara Municipal'} className="app-download-logo" />
                 <span className="app-download-eyebrow"><LiaMobileAltSolid /> Aplicativo oficial</span>
-                <h1>CM Paraipaba</h1>
+                <h1>{settings.tenant?.shortName}</h1>
                 <p>
                     {detectedStore
                         ? `Abrindo o aplicativo na ${detectedStore.name}...`

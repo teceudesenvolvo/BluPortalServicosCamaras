@@ -1,70 +1,96 @@
-# Getting Started with Create React App
+# Blu Câmara — Portal de Serviços white-label
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Plataforma administrativa e de atendimento ao cidadão para Câmaras Municipais. Este repositório é o **núcleo compartilhado**: funcionalidades e correções são desenvolvidas aqui e distribuídas às instalações por pull requests.
 
-## Available Scripts
+## Arquitetura
 
-In the project directory, you can run:
+- **Core:** componentes, módulos, Functions e regras mantidos pela Blu Tecnologias.
+- **Tenant:** identidade inicial em `tenants/<slug>/tenant.config.json`.
+- **CMS:** configuração editável no documento Firestore `system-control/portal`.
+- **Ambiente:** projeto Firebase, domínios e variáveis em `.env.local`.
+- **Secrets:** tokens e credenciais protegidos nas Cloud Functions.
+- **Extensões:** código específico da instalação, separado do core.
 
-### `npm start`
+Prioridade da configuração: padrões do core → arquivo do tenant → CMS no Firestore → variáveis e secrets do servidor.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Requisitos
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- Node.js 22 ou LTS compatível
+- npm e Firebase CLI
+- Projeto Firebase próprio da Câmara
+- Repositório Git próprio da instalação
 
-### `npm test`
+## Criar uma nova Câmara
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```bash
+git clone https://github.com/teceudesenvolvo/BluPortalServicosCamaras.git camara-municipio
+cd camara-municipio
+git remote rename origin platform
+git remote add origin git@github.com:SUA-ORGANIZACAO/camara-municipio.git
+npm install
+npm run tenant:create -- \
+  --slug=municipio \
+  --name="Câmara Municipal de Município" \
+  --shortName="Câmara de Município" \
+  --city=Município \
+  --state=CE
+npm run tenant:validate
+```
 
-### `npm run build`
+O comando cria `tenants/municipio/tenant.config.json` e ativa a configuração em `public/tenant.config.json`.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Configurar o Firebase
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+Crie `.env.local`:
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```dotenv
+REACT_APP_FIREBASE_API_KEY=
+REACT_APP_FIREBASE_AUTH_DOMAIN=
+REACT_APP_FIREBASE_PROJECT_ID=
+REACT_APP_FIREBASE_STORAGE_BUCKET=
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=
+REACT_APP_FIREBASE_APP_ID=
+REACT_APP_FIREBASE_DATABASE_URL=
+REACT_APP_FUNCTIONS_BASE_URL=
+```
 
-### `npm run eject`
+Chaves privadas e tokens OAuth devem ser configurados no Firebase/Google Secret Manager.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```bash
+firebase use --add
+firebase deploy --only firestore:rules,storage
+firebase deploy --only functions
+firebase deploy --only hosting
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Configurar pelo CMS
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Entre com `leo@gmail.com` e acesse `/controle-sistema`. O CMS controla identificação institucional, módulos, cores, tipografia, logomarca, favicon, endpoints públicos, lojas de aplicativos, integrações e manutenção.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Desenvolvimento e validação
 
-## Learn More
+```bash
+npm start
+npm test -- --watchAll=false --watchman=false
+npm run tenant:validate
+npm run build
+cd functions && npm run lint
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Receber atualizações do núcleo
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Configure no GitHub da Câmara:
 
-### Code Splitting
+```text
+BLU_PLATFORM_UPSTREAM=teceudesenvolvo/BluPortalServicosCamaras
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+O workflow `.github/workflows/sync-platform.yml` verifica atualizações semanalmente e abre um pull request. Homologue o PR em staging antes do merge em produção.
 
-### Analyzing the Bundle Size
+Use tenant e CMS para trocar nome, cor, marca ou endpoint. Mudanças úteis para todas as Câmaras devem entrar neste repositório base.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## Documentação
 
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- [Arquitetura white-label](docs/WHITE_LABEL_ARCHITECTURE.md)
+- [Atualização das instalações](docs/UPDATING_INSTALLATIONS.md)
+- [Versão e schema](platform.json)

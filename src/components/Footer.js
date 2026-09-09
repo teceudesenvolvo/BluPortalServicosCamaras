@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Logo from '../assets/logo-paraipaba.png';
+import { useSystemControl } from '../contexts/SystemControlContext';
 import {
     LiaArrowRightSolid,
     LiaEnvelopeSolid,
@@ -10,6 +11,7 @@ import {
 
 
 const Footer = () => {
+    const { settings } = useSystemControl();
     const [showBanner, setShowBanner] = useState(false);
     const [appLink, setAppLink] = useState('');
 
@@ -51,16 +53,16 @@ const Footer = () => {
 
         <div className="footer-content">
             <div className="footer-logo">
-                <img src={Logo} alt="Paraipaba" />
+                <img src={settings.branding?.logoUrl || Logo} alt={settings.branding?.logoAlt || settings.tenant?.name || 'Câmara Municipal'} />
                 <span>Portal de Serviços</span>
-                <p>Câmara Municipal de Paraipaba mais próxima do cidadão, com atendimento digital e informação oficial.</p>
+                <p>{settings.tenant?.name} mais próxima do cidadão, com atendimento digital e informação oficial.</p>
             </div>
 
             <div className="footer-contact">
                 <h4>Contato</h4>
                 <p className="footer-contact-item">
                     <LiaMapMarkedAltSolid />
-                    <span>Av. Domingos Barroso, 350 - Monte Alverne, Paraipaba - CE, 62685-000</span>
+                    <span>{[settings.tenant?.address, `${settings.tenant?.city} - ${settings.tenant?.state}`, settings.tenant?.postalCode].filter(Boolean).join(', ')}</span>
                 </p>
                 <p className="footer-contact-item"><LiaPhoneSolid /><span>(88) 3426-1212</span></p>
                 <p className="footer-contact-item"><LiaEnvelopeSolid /><span>camara@camaraparaipaba.ce.gov.br</span></p>

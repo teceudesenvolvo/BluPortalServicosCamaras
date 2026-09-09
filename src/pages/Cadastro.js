@@ -10,6 +10,7 @@ import config from '../config';
 
 import Brasao from '../assets/logo-paraipaba.png';
 import Logo from '../assets/logo-paraipaba-azul.png';
+import { useSystemControl } from '../contexts/SystemControlContext';
 
 const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
 const receptionLinkedCollections = [
@@ -93,6 +94,7 @@ const linkReceptionRequestsToUser = async (user, formData) => {
 };
 
 const CadastroPage = () => {
+    const { settings } = useSystemControl();
     const navigate = useNavigate();
     const { currentUser } = useAuth();
     
@@ -304,7 +306,7 @@ const CadastroPage = () => {
             <div className="login-right-panel">
                 <div className="login-form-box">
                     <img
-                        src={Logo}
+                        src={settings.branding?.logoUrl || Logo}
                         alt="Logo Paraipaba"
                         className="logo-horizontal"
                         style={{ height: '50px', marginBottom: '40px' }}

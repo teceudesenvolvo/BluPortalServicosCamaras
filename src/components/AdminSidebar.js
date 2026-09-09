@@ -17,12 +17,15 @@ import {
     LiaNewspaperSolid,
     LiaCommentsSolid,
     LiaTvSolid,
-    LiaStarSolid
+    LiaStarSolid,
+    LiaCogSolid
 } from "react-icons/lia";
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, firestore } from '../firebase';
 import { collection, doc, getDoc, getDocs, limit, query } from 'firebase/firestore';
 import { countUnreadAdminMessages } from '../utils/adminMessages';
+import { useSystemControl } from '../contexts/SystemControlContext';
+import { findModuleByPath, SYSTEM_OWNER_EMAIL } from '../config/systemModules';
 
 const MESSAGE_MENU_AREAS = [
     { role: 'Balcão', collectionName: 'balcao-cidadao' },
@@ -57,6 +60,7 @@ const AdminSidebar = () => {
     const [userType, setUserType] = useState(null);
     const [userEmail, setUserEmail] = useState(null);
     const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+    const { settings } = useSystemControl();
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -123,7 +127,6 @@ const AdminSidebar = () => {
     }, [userType]);
 
     const allMenuItems = [
-        // { title: 'Procon', icon: <LiaTachometerAltSolid />, path: '/admin-procon', roles: ['Admin', 'Procon'] },
         // { title: 'Atendimentos Jurídicos', icon: <LiaGavelSolid />, path: '/admin-juridico', roles: ['Admin', 'Juridico'] },
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/admin-balcao', roles: ['Admin', 'Balcão'] },
         { title: 'Microempreendedor', icon: <LiaBriefcaseSolid />, path: '/admin-microempreendedor', roles: ['Admin', 'Microempreendedor'] },
@@ -136,6 +139,8 @@ const AdminSidebar = () => {
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/admin-procuradoria', roles: ['Admin', 'Procuradoria'] },
         { title: 'Vereadores', icon: <LiaUserFriendsSolid />, path: '/admin-vereadores', roles: ['Admin', 'Vereador'] },
         { title: 'PIEL', icon: <LiaUsersSolid />, path: '/admin-piel', roles: ['Admin'] },
+        { title: 'PROCON', icon: <LiaBriefcaseSolid />, path: '/admin-procon', roles: ['Admin', 'Procon'] },
+        { title: 'Controle do Sistema', icon: <LiaCogSolid />, path: '/controle-sistema', roles: ['Admin'] },
         { title: 'Gerenciar Usuários', icon: <LiaUsersCogSolid />, path: '/admin-users', roles: ['Admin'] },
         { title: 'Histórico Notificações', icon: <LiaBellSolid />, path: '/admin-notifications', roles: ['Admin'] },
         { title: 'Migração Firestore', icon: <LiaCloudDownloadAltSolid />, path: '/admin-migration', roles: ['Admin'] },
@@ -144,11 +149,17 @@ const AdminSidebar = () => {
 
     // Filtra os itens do menu com base no tipo de usuário
     const visibleMenuItems = allMenuItems.filter(item => {
+        const isSystemOwner = userEmail?.toLowerCase() === SYSTEM_OWNER_EMAIL;
+        if (item.path === '/controle-sistema') return isSystemOwner;
+
         // Restrição específica: Itens de sistema aparecem apenas para o email leo@gmail.com
         const systemPaths = ['/admin-migration', '/admin-mail', '/admin-notifications'];
         if (systemPaths.includes(item.path)) {
-            return userEmail === 'leo@gmail.com';
+            return isSystemOwner;
         }
+
+        const module = findModuleByPath(item.path);
+        if (module && settings.modules?.[module.id]?.admin === false) return false;
 
         if (userType === 'Admin') {
             return true; // Admin vê tudo
@@ -197,8 +208,8 @@ const AdminSidebar = () => {
                 </button>
 
                 <img 
-                    src={Logo} 
-                    alt="Logo Paraipaba" 
+                    src={settings.branding?.compactLogoUrl || settings.branding?.logoUrl || Logo}
+                    alt={settings.branding?.logoAlt || 'Logo da Câmara'}
                     className="sidebar-logo" 
                 />
             </div>

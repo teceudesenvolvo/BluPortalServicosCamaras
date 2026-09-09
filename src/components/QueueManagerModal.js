@@ -21,6 +21,7 @@ import {
 } from 'react-icons/lia';
 import { auth, firestore } from '../firebase';
 import { buildAlternatingQueue, getLastCalledPriority } from '../utils/queueOrdering';
+import { useSystemControl } from '../contexts/SystemControlContext';
 
 const SERVICES = [
     'Todos os serviços',
@@ -29,6 +30,7 @@ const SERVICES = [
     'Ouvidoria',
     'Procuradoria da Mulher',
     'PIEL',
+    'PROCON',
 ];
 
 const REQUEST_COLLECTIONS = {
@@ -37,6 +39,16 @@ const REQUEST_COLLECTIONS = {
     Ouvidoria: 'ouvidoria',
     'Procuradoria da Mulher': 'procuradoria-mulher',
     PIEL: 'piel-atendimentos',
+    PROCON: 'procon-agendamentos',
+};
+
+const SERVICE_MODULES = {
+    'Balcão do Cidadão': 'balcao',
+    'Assessoria ao Microempreendedor': 'microempreendedor',
+    Ouvidoria: 'ouvidoria',
+    'Procuradoria da Mulher': 'procuradoria',
+    PIEL: 'piel',
+    PROCON: 'procon',
 };
 
 const isToday = (value) => {
@@ -72,6 +84,7 @@ const getAttendant = () => ({
 });
 
 const QueueManagerModal = ({ onClose, lockedService = '' }) => {
+    const { settings } = useSystemControl();
     const [tickets, setTickets] = useState([]);
     const [counters, setCounters] = useState([]);
     const [service, setService] = useState(lockedService || 'Balcão do Cidadão');
@@ -80,6 +93,9 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
     const [counterFeedback, setCounterFeedback] = useState(null);
     const [activeTab, setActiveTab] = useState('fila');
     const [loading, setLoading] = useState(false);
+    const availableServices = useMemo(() => SERVICES.filter(item => (
+        item === 'Todos os serviços' || settings.modules?.[SERVICE_MODULES[item]]?.admin !== false
+    )), [settings.modules]);
 
     useEffect(() => {
         const unsubscribeTickets = onSnapshot(collection(firestore, 'atendimento-fila'), (snapshot) => {
@@ -509,7 +525,7 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
             const counterData = {
                 nome,
                 ativo: true,
-                servicos: service === 'Todos os serviços' ? SERVICES.slice(1) : [service],
+                servicos: service === 'Todos os serviços' ? availableServices.slice(1) : [service],
                 senhaAtual: null,
                 ticketAtualId: null,
                 criadoEm: new Date(),
@@ -581,7 +597,7 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                             <label>
                                 <span>Fila de serviço</span>
                                 <select className="form-input" value={service} onChange={(event) => setService(event.target.value)} disabled={Boolean(lockedService || assignedCounter)}>
-                                    {(lockedService ? [lockedService] : SERVICES).map(item => <option key={item}>{item}</option>)}
+                                    {(lockedService ? [lockedService] : availableServices).map(item => <option key={item}>{item}</option>)}
                                 </select>
                             </label>
                             <label>
@@ -675,7 +691,7 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                                                 <LiaExchangeAltSolid />
                                                 <select value="" onChange={(event) => transferTicket(ticket, event.target.value)}>
                                                     <option value="">Transferir</option>
-                                                    {SERVICES.slice(1).filter(item => item !== ticket.setor).map(item => <option key={item}>{item}</option>)}
+                                                    {availableServices.slice(1).filter(item => item !== ticket.setor).map(item => <option key={item}>{item}</option>)}
                                                 </select>
                                             </label>
                                         </article>

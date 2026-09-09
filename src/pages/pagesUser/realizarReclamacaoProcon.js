@@ -5,8 +5,10 @@ import pdfFonts from 'pdfmake/build/vfs_fonts';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { firestore } from '../../firebase';
 import Sidebar from '../../components/Sidebar'; // Importa o componente Sidebar real
-import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils'; // Função para upload de arquivos
+import { useSystemControl } from '../../contexts/SystemControlContext';
+import { LiaArrowLeftSolid, LiaShieldAltSolid } from 'react-icons/lia';
 
 pdfMake.vfs = pdfFonts.vfs;
 
@@ -51,6 +53,7 @@ const AddProducts = () => {
 
     const navigate = useNavigate();
     const { currentUser: user, loading: loadingAuth } = useAuth(); // Usando o hook de autenticação
+    const { settings } = useSystemControl();
 
     const handleMenuItemClick = (path) => {
         navigate(path);
@@ -237,7 +240,7 @@ const AddProducts = () => {
 
         // Fazer o upload dos arquivos pro Storage
         const uploadPromises = fileData.map(async (file) => {
-            const folderPath = `denuncias-procon/${userId}/anexos`;
+            const folderPath = `procon-atendimentos/${userId}/anexos`;
             const uploadResult = await uploadFileToStorage(file, folderPath);
             return {
                 name: file.name,
@@ -258,18 +261,26 @@ const AddProducts = () => {
             arquivos: anexosProcessados, // Array de {name, type, url}
             userId: userId, // Adiciona o userId no nível raiz do objeto
             createdAt: timestamp,
+            status: 'Em Análise',
             userDataAtTimeOfComplaint: dadosUsuarioParaSalvar, // Salva o objeto completo do usuário
         };
 
         try {
-            // Envia os dados para a coleção 'denuncias-procon' no Firestore
-            await addDoc(collection(firestore, 'denuncias-procon'), reclamacaoDataFinal);
+            await Promise.all([
+                addDoc(collection(firestore, 'procon-atendimentos'), reclamacaoDataFinal),
+                setDoc(doc(firestore, 'procon-consumidores', userId), {
+                    ...dadosUsuarioParaSalvar,
+                    userId,
+                    origem: 'portal',
+                    updatedAt: serverTimestamp(),
+                }, { merge: true }),
+            ]);
 
             gerarPDF(protocolo, loggedInUserData, reclamacaoFormData, empresaInfo);
             alert(`Reclamação registrada com sucesso! Protocolo: ${protocolo}`);
 
             setFileInputKey(Date.now());
-            navigate('/dashboard');
+            navigate('/procon-atendimentos');
         } catch (error) {
             console.error('Erro ao enviar reclamação para o Firebase:', error);
             alert('Erro ao registrar reclamação. Tente novamente.');
@@ -281,26 +292,13 @@ const AddProducts = () => {
     return (
         <div className="dashboard-layout">
             <Sidebar onItemClick={handleMenuItemClick} />
-            <div className="dashboard-content">
+            <div className="dashboard-content procon-citizen-page">
 
                 {/* Cabeçalho da Imagem */}
-                <header className="page-header-container">
-                    <div className="header-title-section">
-                        <h1>Câmara Municipal de Paraipaba</h1>
-                        <p>Procon - Realizar Reclamação</p>
-                    </div>
-
-                    <div className="user-profile">
-                        <div className="user-text">
-                            <p className="user-name-display">{loggedInUserData?.nome || user?.email}</p>
-                            <p className="user-type-display">{loggedInUserData?.tipo || 'Cidadão'}</p>
-                        </div>
-                        <div className="user-avatar"></div> {/* Círculo Azul */}
-                    </div>
-                </header>
+                <header className="procon-citizen-hero compact"><div><span><LiaShieldAltSolid /> Defesa do consumidor</span><h1>Nova reclamação</h1><p>Registre sua solicitação no PROCON da {settings.tenant?.shortName}.</p></div><button onClick={() => navigate('/procon')}><LiaArrowLeftSolid /> Voltar</button></header>
 
                 {/* Contêiner da Reclamação */}
-                <div className="form-container-tabs">
+                <div className="form-container-tabs procon-complaint-form">
                     <div className="tabs-header">
                         <button
                             className={`tab-button ${activeTab === 1 ? 'active' : ''}`}

@@ -81,6 +81,9 @@ const receptionLinkedCollections = [
   "ouvidoria",
   "procuradoria-mulher",
   "piel-atendimentos",
+  "procon-atendimentos",
+  "procon-consumidores",
+  "procon-agendamentos",
 ];
 
 /**
@@ -2016,7 +2019,7 @@ exports.cleanupExpiredRequests = onSchedule(
         const deletionPromises = [];
         const collections = [
           "balcao-cidadao",
-          "denuncias-procon",
+          "procon-atendimentos",
           "atendimento-juridico",
           "procuradoria-mulher",
           "ouvidoria",

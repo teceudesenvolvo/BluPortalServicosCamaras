@@ -30,6 +30,8 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "tenant:create": "node scripts/create-tenant.mjs",
+    "tenant:validate": "node scripts/validate-tenant.mjs",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

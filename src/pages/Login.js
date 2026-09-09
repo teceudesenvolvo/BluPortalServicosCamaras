@@ -9,8 +9,10 @@ import { doc, getDoc } from 'firebase/firestore';
  
 import Brasao from '../assets/logo-paraipaba.png'; // Logo redonda/brasão
 import Logo from '../assets/logo-paraipaba-azul.png'; // Logo horizontal
+import { useSystemControl } from '../contexts/SystemControlContext';
 
 const LoginPage = () => {
+    const { settings } = useSystemControl();
     const navigate = useNavigate();
     const { currentUser } = useAuth(); // Monitora o estado atual do usuário
 
@@ -135,7 +137,7 @@ const LoginPage = () => {
             <div className="login-right-panel">
                 <div className="login-form-box">
                     <img
-                        src={Logo}
+                        src={settings.branding?.logoUrl || Logo}
                         alt="Logo Paraipaba"
                         className="logo-horizontal"
                         style={{ height: '50px', marginBottom: '40px' }}

@@ -1,0 +1,33 @@
+name: Sincronizar núcleo Blu Câmara
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 7 * * 1'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    if: vars.BLU_PLATFORM_UPSTREAM != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Incorporar atualizações da plataforma
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM: ${{ vars.BLU_PLATFORM_UPSTREAM }}
+        run: |
+          BRANCH="chore/sync-platform-$(date +%Y%m%d)"
+          git config user.name "blu-platform-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git remote add platform "https://github.com/${UPSTREAM}.git"
+          git fetch platform main
+          git checkout -b "$BRANCH"
+          git merge platform/main --no-edit
+          git push origin "$BRANCH"
+          gh pr create --title "Atualizar núcleo Blu Câmara" --body "Sincronização automática com ${UPSTREAM}. Revise testes, migrações e personalizações do tenant antes do merge." --base main --head "$BRANCH"

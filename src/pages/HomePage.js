@@ -25,6 +25,7 @@ import VereadoresSlider from '../components/VereadoresSlider'; // Importa o slid
 import NoticiasSlider from '../components/NoticiasSlider'; // Importa o slider de notícias
 import MaintenancePopup from '../components/MaintenancePopup';
 import Logo from '../assets/logo-paraipaba.png';
+import { useSystemControl } from '../contexts/SystemControlContext';
 import HeroBackground from '../assets/fachada2-cm.jpg';
 import { appFunctionsBaseUrl, buildPlayerUrl, fetchTvCamaraVideos, formatVideoDate } from '../utils/tvCamara';
 
@@ -53,6 +54,8 @@ const BALCAO_BALANCE_ENDPOINTS = [
 
 // Componente Principal: Home Page
 const HomePage = () => {
+    const { settings } = useSystemControl();
+    const cmsLogo = settings.branding?.logoUrl || Logo;
     const navigate = useNavigate();
     const [showAppPopup, setShowAppPopup] = useState(false);
     const [tvVideos, setTvVideos] = useState([]);
@@ -197,8 +200,8 @@ const HomePage = () => {
                 <div className="nav-container">
                     <nav className="home-nav">
                         <div className="nav-logo">
-                            <img src={Logo} alt="Logo Câmara Municipal de Paraipaba" />
-                            <span>Câmara Municipal de Paraipaba</span>
+                            <img src={cmsLogo} alt={settings.branding?.logoAlt || 'Logo da Câmara Municipal'} />
+                            <span>{settings.tenant?.name}</span>
                         </div>
                         <div className="nav-actions">
                             <button className="btn-nav-login" onClick={() => navigate('/login')}>Entrar</button>
@@ -212,7 +215,7 @@ const HomePage = () => {
                             <LiaShieldAltSolid />
                             Portal oficial de serviços digitais
                         </span>
-                        <h1>Câmara Municipal de Paraipaba mais próxima de você.</h1>
+                        <h1>{settings.tenant?.name} mais próxima de você.</h1>
                         <p>Acesse atendimentos, acompanhe solicitações, assista à TV Câmara e receba informações oficiais em uma experiência moderna, simples e segura.</p>
 
                         <div className="hero-actions-premium">
@@ -228,13 +231,13 @@ const HomePage = () => {
                         <div className="hero-trust-row">
                             <span><LiaBellSolid /> Serviços públicos online</span>
                             <span><LiaMobileAltSolid /> App oficial disponível</span>
-                            <span><LiaMapMarkedAltSolid /> Paraipaba - CE</span>
+                            <span><LiaMapMarkedAltSolid /> {settings.tenant?.city} - {settings.tenant?.state}</span>
                         </div>
                     </div>
 
                     <div className="hero-panel-premium">
                         <div className="hero-panel-header">
-                            <img src={Logo} alt="Câmara Municipal de Paraipaba" />
+                            <img src={cmsLogo} alt={settings.branding?.logoAlt || settings.tenant?.name || 'Câmara Municipal'} />
                             <span>
                                 <strong>Portal de Serviços</strong>
                                 <small>Atendimento integrado</small>

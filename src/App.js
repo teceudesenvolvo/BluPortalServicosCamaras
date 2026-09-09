@@ -5,6 +5,8 @@ import './App.css';
 // Importa o provedor de autenticação
 import { AuthProvider } from './contexts/FirebaseAuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { SystemControlProvider } from './contexts/SystemControlContext';
+import { ModuleRoute, OwnerRoute } from './components/SystemRouteGuard';
 
 // Importa as páginas
 import HomePage from './pages/HomePage';
@@ -20,8 +22,10 @@ import ThemeToggle from './components/ThemeToggle';
 // Páginas Usuário Comum
 import DownloadApp from './pages/DownloadApp';
 import Painel from './pages/pagesUser/Painel';
-import Procon from './pages/pagesUser/realizarReclamacaoProcon';
+import ProconReclamacao from './pages/pagesUser/realizarReclamacaoProcon';
 import ProconAtendimentos from './pages/pagesUser/ProconAtendimentos';
+import ProconPortal from './pages/pagesUser/ProconPortal';
+import ProconAgendamento from './pages/pagesUser/ProconAgendamento';
 import AtendimentoJuridico from './pages/pagesUser/AtendimentoJuridico';
 import NovoAtendimentoJuridico from './pages/pagesUser/NovoAtendimentoJuridico';
 import BalcaoCidadao from './pages/pagesUser/BalcaoCidadao';
@@ -42,7 +46,7 @@ import NovaMicroempreendedor from './pages/pagesUser/NovaMicroempreendedor';
 import AvaliarAtendimento from './pages/pagesUser/AvaliarAtendimento';
 
 import AdminPiel from './pages/pagesAdmin/AdminPiel';
-import AdminProcon from './pages/pagesAdmin/AdminProcon';
+import AdminProcon from './pages/pagesAdmin/AdminProconModule';
 import AdminJuridico from './pages/pagesAdmin/AdminJuridico';
 import AdminBalcao from './pages/pagesAdmin/AdminBalcao';
 import AdminBalcaoSolicitacoes from './pages/pagesAdmin/AdminBalcaoSolicitacoes';
@@ -61,6 +65,7 @@ import AdminTvCamara from './pages/pagesAdmin/AdminTvCamara';
 import AdminMicroempreendedor from './pages/pagesAdmin/AdminMicroempreendedor';
 import AdminAvaliacoes from './pages/pagesAdmin/AdminAvaliacoes';
 import AdminAtendimentosGuiches from './pages/pagesAdmin/AdminAtendimentosGuiches';
+import SystemControl from './pages/pagesAdmin/SystemControl';
 
 
 function App() {
@@ -68,6 +73,7 @@ function App() {
     // 1. Envolve toda a aplicação com o AuthProvider
     <ThemeProvider>
       <AuthProvider>
+        <SystemControlProvider>
         <Router>
         <DevelopmentPopup />
         <ThemeToggle />
@@ -82,51 +88,55 @@ function App() {
 
           {/* Com Login - Usuário Comum */}
           <Route path="/dashboard" element={<Painel />} />
-          <Route path="/procon" element={<Procon />} />
-          <Route path="/procon-atendimentos" element={<ProconAtendimentos />} />
-          <Route path="/juridico" element={<AtendimentoJuridico />} />
-          <Route path="/juridico/novo" element={<NovoAtendimentoJuridico />} />
-          <Route path="/balcao" element={<BalcaoCidadao />} />
-          <Route path="/balcao/novo" element={<NovoBalcaoCidadao />} />
-          <Route path="/ouvidoria" element={<Ouvidoria />} />
-          <Route path="/ouvidoria/nova" element={<NovaOuvidoria />} />
-          <Route path="/procuradoria" element={<Procuradoria />} />
-          <Route path="/procuradoria/nova" element={<NovaProcuradoria />} />
-          <Route path="/mensagens" element={<MensagensUsuario />} />
-          <Route path="/procuradoria/panico-config" element={<ConfigurarPanico />} />
-          <Route path="/vereadores" element={<SolicitacoesVereadores />} />
-          <Route path="/vereadores/nova" element={<NovaSolicitacaoVereador />} />
-          <Route path="/piel" element={<Piel />} />
-          <Route path="/tv-camara" element={<TvCamara />} />
-          <Route path="/microempreendedor" element={<Microempreendedor />} />
-          <Route path="/microempreendedor/novo" element={<NovaMicroempreendedor />} />
-          <Route path="/avaliar-atendimento/:protocolo" element={<AvaliarAtendimento />} />
+          <Route path="/procon" element={<ModuleRoute surface="portal"><ProconPortal /></ModuleRoute>} />
+          <Route path="/procon/reclamacao" element={<ModuleRoute surface="portal"><ProconReclamacao /></ModuleRoute>} />
+          <Route path="/procon/agendar" element={<ModuleRoute surface="portal"><ProconAgendamento /></ModuleRoute>} />
+          <Route path="/procon-atendimentos" element={<ModuleRoute surface="portal"><ProconAtendimentos /></ModuleRoute>} />
+          <Route path="/juridico" element={<ModuleRoute surface="portal"><AtendimentoJuridico /></ModuleRoute>} />
+          <Route path="/juridico/novo" element={<ModuleRoute surface="portal"><NovoAtendimentoJuridico /></ModuleRoute>} />
+          <Route path="/balcao" element={<ModuleRoute surface="portal"><BalcaoCidadao /></ModuleRoute>} />
+          <Route path="/balcao/novo" element={<ModuleRoute surface="portal"><NovoBalcaoCidadao /></ModuleRoute>} />
+          <Route path="/ouvidoria" element={<ModuleRoute surface="portal"><Ouvidoria /></ModuleRoute>} />
+          <Route path="/ouvidoria/nova" element={<ModuleRoute surface="portal"><NovaOuvidoria /></ModuleRoute>} />
+          <Route path="/procuradoria" element={<ModuleRoute surface="portal"><Procuradoria /></ModuleRoute>} />
+          <Route path="/procuradoria/nova" element={<ModuleRoute surface="portal"><NovaProcuradoria /></ModuleRoute>} />
+          <Route path="/mensagens" element={<ModuleRoute surface="portal"><MensagensUsuario /></ModuleRoute>} />
+          <Route path="/procuradoria/panico-config" element={<ModuleRoute surface="portal"><ConfigurarPanico /></ModuleRoute>} />
+          <Route path="/vereadores" element={<ModuleRoute surface="portal"><SolicitacoesVereadores /></ModuleRoute>} />
+          <Route path="/vereadores/nova" element={<ModuleRoute surface="portal"><NovaSolicitacaoVereador /></ModuleRoute>} />
+          <Route path="/piel" element={<ModuleRoute surface="portal"><Piel /></ModuleRoute>} />
+          <Route path="/tv-camara" element={<ModuleRoute surface="portal"><TvCamara /></ModuleRoute>} />
+          <Route path="/microempreendedor" element={<ModuleRoute surface="portal"><Microempreendedor /></ModuleRoute>} />
+          <Route path="/microempreendedor/novo" element={<ModuleRoute surface="portal"><NovaMicroempreendedor /></ModuleRoute>} />
+          <Route path="/avaliar-atendimento/:protocolo" element={<ModuleRoute surface="portal"><AvaliarAtendimento /></ModuleRoute>} />
 
           {/* Com Login - Admin */}
-          <Route path="/admin-procon" element={<AdminProcon />} />
-          <Route path="/admin-juridico" element={<AdminJuridico />} />
-          <Route path="/admin-noticias" element={<AdminNoticiasSite />} />
-          <Route path="/admin-balcao" element={<AdminBalcao />} />
-          <Route path="/admin-balcao/solicitacoes" element={<AdminBalcaoSolicitacoes />} />
-          <Route path="/admin-ouvidoria" element={<AdminOuvidoria />} />
-          <Route path="/admin-procuradoria" element={<AdminProcuradoria />} />
-          <Route path="/admin-vereadores" element={<AdminVereadores />} />
-          <Route path="/admin-users" element={<AdminUsers />} />
-          <Route path="/admin-piel" element={<AdminPiel />} />
-          <Route path="/admin-balcao/agendamentos" element={<AdminBalcaoAgendamentos />} />
-          <Route path="/admin-balcao/atendimentos-guiches" element={<AdminAtendimentosGuiches />} />
+          <Route path="/admin-procon" element={<ModuleRoute surface="admin"><AdminProcon /></ModuleRoute>} />
+          <Route path="/admin-juridico" element={<ModuleRoute surface="admin"><AdminJuridico /></ModuleRoute>} />
+          <Route path="/admin-noticias" element={<ModuleRoute surface="admin"><AdminNoticiasSite /></ModuleRoute>} />
+          <Route path="/admin-balcao" element={<ModuleRoute surface="admin"><AdminBalcao /></ModuleRoute>} />
+          <Route path="/admin-balcao/solicitacoes" element={<ModuleRoute surface="admin"><AdminBalcaoSolicitacoes /></ModuleRoute>} />
+          <Route path="/admin-ouvidoria" element={<ModuleRoute surface="admin"><AdminOuvidoria /></ModuleRoute>} />
+          <Route path="/admin-procuradoria" element={<ModuleRoute surface="admin"><AdminProcuradoria /></ModuleRoute>} />
+          <Route path="/admin-vereadores" element={<ModuleRoute surface="admin"><AdminVereadores /></ModuleRoute>} />
+          <Route path="/admin-users" element={<ModuleRoute surface="admin"><AdminUsers /></ModuleRoute>} />
+          <Route path="/admin-piel" element={<ModuleRoute surface="admin"><AdminPiel /></ModuleRoute>} />
+          <Route path="/admin-balcao/agendamentos" element={<ModuleRoute surface="admin"><AdminBalcaoAgendamentos /></ModuleRoute>} />
+          <Route path="/admin-balcao/atendimentos-guiches" element={<ModuleRoute surface="admin"><AdminAtendimentosGuiches /></ModuleRoute>} />
           <Route path="/admin-mail" element={<AdminMail />} />
           <Route path="/admin-notifications" element={<AdminNotifications />} />
-          <Route path="/admin-mensagens" element={<AdminMensagens />} />
-          <Route path="/admin-tv-camara" element={<AdminTvCamara />} />
-          <Route path="/admin-microempreendedor" element={<AdminMicroempreendedor />} />
-          <Route path="/admin-avaliacoes" element={<AdminAvaliacoes />} />
+          <Route path="/admin-mensagens" element={<ModuleRoute surface="admin"><AdminMensagens /></ModuleRoute>} />
+          <Route path="/admin-tv-camara" element={<ModuleRoute surface="admin"><AdminTvCamara /></ModuleRoute>} />
+          <Route path="/admin-microempreendedor" element={<ModuleRoute surface="admin"><AdminMicroempreendedor /></ModuleRoute>} />
+          <Route path="/admin-avaliacoes" element={<ModuleRoute surface="admin"><AdminAvaliacoes /></ModuleRoute>} />
           <Route path="/admin-migration" element={<AdminMigration />} />
-          <Route path="/recepcao" element={<RecepcaoAtendimento />} />
+          <Route path="/recepcao" element={<ModuleRoute surface="admin"><RecepcaoAtendimento /></ModuleRoute>} />
           <Route path="/painel-atendimento" element={<PainelAtendimento />} />
+          <Route path="/controle-sistema" element={<OwnerRoute><SystemControl /></OwnerRoute>} />
 
         </Routes>
         </Router>
+        </SystemControlProvider>
       </AuthProvider>
     </ThemeProvider>
   );
