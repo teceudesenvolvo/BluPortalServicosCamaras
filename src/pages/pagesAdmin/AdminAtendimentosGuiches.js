@@ -53,6 +53,11 @@ const getQueueEntryTime = (item) => item.entradaFilaEm || item.chegadaRecepcaoEm
 const getCallTime = (item) => item.chamadoEm || item.atendimentoIniciadoEm || item.horarioInicio;
 const getServiceStartTime = (item) => item.atendimentoIniciadoEm || item.horarioInicio || item.chamadoEm;
 const getServiceEndTime = (item) => item.concluidoEm || item.horarioFim || item.dataAtendimento;
+const normalizeSearch = (value = '') => String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .trim();
 
 const AdminAtendimentosGuiches = () => {
     const { theme } = useTheme();
@@ -71,6 +76,9 @@ const AdminAtendimentosGuiches = () => {
     const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
     const [selectedCounter, setSelectedCounter] = useState('all');
     const [analysisAttendant, setAnalysisAttendant] = useState('all');
+    const [agendaSearch, setAgendaSearch] = useState('');
+    const [agendaAttendant, setAgendaAttendant] = useState('all');
+    const [agendaEntryType, setAgendaEntryType] = useState('all');
     const [reportOpen, setReportOpen] = useState(false);
     const [reportPeriod, setReportPeriod] = useState('monthly');
     const [reportDate, setReportDate] = useState(dateKey(new Date()));
@@ -174,6 +182,39 @@ const AdminAtendimentosGuiches = () => {
         });
         return [...grouped.values()].sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome));
     }, [dayAttendances, getAttendantName]);
+    const dayAttendantOptions = useMemo(() => {
+        const options = new Map();
+        dayAttendances.forEach(item => {
+            const name = getAttendantName(item);
+            const value = item.atendenteUid ? `uid:${item.atendenteUid}` : `name:${normalizeSearch(name)}`;
+            options.set(value, { value, name });
+        });
+        return [...options.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    }, [dayAttendances, getAttendantName]);
+    const filteredDayAttendances = useMemo(() => {
+        const term = normalizeSearch(agendaSearch);
+        return dayAttendances.filter(item => {
+            if (agendaEntryType === 'walk-in' && !isWalkIn(item)) return false;
+            if (agendaEntryType === 'appointment' && isWalkIn(item)) return false;
+            if (agendaAttendant.startsWith('uid:') && item.atendenteUid !== agendaAttendant.slice(4)) return false;
+            if (agendaAttendant.startsWith('name:') && normalizeSearch(getAttendantName(item)) !== agendaAttendant.slice(5)) return false;
+            if (!term) return true;
+            return normalizeSearch([
+                item.nome,
+                item.cpf,
+                item.protocolo,
+                item.assunto,
+                item.setor,
+                item.guiche,
+                getAttendantName(item),
+            ].filter(Boolean).join(' ')).includes(term);
+        });
+    }, [agendaAttendant, agendaEntryType, agendaSearch, dayAttendances, getAttendantName]);
+    const agendaHasFilters = Boolean(agendaSearch.trim() || agendaAttendant !== 'all' || agendaEntryType !== 'all');
+
+    useEffect(() => {
+        if (agendaAttendant !== 'all' && !dayAttendantOptions.some(item => item.value === agendaAttendant)) setAgendaAttendant('all');
+    }, [agendaAttendant, dayAttendantOptions]);
 
     const calendarDays = useMemo(() => {
         const [year, month] = selectedMonth.split('-').map(Number);
@@ -421,9 +462,15 @@ const AdminAtendimentosGuiches = () => {
                     </div>
 
                     <div className="data-card counter-day-card">
-                        <div className="card-header"><h3>Agenda de {toDate(`${selectedDate}T12:00:00`)?.toLocaleDateString('pt-BR')}</h3><span>{dayAttendances.length}</span></div>
+                        <div className="card-header"><h3>Agenda de {toDate(`${selectedDate}T12:00:00`)?.toLocaleDateString('pt-BR')}</h3><span>{agendaHasFilters ? `${filteredDayAttendances.length}/${dayAttendances.length}` : dayAttendances.length}</span></div>
+                        <div className="counter-agenda-filters">
+                            <label className="counter-agenda-search"><span>Pesquisar na agenda</span><input type="search" value={agendaSearch} onChange={event => setAgendaSearch(event.target.value)} placeholder="Nome, CPF, protocolo, serviço..." /></label>
+                            <label><span>Atendente</span><select value={agendaAttendant} onChange={event => setAgendaAttendant(event.target.value)}><option value="all">Todos</option>{dayAttendantOptions.map(attendant => <option key={attendant.value} value={attendant.value}>{attendant.name}</option>)}</select></label>
+                            <label><span>Entrada</span><select value={agendaEntryType} onChange={event => setAgendaEntryType(event.target.value)}><option value="all">Todas</option><option value="appointment">Agendamentos</option><option value="walk-in">Encaixes</option></select></label>
+                            {agendaHasFilters && <button type="button" onClick={() => { setAgendaSearch(''); setAgendaAttendant('all'); setAgendaEntryType('all'); }}>Limpar</button>}
+                        </div>
                         <div className="counter-day-list">
-                            {dayAttendances.map(item => {
+                            {filteredDayAttendances.map(item => {
                                 const waitMinutes = getDurationInMinutes(getQueueEntryTime(item), getCallTime(item));
                                 const serviceMinutes = getDurationInMinutes(getServiceStartTime(item), getServiceEndTime(item));
                                 return (
@@ -439,6 +486,7 @@ const AdminAtendimentosGuiches = () => {
                                 );
                             })}
                             {dayAttendances.length === 0 && <p className="queue-empty">Nenhum atendimento registrado nesta data.</p>}
+                            {dayAttendances.length > 0 && filteredDayAttendances.length === 0 && <p className="queue-empty">Nenhum atendimento corresponde à pesquisa e aos filtros.</p>}
                         </div>
                     </div>
                 </section>
