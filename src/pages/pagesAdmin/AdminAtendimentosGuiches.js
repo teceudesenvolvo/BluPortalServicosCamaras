@@ -33,6 +33,24 @@ const monthKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const formatTime = (value) => toDate(value)?.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) || '--:--';
 const formatCpf = (value = '') => value || 'Não informado';
+const getDurationInMinutes = (startValue, endValue) => {
+    const start = toDate(startValue);
+    const end = toDate(endValue);
+    if (!start || !end || end < start) return null;
+    return Math.round((end.getTime() - start.getTime()) / 60000);
+};
+const formatDuration = (minutes) => {
+    if (minutes === null) return 'N/A';
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes ? `${hours}h ${remainingMinutes}min` : `${hours}h`;
+};
+const getQueueEntryTime = (item) => item.entradaFilaEm || item.chegadaRecepcaoEm || item.ordemFilaEm || item.criadoEm;
+const getCallTime = (item) => item.chamadoEm || item.atendimentoIniciadoEm || item.horarioInicio;
+const getServiceStartTime = (item) => item.atendimentoIniciadoEm || item.horarioInicio || item.chamadoEm;
+const getServiceEndTime = (item) => item.concluidoEm || item.horarioFim || item.dataAtendimento;
+
 const AdminAtendimentosGuiches = () => {
     const { theme } = useTheme();
     const chartRef = useRef(null);
@@ -331,11 +349,17 @@ const AdminAtendimentosGuiches = () => {
                         <div className="card-header"><h3>Agenda de {toDate(`${selectedDate}T12:00:00`)?.toLocaleDateString('pt-BR')}</h3><span>{dayAttendances.length}</span></div>
                         <div className="counter-day-list">
                             {dayAttendances.map(item => {
+                                const waitMinutes = getDurationInMinutes(getQueueEntryTime(item), getCallTime(item));
+                                const serviceMinutes = getDurationInMinutes(getServiceStartTime(item), getServiceEndTime(item));
                                 return (
                                     <article key={item.id}>
                                         <div className="counter-day-time"><LiaClockSolid /><strong>{formatTime(item.horarioInicio)}</strong><span>{formatTime(item.horarioFim)}</span></div>
                                         <div className="counter-day-citizen">{isWalkIn(item) && <small className="counter-walk-in-badge">Encaixe atendido</small>}<strong>{item.nome || 'Cidadão não informado'}</strong><span>CPF: {formatCpf(item.cpf)}</span><small>{item.guiche || 'Guichê'} · {item.setor || 'Atendimento'}</small></div>
                                         <div className="counter-day-attendant"><span>Atendente</span><strong>{getAttendantName(item)}</strong></div>
+                                        <div className="counter-day-durations">
+                                            <span><b>Espera</b>{formatDuration(waitMinutes)}</span>
+                                            <span><b>Atendimento</b>{formatDuration(serviceMinutes)}</span>
+                                        </div>
                                     </article>
                                 );
                             })}

@@ -11290,11 +11290,14 @@ color: #fff !important;
 .counter-calendar-grid button > strong { white-space: nowrap; }
 .counter-day-list article { grid-template-columns: 64px minmax(0, 1fr); align-items: start; gap: 10px 16px; }
 .counter-day-list article > div { min-width: 0; }
-.counter-day-time { grid-row: span 2; white-space: nowrap; }
+.counter-day-time { grid-row: span 3; white-space: nowrap; }
 .counter-day-citizen { display: grid; gap: 5px; line-height: 1.45; overflow-wrap: anywhere; }
 .counter-day-attendant { grid-column: 2; text-align: left; padding-top: 10px; border-top: 1px solid rgba(100,116,139,.16); display: grid; gap: 4px; line-height: 1.4; overflow-wrap: anywhere; }
 .counter-day-attendant > span { font-size: .75rem; }
 .counter-day-attendant > strong { font-size: .88rem; }
+.counter-day-durations { grid-column: 2; display: grid; grid-template-columns: repeat(2, minmax(120px, 1fr)); gap: 8px; }
+.counter-day-durations span { display: flex !important; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 8px; background: rgba(2,90,161,.07); color: #10233f !important; font-size: .82rem; font-weight: 800; }
+.counter-day-durations b { color: #64748b; font-size: .72rem; text-transform: uppercase; }
 .counter-ranking-layout .card-header { display: flex; flex-wrap: wrap; gap: 8px; }
 .counter-ranking-list article > div { min-width: 0; overflow-wrap: anywhere; }
 .counter-ranking-list article > strong { color: #0284c7; }
@@ -11303,6 +11306,9 @@ color: #fff !important;
     .counter-calendar-grid button { height: 64px; padding: 5px; }
     .counter-day-list article { grid-template-columns: 52px minmax(0, 1fr); padding: 12px; gap: 10px; }
     .counter-day-attendant { grid-column: 2; }
+    .counter-day-durations { grid-column: 2; grid-template-columns: 1fr; }
 }
 .counter-day-citizen .counter-walk-in-badge { justify-self: start; padding: 3px 8px; border-radius: 6px; background: #dcfce7; color: #166534; font-size: .72rem; font-weight: 700; }
 [data-theme="dark"] .counter-day-citizen .counter-walk-in-badge { background: #14532d; color: #dcfce7; }
+[data-theme="dark"] .counter-day-durations span { background: rgba(125,190,232,.14); color: #f8fafc !important; }
+[data-theme="dark"] .counter-day-durations b { color: #bfdbfe; }
