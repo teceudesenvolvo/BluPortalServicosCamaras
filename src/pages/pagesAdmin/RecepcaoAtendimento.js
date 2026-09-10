@@ -804,9 +804,13 @@ const RecepcaoAtendimento = () => {
             const senha = typeof queueResult === 'string' ? queueResult : queueResult.password;
 
             await updateDoc(doc(firestore, collectionName, appointment.id), {
+                // A confirmação apenas coloca o agendamento na fila. Mesmo em
+                // atraso, o status principal continua agendado até a conclusão.
+                status: 'Agendado',
                 statusFila: 'Aguardando Atendimento Presencial',
                 senhaAtendimento: senha,
                 tipoEntradaFila: appointmentLateToday ? 'Encaixe' : 'Agendamento',
+                confirmadoComAtraso: appointmentLateToday,
                 chegadaRecepcaoEm: new Date(),
                 ultimaAtualizacao: new Date(),
             });

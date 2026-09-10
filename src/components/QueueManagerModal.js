@@ -83,6 +83,16 @@ const getAttendant = () => ({
     email: auth.currentUser?.email || '',
 });
 
+const getQueueErrorMessage = (error, fallback) => {
+    if (error?.code === 'permission-denied') {
+        return 'Seu usuário não tem permissão para acessar a fila ou operar este guichê. Entre novamente após a publicação das regras do Firestore.';
+    }
+    if (error?.code === 'unauthenticated') {
+        return 'Sua sessão expirou. Entre novamente para acessar a fila.';
+    }
+    return error?.message || fallback;
+};
+
 const QueueManagerModal = ({ onClose, lockedService = '' }) => {
     const { settings } = useSystemControl();
     const [tickets, setTickets] = useState([]);
@@ -91,6 +101,7 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
     const [selectedCounter, setSelectedCounter] = useState('');
     const [newCounterName, setNewCounterName] = useState('');
     const [counterFeedback, setCounterFeedback] = useState(null);
+    const [queueError, setQueueError] = useState('');
     const [activeTab, setActiveTab] = useState('fila');
     const [loading, setLoading] = useState(false);
     const availableServices = useMemo(() => SERVICES.filter(item => (
@@ -98,13 +109,21 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
     )), [settings.modules]);
 
     useEffect(() => {
-        const unsubscribeTickets = onSnapshot(collection(firestore, 'atendimento-fila'), (snapshot) => {
-            setTickets(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
-        });
-        const unsubscribeCounters = onSnapshot(collection(firestore, 'atendimento-guiches'), (snapshot) => {
-            const items = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
-            setCounters(items.sort((a, b) => (a.nome || '').localeCompare(b.nome || '')));
-        });
+        setQueueError('');
+        const handleSnapshotError = error => setQueueError(getQueueErrorMessage(error, 'Não foi possível carregar a fila.'));
+        const unsubscribeTickets = onSnapshot(
+            collection(firestore, 'atendimento-fila'),
+            (snapshot) => setTickets(snapshot.docs.map(item => ({ id: item.id, ...item.data() }))),
+            handleSnapshotError,
+        );
+        const unsubscribeCounters = onSnapshot(
+            collection(firestore, 'atendimento-guiches'),
+            (snapshot) => {
+                const items = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
+                setCounters(items.sort((a, b) => (a.nome || '').localeCompare(b.nome || '')));
+            },
+            handleSnapshotError,
+        );
         return () => {
             unsubscribeTickets();
             unsubscribeCounters();
@@ -202,6 +221,10 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
 
     const openCounterSession = async () => {
         if (!selectedCounter || assignedCounter || loading) return;
+        if (!attendant.uid) {
+            setCounterFeedback({ type: 'error', text: 'Sua sessão expirou. Entre novamente para abrir o guichê.' });
+            return;
+        }
         setLoading(true);
         setCounterFeedback(null);
         try {
@@ -239,7 +262,9 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
             });
             setCounterFeedback({ type: 'success', text: `${selectedCounterData?.nome || 'Guichê'} aberto para ${attendant.nome}.` });
         } catch (error) {
-            alert(error.message || 'Não foi possível abrir o guichê.');
+            const message = getQueueErrorMessage(error, 'Não foi possível abrir o guichê.');
+            setCounterFeedback({ type: 'error', text: message });
+            if (error?.code === 'permission-denied') setQueueError(message);
         } finally {
             setLoading(false);
         }
@@ -591,6 +616,8 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                     <button className={activeTab === 'guiches' ? 'active' : ''} onClick={() => setActiveTab('guiches')}>Guichês</button>
                 </div>
 
+                {queueError && <p className="queue-counter-feedback error" role="alert">{queueError}</p>}
+
                 {activeTab === 'fila' && (
                     <>
                         <div className="queue-manager-toolbar">
@@ -626,6 +653,7 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                                 </div>
                             )}
                         </div>
+                        {counterFeedback && <p className={`queue-counter-feedback ${counterFeedback.type}`} role="status">{counterFeedback.text}</p>}
                         {assignedCounter && (
                             <div className="queue-active-session" role="status">
                                 <span>Guichê em uso</span>
