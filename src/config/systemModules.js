@@ -39,6 +39,7 @@ export const DEFAULT_CMS_SETTINGS = {
     branding: { logoUrl: '', compactLogoUrl: '', faviconUrl: '', loginCoverUrl: '', logoAlt: 'Câmara Municipal' },
     integrations: { functionsBaseUrl: '', publicApiUrl: '', youtubeApiUrl: '', appDownloadUrl: 'https://servicos.camaraparaipaba.ce.gov.br/download-app', privacyUrl: '', supportEmail: '', androidStoreUrl: '', iosStoreUrl: '' },
     apiFeatures: { youtube: true, notifications: true, email: true, artificialIntelligence: true, publicBalance: true },
+    externalApis: [],
 };
 
 export const findModuleByPath = path => SYSTEM_MODULES.find(module => (

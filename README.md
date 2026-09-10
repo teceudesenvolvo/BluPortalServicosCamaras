@@ -59,7 +59,9 @@ Chaves privadas e tokens OAuth devem ser configurados no Firebase/Google Secret 
 
 Depois que a primeira instalação estiver conectada, a aba **Controle do sistema → Coleções → Configurar Firebase** oferece um assistente para importar o objeto `firebaseConfig`, revisar os serviços e gerar o `.env.local` de novas instalações. O assistente nunca recebe contas de serviço, chaves privadas ou secrets.
 
-Em **Explorar coleções**, somente as coleções com leitura pública explícita nas regras exibem uma URL REST copiável: `noticias`, `vereadores`, `piel` e `tv-camara-playlist`. Dados administrativos e de cidadãos exigem autenticação e não apresentam URL pública.
+Em **Explorar coleções**, o sistema consulta os endpoints sem autenticação para identificar as regras efetivamente implantadas. Todas as coleções mantêm um objeto de exemplo local, sem leitura de documentos reais. Somente uma coleção confirmada como pública apresenta sua URL REST copiável; mudanças futuras nas regras são reconhecidas por **Verificar regras públicas**.
+
+Em **Integrar APIs**, cadastre uma URL externa, indique o caminho da lista retornada e relacione cada propriedade da API a um campo interno. O teste transforma até cinco itens somente para pré-visualização e não grava documentos. APIs que exigem autenticação devem passar por uma Cloud Function intermediária com secrets no servidor.
 
 ```bash
 firebase use --add
