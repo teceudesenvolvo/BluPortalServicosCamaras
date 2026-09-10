@@ -26,6 +26,20 @@ const getMessageTimestamp = (timestamp) => {
     return Number.isNaN(time) ? 0 : time;
 };
 
+const getDisplayRequesterName = (item = {}) => {
+    const requester = item.dadosUsuario || {};
+    const beneficiary = item.dadosBeneficiario || {};
+    const presencial = ['recepcao', 'presencial'].includes(item.userId)
+        || item.origem === 'recepcao'
+        || item.origem === 'admin-presencial'
+        || requester.name === 'Recepção';
+    return presencial ? (beneficiary.name || requester.name || 'N/A') : (requester.name || 'N/A');
+};
+const isReceptionCreated = (item = {}) => ['recepcao', 'presencial'].includes(item.userId)
+    || item.origem === 'recepcao'
+    || item.origem === 'admin-presencial'
+    || item.dadosUsuario?.name === 'Recepção';
+
 const formatChatTime = (timestamp) => {
     const time = getMessageTimestamp(timestamp);
     if (!time) return '';
@@ -357,8 +371,21 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
             setActiveTab('dados');
             const fetchConsumerProfile = async () => {
                 const userId = solicitacao.userId;
+                const receptionCreated = ['recepcao', 'presencial'].includes(userId)
+                    || solicitacao.origem === 'recepcao'
+                    || solicitacao.origem === 'admin-presencial';
+                const savedRequester = solicitacao.dadosUsuario || {};
+                const beneficiary = solicitacao.dadosBeneficiario || {};
+                const presencialProfile = receptionCreated && (savedRequester.name === 'Recepção' || !savedRequester.name)
+                    ? { ...savedRequester, name: beneficiary.name || savedRequester.name, email: solicitacao.emailVinculoUsuario || beneficiary.email || savedRequester.email, telefone: beneficiary.telefone || beneficiary.phone || savedRequester.telefone || savedRequester.phone }
+                    : savedRequester;
+                if (receptionCreated) {
+                    setConsumerProfile(presencialProfile);
+                    setLoadingProfile(false);
+                    return;
+                }
                 if (!userId) {
-                    setConsumerProfile(solicitacao.dadosUsuario || {});
+                    setConsumerProfile(savedRequester);
                     setLoadingProfile(false);
                     return;
                 }
@@ -374,12 +401,12 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                 const userRef = doc(firestore, 'users', userId);
                 try {
                     const docSnap = await getDoc(userRef);
-                    const profile = docSnap.exists() ? docSnap.data() : solicitacao.dadosUsuario;
+                    const profile = docSnap.exists() ? docSnap.data() : savedRequester;
                     setConsumerProfile(profile);
                     // Atualizar cache
                     setUserProfilesCache(prev => ({ ...prev, [userId]: profile }));
                 } catch (error) {
-                    setConsumerProfile(solicitacao.dadosUsuario);
+                    setConsumerProfile(savedRequester);
                 } finally {
                     setLoadingProfile(false);
                 }
@@ -818,7 +845,7 @@ const AdminBalcaoSolicitacoes = () => {
             columns: [
                 { label: '#', width: '4%', render: (_, index) => index + 1 },
                 { label: 'Protocolo', width: '12%', render: (item) => item.id },
-                { label: 'Solicitante', width: '16%', render: (item) => item.dadosUsuario?.name || 'N/A' },
+                { label: 'Solicitante', width: '16%', render: (item) => getDisplayRequesterName(item) },
                 { label: 'Beneficiário', width: '16%', render: (item) => item.dadosBeneficiario?.name || item.dadosUsuario?.name || 'N/A' },
                 { label: 'Assunto', width: '14%', render: (item) => item.dadosSolicitacao?.assunto || 'Sem assunto' },
                 { label: 'Status', width: '13%', render: (item) => item.status || 'Pendente' },
@@ -1433,7 +1460,8 @@ const AdminBalcaoSolicitacoes = () => {
                                     </span>
                                     <div className="item-main-info">
                                         <strong>{item.dadosSolicitacao?.assunto || 'Sem assunto'}</strong>
-                                        <span>Solicitante: {item.dadosUsuario?.name || 'N/A'}</span>
+                                        <span>Solicitante: {getDisplayRequesterName(item)}</span>
+                                        {isReceptionCreated(item) && <span style={{ fontSize: '0.8rem', color: '#2563eb', fontStyle: 'italic' }}>Cadastro realizado pela recepção</span>}
                                         {item.dadosBeneficiario?.id === 'outro' && (
                                             <span style={{ fontSize: '0.8rem', color: '#ef4444', fontStyle: 'italic' }}>Beneficiário: {item.dadosBeneficiario.name}</span>
                                         )}

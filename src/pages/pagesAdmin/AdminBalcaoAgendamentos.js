@@ -37,6 +37,20 @@ const formatChatTime = (timestamp) => {
     });
 };
 
+const getDisplayRequesterName = (item = {}) => {
+    const requester = item.dadosUsuario || {};
+    const beneficiary = item.dadosBeneficiario || {};
+    const presencial = ['recepcao', 'presencial'].includes(item.userId)
+        || item.origem === 'recepcao'
+        || item.origem === 'admin-presencial'
+        || requester.name === 'Recepção';
+    return presencial ? (beneficiary.name || requester.name || 'N/A') : (requester.name || 'N/A');
+};
+const isReceptionCreated = (item = {}) => ['recepcao', 'presencial'].includes(item.userId)
+    || item.origem === 'recepcao'
+    || item.origem === 'admin-presencial'
+    || item.dadosUsuario?.name === 'Recepção';
+
 const getOrderedMessages = (messages = {}) => Object.entries(messages)
     .map(([id, msg]) => ({ id, ...msg }))
     .sort((a, b) => getMessageTimestamp(a.timestamp) - getMessageTimestamp(b.timestamp));
@@ -117,8 +131,23 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
             setActiveTab('dados');
             const fetchConsumerProfile = async () => {
                 const userId = solicitacao.userId;
+                const receptionCreated = ['recepcao', 'presencial'].includes(userId)
+                    || solicitacao.origem === 'recepcao'
+                    || solicitacao.origem === 'admin-presencial';
+                const savedRequester = solicitacao.dadosUsuario || {};
+                const beneficiary = solicitacao.dadosBeneficiario || {};
+                // Registros presenciais antigos usavam o perfil da recepção como
+                // userId. Nesse caso, os dados do cidadão ficam no beneficiário.
+                const presencialProfile = receptionCreated && (savedRequester.name === 'Recepção' || !savedRequester.name)
+                    ? { ...savedRequester, name: beneficiary.name || savedRequester.name, email: solicitacao.emailVinculoUsuario || beneficiary.email || savedRequester.email, telefone: beneficiary.telefone || beneficiary.phone || savedRequester.telefone || savedRequester.phone }
+                    : savedRequester;
+                if (receptionCreated) {
+                    setConsumerProfile(presencialProfile);
+                    setLoadingProfile(false);
+                    return;
+                }
                 if (!userId) {
-                    setConsumerProfile(solicitacao.dadosUsuario || {});
+                    setConsumerProfile(savedRequester);
                     setLoadingProfile(false);
                     return;
                 }
@@ -126,9 +155,9 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                 const userRef = doc(firestore, 'users', userId);
                 try {
                     const snapshot = await getDoc(userRef);
-                    setConsumerProfile(snapshot.exists() ? snapshot.data() : solicitacao.dadosUsuario);
+                    setConsumerProfile(snapshot.exists() ? snapshot.data() : savedRequester);
                 } catch (error) {
-                    setConsumerProfile(solicitacao.dadosUsuario);
+                    setConsumerProfile(savedRequester);
                 } finally {
                     setLoadingProfile(false);
                 }
@@ -519,7 +548,7 @@ const AdminBalcaoAgendamentos = () => {
                 { label: 'Protocolo', width: '12%', render: (item) => item.id },
                 { label: 'Data', width: '10%', render: (item) => formatAppointmentDate(item.appointmentDate) },
                 { label: 'Horário', width: '8%', render: (item) => item.appointmentTime || '--:--' },
-                { label: 'Solicitante', width: '15%', render: (item) => item.dadosUsuario?.name || 'N/A' },
+                { label: 'Solicitante', width: '15%', render: (item) => getDisplayRequesterName(item) },
                 { label: 'Beneficiário', width: '15%', render: (item) => item.dadosBeneficiario?.name || item.dadosUsuario?.name || 'N/A' },
                 { label: 'Assunto', width: '11%', render: (item) => item.dadosSolicitacao?.assunto || 'N/A' },
                 { label: 'Status', width: '10%', render: (item) => item.status || 'Pendente' },
@@ -1073,7 +1102,8 @@ const AdminBalcaoAgendamentos = () => {
                                         </div>
 
                                         <div className="item-main-info">
-                                            <strong style={{ fontSize: '1.05rem' }}>{item.dadosUsuario?.name || 'Solicitante Desconhecido'}</strong>
+                                            <strong style={{ fontSize: '1.05rem' }}>{getDisplayRequesterName(item) || 'Solicitante Desconhecido'}</strong>
+                                            {isReceptionCreated(item) && <span style={{ fontSize: '0.8rem', color: '#2563eb', fontStyle: 'italic', display: 'block' }}>Cadastro realizado pela recepção</span>}
                                             {item.dadosBeneficiario?.id === 'outro' && (
                                                 <span style={{ fontSize: '0.8rem', color: '#ef4444', fontStyle: 'italic', marginBottom: '4px', display: 'block' }}>Beneficiário: {item.dadosBeneficiario.name}</span>
                                             )}

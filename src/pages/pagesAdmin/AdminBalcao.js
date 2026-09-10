@@ -632,6 +632,22 @@ const SolicitacaoBalcaoModal = ({ solicitacao, onClose, onStatusChange, onSendMe
                 return;
             }
 
+            const receptionCreated = ['recepcao', 'presencial'].includes(solicitacao.userId)
+                || solicitacao.origem === 'recepcao'
+                || solicitacao.origem === 'admin-presencial';
+            if (receptionCreated) {
+                const requester = solicitacao.dadosUsuario || {};
+                const beneficiary = solicitacao.dadosBeneficiario || {};
+                setConsumerProfile({
+                    ...requester,
+                    name: requester.name === 'Recepção' || !requester.name ? beneficiary.name || requester.name : requester.name,
+                    email: (requester.name === 'Recepção' || !requester.name) ? solicitacao.emailVinculoUsuario || beneficiary.email || requester.email || '' : requester.email || beneficiary.email || '',
+                    telefone: requester.telefone || requester.phone || beneficiary.telefone || beneficiary.phone || '',
+                });
+                setLoadingProfile(false);
+                return;
+            }
+
             const fetchConsumerProfile = async () => {
                 const userId = solicitacao.userId;
                 if (!userId) return;

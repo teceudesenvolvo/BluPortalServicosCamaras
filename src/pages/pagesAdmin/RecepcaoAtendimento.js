@@ -543,8 +543,13 @@ const RecepcaoAtendimento = () => {
                 identificacao: 'Recepção',
                 id: 'recepcao',
                 uid: receptionUserId,
-                name: 'Recepção',
-                email: auth.currentUser?.email || '',
+                // O solicitante é o cidadão atendido no balcão; a origem da
+                // operação continua registrada separadamente em commonFields.
+                name: requestForm.nome,
+                cpf: requestForm.cpf,
+                telefone: requestForm.telefone,
+                phone: requestForm.telefone,
+                email: requestForm.email.trim(),
             };
 
             const beneficiaryData = {
