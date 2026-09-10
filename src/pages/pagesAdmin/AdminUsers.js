@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     collection, query, where, getDocs, doc, updateDoc, 
-    limit, startAfter, addDoc, serverTimestamp 
+    limit, addDoc, serverTimestamp
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
@@ -159,7 +159,8 @@ const SendEmailModal = ({ onClose, onSend, loading, currentBatchStartIndex, tota
 const AdminUsersDashboard = () => {
     const navigate = useNavigate();
     const [isAuthReady, setIsAuthReady] = useState(false);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [searchError, setSearchError] = useState('');
     const [users, setUsers] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterTipo, setFilterTipo] = useState('Todos');
@@ -175,8 +176,6 @@ const AdminUsersDashboard = () => {
     const [cursors, setCursors] = useState([null]);
     const [lastDoc, setLastDoc] = useState(null);
     const [isLastPage, setIsLastPage] = useState(false);
-    const itemsPerPage = 15;
-    const maxItemsWithFilters = 500; 
 
     const hasActiveFilters = !!(searchTerm || filterTipo !== 'Todos' || filterCpf || filterPhone || filterCity || filterState);
 
@@ -195,48 +194,48 @@ const AdminUsersDashboard = () => {
         return () => unsubscribe();
     }, [navigate]);
 
-    // Leitura única (economiza downloads)
-    const fetchUsers = useCallback(async (cursor = null, filtering = false) => {
+    // Busca pontual por e-mail: a coleção inteira nunca é baixada para a tela.
+    const fetchUsers = useCallback(async () => {
+        const email = searchTerm.trim().toLowerCase();
+        if (!email || !email.includes('@')) {
+            setSearchError('Informe um e-mail válido para pesquisar.');
+            setUsers([]);
+            return;
+        }
         setLoading(true);
+        setSearchError('');
         try {
             const usersRef = collection(firestore, 'users');
-            
-            // Removendo orderBy da query para evitar erro de índice composto no Firestore.
-            // A ordenação agora é feita localmente no .sort() abaixo.
-            let q = query(usersRef);
-
-            if (filterTipo !== 'Todos') {
-                q = query(q, where('tipo', '==', filterTipo));
-            }
-
-            if (cursor) {
-                q = query(q, startAfter(cursor));
-            }
-
-            q = query(q, limit(filtering ? maxItemsWithFilters : itemsPerPage));
-
-            const snapshot = await getDocs(q);
+            const snapshot = await getDocs(query(usersRef, where('email', '==', email), limit(10)));
             const fetchedData = snapshot.docs.map(doc => ({
                 uid: doc.id,
                 ...doc.data()
             })).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
             setUsers(fetchedData);
-            setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
-            setIsLastPage(filtering ? true : snapshot.docs.length < itemsPerPage);
+            setLastDoc(null);
+            setIsLastPage(true);
         } catch (error) {
-            console.error('Erro ao buscar usuários:', error);
+            setSearchError(error?.code === 'permission-denied'
+                ? 'Seu usuário não tem permissão para consultar usuários.'
+                : 'Não foi possível buscar este e-mail.');
+            setUsers([]);
         } finally {
             setLoading(false);
         }
-    }, [filterTipo, itemsPerPage]);
+    }, [searchTerm]);
 
     useEffect(() => {
         if (!isAuthReady) return;
+        setLoading(false);
+    }, [isAuthReady]);
+
+    const handleSearch = (event) => {
+        event?.preventDefault();
         setCurrentPage(1);
         setCursors([null]);
-        fetchUsers(null, hasActiveFilters);
-    }, [isAuthReady, filterTipo, searchTerm, filterCpf, filterPhone, filterCity, filterState, hasActiveFilters, fetchUsers]);
+        fetchUsers();
+    };
 
     const handleNextPage = () => {
         if (!lastDoc || isLastPage) return;
@@ -248,8 +247,7 @@ const AdminUsersDashboard = () => {
     const handlePrevPage = () => {
         if (currentPage <= 1) return;
         const newHistory = cursors.slice(0, -1);
-        const targetCursor = newHistory[newHistory.length - 1];
-        fetchUsers(targetCursor);
+        fetchUsers();
         setCursors(newHistory);
         setCurrentPage(prev => prev - 1);
     };
@@ -296,12 +294,20 @@ const AdminUsersDashboard = () => {
         const userRef = doc(firestore, 'users', userId);
         try {
             await updateDoc(userRef, updatedData);
-            await sendNotification({ uid: userId, email: updatedData.email });
+            // A alteração de perfil não deve ser considerada falha caso a
+            // coleção opcional de notificações esteja temporariamente bloqueada.
+            try {
+                await sendNotification({ uid: userId, email: updatedData.email });
+            } catch (notificationError) {
+                console.warn('Usuário atualizado, mas a notificação não foi registrada:', notificationError);
+            }
             alert('Usuário atualizado com sucesso!');
             handleCloseModal();
             fetchUsers(null, hasActiveFilters); // Atualiza a lista
         } catch (error) {
-            alert('Falha ao atualizar o usuário.');
+            alert(error?.code === 'permission-denied'
+                ? 'Seu perfil não tem permissão para alterar este usuário. Publique as regras atualizadas e entre novamente.'
+                : 'Falha ao atualizar o usuário.');
             console.error("Erro ao salvar usuário:", error);
         }
     };
@@ -368,6 +374,8 @@ const AdminUsersDashboard = () => {
         setFilterState('');
         setCurrentPage(1);
         setCursors([null]);
+        setUsers([]);
+        setSearchError('');
     };
 
     const filteredUsers = users.filter(user =>
@@ -413,9 +421,9 @@ const AdminUsersDashboard = () => {
                 <header className="page-header-container">
                     <div className="header-title-section">
                         <h1>Gerenciamento de Usuários</h1>
-                        <p>Visualize e edite os perfis dos {filteredUsers.length} usuários carregados</p>
-                        <button onClick={() => fetchUsers(null, hasActiveFilters)} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
-                            ↻ Atualizar dados
+                        <p>Pesquise um usuário pelo e-mail para visualizar e editar seu perfil.</p>
+                        <button onClick={handleSearch} className="btn-secondary" disabled={loading || !searchTerm.trim()} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
+                            ↻ Atualizar busca
                         </button>
                     </div>
                     <div className="page-actions-bar" style={{ justifyContent: 'flex-end', padding: 0 }}>
@@ -435,16 +443,16 @@ const AdminUsersDashboard = () => {
                 <div className="data-card">
                     <div className="card-header">
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', width: '100%' }}>
-                            <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
+                            <div className="users-search-field">
                                 <LiaSearchSolid style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888' }} size={20} />
-                                <input
+                                <form onSubmit={handleSearch} className="users-search-form"><input
                                     type="text"
-                                    placeholder="Buscar por nome, e-mail, CPF, telefone, cidade..."
+                                    placeholder="Informe o e-mail exato do usuário"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="form-input"
                                     style={{ paddingLeft: '42px', margin: 0 }}
-                                />
+                                /><button type="submit" className="btn-primary" disabled={loading}>Buscar</button></form>
                             </div>
 
                             <button
@@ -535,7 +543,8 @@ const AdminUsersDashboard = () => {
                         </div>
                     )}
 
-                    {loading && <p>Carregando usuários...</p>}
+                    {searchError && <p role="alert" style={{ color: '#b42318' }}>{searchError}</p>}
+                    {loading && <p>Buscando usuário...</p>}
                     {!loading && filteredUsers.length === 0 && <p>Nenhum usuário encontrado.</p>}
 
                     <ul className="data-list">

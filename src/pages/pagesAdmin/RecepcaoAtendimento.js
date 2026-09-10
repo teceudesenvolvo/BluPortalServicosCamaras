@@ -16,6 +16,7 @@ import { printProtocolReceipt } from '../../utils/printReport';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { buildReceptionWelcomeEmail, isValidOptionalEmail } from '../../utils/receptionWelcomeEmail';
 import { openQueuePanelWindow } from '../../utils/openQueuePanelWindow';
+import QueueManagerModal from '../../components/QueueManagerModal';
 import { useSystemControl } from '../../contexts/SystemControlContext';
 
 const RECEPTION_MODULES = {
@@ -302,6 +303,7 @@ const RecepcaoAtendimento = () => {
     const [showHeader, setShowHeader] = useState(true);
     const [showSideMenu, setShowSideMenu] = useState(true);
     const [welcomeEmailStatus, setWelcomeEmailStatus] = useState('');
+    const [showQueueManager, setShowQueueManager] = useState(false);
 
     useEffect(() => {
         if (selectedSector && !availableSectors.includes(selectedSector)) {
@@ -1212,6 +1214,10 @@ const RecepcaoAtendimento = () => {
                             <p>Fluxo presencial em passos para confirmação e criação de atendimentos.</p>
                         </div>
                         <div className="admin-balcao-header-actions">
+                            <button type="button" onClick={() => setShowQueueManager(true)} className="admin-action-button action-queue">
+                                <LiaClipboardListSolid />
+                                <span className="admin-action-label">Gerenciar fila</span>
+                            </button>
                             <button onClick={openQueuePanelWindow} className="admin-action-button action-queue">
                                 <LiaClipboardListSolid />
                                 <span className="admin-action-label">Ver Painel da Fila</span>
@@ -1221,6 +1227,8 @@ const RecepcaoAtendimento = () => {
                 )}
 
                 {renderSettingsButton()}
+
+                {showQueueManager && <QueueManagerModal onClose={() => setShowQueueManager(false)} />}
 
                 <section className="reception-flow-shell">
                     <div className="reception-stepper reception-main-stepper">
