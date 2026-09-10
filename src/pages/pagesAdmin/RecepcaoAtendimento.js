@@ -750,6 +750,9 @@ const RecepcaoAtendimento = () => {
                 userEmail: requestForm.email.trim(),
             });
             await updateDoc(doc(firestore, createdRequestCollection || getReceptionCollection(selectedSector), createdProtocol), {
+                // O encaixe confirmado é tratado como um agendamento operacional;
+                // o tipo de entrada identifica que ele veio da fila de encaixes.
+                status: 'Agendado',
                 statusFila: 'Aguardando Atendimento Presencial',
                 senhaAtendimento: result.password,
                 tipoEntradaFila: 'Encaixe',
