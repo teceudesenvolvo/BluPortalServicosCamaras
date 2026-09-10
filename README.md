@@ -18,6 +18,14 @@ Prioridade da configuração: padrões do core → arquivo do tenant → CMS no 
 - Node.js 22 ou LTS compatível
 - npm e Firebase CLI
 - Projeto Firebase próprio da Câmara
+
+## Instalação de uma nova Câmara
+
+Em um clone novo, abra `/instalacao`. O wizard orienta a criação do projeto Firebase, lê o objeto `firebaseConfig`, gera o arquivo `.env.local` e identifica a conexão depois que o portal for reiniciado.
+
+Antes de concluir, ative no Firebase Authentication o provedor **E-mail/senha**, crie o Firestore, o Storage e o Realtime Database. Publique as regras e índices do repositório com `firebase use --add` e `firebase deploy --only firestore:rules,firestore:indexes,storage,database`. Depois informe os dados institucionais e crie o primeiro usuário root. A conta será gravada em `users` com `tipo: Admin` e seu e-mail será usado em `security.rootEmails`.
+
+O wizard não armazena a senha do root nem credenciais administrativas. O arquivo `.env.local` deve permanecer no servidor e fora do Git; tokens de e-mail, Cloudflare, YouTube e outras integrações devem ser configurados como secrets das Cloud Functions.
 - Repositório Git próprio da instalação
 
 ## Criar uma nova Câmara
@@ -94,6 +102,8 @@ BLU_PLATFORM_AUTO_MERGE=true # opcional
 ```
 
 O workflow `.github/workflows/sync-platform.yml` verifica atualizações semanalmente, ignora execuções sem mudanças e abre um pull request quando há uma nova versão. Com `BLU_PLATFORM_AUTO_MERGE=true`, o GitHub faz o merge depois que os checks obrigatórios passarem; habilite também **Allow auto-merge** nas configurações do repositório. A produção recebe a versão quando o pipeline de implantação do servidor for acionado por mudanças em `main`.
+
+Essas preferências também podem ser registradas visualmente em **Controle do sistema → Atualizações**. A tela documenta o repositório, a frequência, o merge automático e o comando de deploy; as variáveis `BLU_PLATFORM_UPSTREAM` e `BLU_PLATFORM_AUTO_MERGE` continuam sendo configuradas nas definições do repositório GitHub, pois são segredos e permissões da automação.
 
 Use tenant e CMS para trocar nome, cor, marca ou endpoint. Mudanças úteis para todas as Câmaras devem entrar neste repositório base.
 

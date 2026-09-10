@@ -18,6 +18,10 @@ const firebaseConfig = {
   databaseURL: process.env.REACT_APP_FIREBASE_DATABASE_URL
 };
 
+export const runtimeFirebaseConfig = firebaseConfig;
+export const hasRuntimeFirebaseConfig = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId']
+  .every(key => Boolean(String(firebaseConfig[key] || '').trim()));
+
 // Inicializa o Firebase
 const app = initializeApp(firebaseConfig);
 

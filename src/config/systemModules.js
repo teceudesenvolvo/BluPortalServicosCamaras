@@ -38,8 +38,16 @@ export const DEFAULT_CMS_SETTINGS = {
     design: { primaryColor: '#025AA1', secondaryColor: '#0284C7', accentColor: '#F59E0B', backgroundColor: '#F3F8FE', textColor: '#10233F', borderRadius: 14, fontFamily: 'Inter, system-ui, sans-serif' },
     branding: { logoUrl: '', compactLogoUrl: '', faviconUrl: '', loginCoverUrl: '', logoAlt: 'Câmara Municipal' },
     integrations: { functionsBaseUrl: '', publicApiUrl: '', youtubeApiUrl: '', appDownloadUrl: 'https://servicos.camaraparaipaba.ce.gov.br/download-app', privacyUrl: '', supportEmail: '', androidStoreUrl: '', iosStoreUrl: '' },
+    email: { enabled: true, provider: 'cloudflare', domain: '', senderName: '', senderEmail: '', replyTo: '', functionsEndpoint: '', routingAddress: '', dnsVerified: false },
+    notificationTemplates: {
+        welcome: { label: 'Boas-vindas', enabled: true, channels: { email: true, push: true }, subject: 'Bem-vindo ao Portal de Serviços', body: '<p>Olá, <strong>{{nome}}</strong>! Seu cadastro foi criado com sucesso.</p>' },
+        appointmentConfirmed: { label: 'Agendamento confirmado', enabled: true, channels: { email: true, push: true }, subject: 'Agendamento confirmado', body: '<p>Seu atendimento para <strong>{{data}}</strong> às <strong>{{horario}}</strong> foi confirmado.</p>' },
+        documentReady: { label: 'Documento pronto', enabled: true, channels: { email: true, push: true }, subject: 'Seu documento está pronto', body: '<p>Olá, {{nome}}. O documento referente ao protocolo <strong>{{protocolo}}</strong> está pronto.</p>' },
+        queueCalled: { label: 'Chamada para atendimento', enabled: true, channels: { email: false, push: true }, subject: 'Sua senha foi chamada', body: '<p>A senha <strong>{{senha}}</strong> foi chamada. Dirija-se ao guichê {{guiche}}.</p>' },
+    },
     apiFeatures: { youtube: true, notifications: true, email: true, artificialIntelligence: true, publicBalance: true },
     externalApis: [],
+    updates: { upstream: 'teceudesenvolvo/BluPortalServicosCamaras', enabled: true, schedule: 'weekly', autoMerge: false, deployOnMerge: false, deployCommand: 'npm run build' },
 };
 
 export const findModuleByPath = path => SYSTEM_MODULES.find(module => (

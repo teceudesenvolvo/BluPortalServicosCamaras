@@ -65,9 +65,14 @@ import AdminMicroempreendedor from './pages/pagesAdmin/AdminMicroempreendedor';
 import AdminAvaliacoes from './pages/pagesAdmin/AdminAvaliacoes';
 import AdminAtendimentosGuiches from './pages/pagesAdmin/AdminAtendimentosGuiches';
 import SystemControl from './pages/pagesAdmin/SystemControl';
+import InstallationWizard from './pages/InstallationWizard';
+import { hasRuntimeFirebaseConfig } from './firebase';
 
 
 function App() {
+  if (!hasRuntimeFirebaseConfig) {
+    return <ThemeProvider><Router><Routes><Route path="/instalacao" element={<InstallationWizard />} /><Route path="*" element={<Navigate to="/instalacao" replace />} /></Routes></Router></ThemeProvider>;
+  }
   return (
     // 1. Envolve toda a aplicação com o AuthProvider
     <ThemeProvider>
@@ -77,6 +82,7 @@ function App() {
         <DevelopmentPopup />
         <ThemeToggle />
         <Routes>
+          <Route path="/instalacao" element={<InstallationWizard />} />
           {/* Sem Login */}
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
