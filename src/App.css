@@ -11864,3 +11864,17 @@ color: #fff !important;
   .users-search-field { flex-basis: 100%; }
   .users-search-form button { min-width: 110px; }
 }
+.reception-priority-field { display: inline-flex; align-items: center; gap: 10px; margin-top: 12px; color: var(--cms-text, #10233f); }
+.reception-priority-field select { min-height: 38px; border: 1px solid #c7d8ea; border-radius: 8px; padding: 0 10px; background: #fff; color: inherit; font: inherit; }
+.reception-queue-modal { max-width: 900px; }
+.reception-queue-summary { display: flex; gap: 20px; flex-wrap: wrap; padding: 14px 0; }
+.reception-queue-summary span, .reception-queue-summary strong { padding: 8px 14px; border-radius: 999px; background: #edf5fc; }
+.reception-queue-list { display: grid; gap: 10px; max-height: 60vh; overflow: auto; }
+.reception-queue-list article { display: flex; align-items: center; gap: 14px; padding: 14px; border: 1px solid #d9e5f1; border-radius: 12px; background: #fff; }
+.reception-queue-list article.priority { border-color: #f2b84b; background: #fffaf0; }
+.reception-queue-list article > strong { font-size: 1.25rem; min-width: 58px; }
+.reception-queue-list article > div:nth-child(2) { display: grid; gap: 3px; flex: 1; }
+.reception-queue-list article span { color: #63758a; font-size: .9rem; }
+.reception-queue-actions { display: flex; gap: 6px; }
+.reception-queue-actions button { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border: 0; border-radius: 8px; background: #e9f2fb; color: #075d9a; cursor: pointer; }
+.reception-queue-actions button:last-child { color: #b42318; }

@@ -16,7 +16,7 @@ import { printProtocolReceipt } from '../../utils/printReport';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { buildReceptionWelcomeEmail, isValidOptionalEmail } from '../../utils/receptionWelcomeEmail';
 import { openQueuePanelWindow } from '../../utils/openQueuePanelWindow';
-import QueueManagerModal from '../../components/QueueManagerModal';
+import ReceptionQueueModal from '../../components/ReceptionQueueModal';
 import { useSystemControl } from '../../contexts/SystemControlContext';
 
 const RECEPTION_MODULES = {
@@ -168,7 +168,7 @@ const getReceptionUploadPath = (sector, userId) => {
     return `${config.cityCollection}/balcao-cidadao/${userId}/anexos`;
 };
 
-const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDate, appointmentTime, setor, collectionName, beneficiarioNome, solicitanteNome, userId, userEmail, requestRef, requestUpdates }) => {
+const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDate, appointmentTime, setor, collectionName, beneficiarioNome, solicitanteNome, userId, userEmail, prioridade = false, requestRef, requestUpdates }) => {
     const dateKey = todayKey();
     const prefix = queuePrefixes[setor] || 'B';
     const counterRef = doc(firestore, 'atendimento-fila-meta', `${dateKey}-${prefix}`);
@@ -197,7 +197,7 @@ const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDat
                 : null,
             collectionName: collectionName || getReceptionCollection(setor),
             setor: setor || 'Balcão do Cidadão',
-            prioridade: false,
+            prioridade: Boolean(prioridade),
             status: 'Aguardando',
             criadoEm: new Date(),
             ordemFilaEm: new Date(),
@@ -212,7 +212,7 @@ const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDat
     });
 };
 
-const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, collectionName, userId, userEmail, beneficiarioNome, solicitanteNome, requestRef, requestUpdates }) => {
+const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, collectionName, userId, userEmail, beneficiarioNome, solicitanteNome, prioridade = false, requestRef, requestUpdates }) => {
     const dateKey = todayKey();
     const prefix = queuePrefixes[setor] || 'B';
     const counterRef = doc(firestore, 'atendimento-fila-meta', `${dateKey}-${prefix}`);
@@ -259,7 +259,7 @@ const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, c
             userId: userId || 'recepcao',
             userEmail: userEmail || '',
             userEmailNormalizado: normalizeEmail(userEmail),
-            prioridade: false,
+            prioridade: Boolean(prioridade),
             status: 'Aguardando',
             tipoEntrada: 'Encaixe',
             semAgendamento: true,
@@ -303,7 +303,8 @@ const RecepcaoAtendimento = () => {
     const [showHeader, setShowHeader] = useState(true);
     const [showSideMenu, setShowSideMenu] = useState(true);
     const [welcomeEmailStatus, setWelcomeEmailStatus] = useState('');
-    const [showQueueManager, setShowQueueManager] = useState(false);
+    const [showReceptionQueue, setShowReceptionQueue] = useState(false);
+    const [queuePriority, setQueuePriority] = useState(null);
 
     useEffect(() => {
         if (selectedSector && !availableSectors.includes(selectedSector)) {
@@ -351,6 +352,7 @@ const RecepcaoAtendimento = () => {
         setCreatedRequestCollection('');
         setWalkInDecision('');
         setWalkInNumber(null);
+        setQueuePriority(null);
         setWelcomeEmailStatus('');
         setRequestForm({ assunto: '', tipoDocumento: '', nome: '', cpf: '', telefone: '', email: '', descricao: '' });
     };
@@ -750,6 +752,7 @@ const RecepcaoAtendimento = () => {
                 setor: selectedSector,
                 collectionName: createdRequestCollection || getReceptionCollection(selectedSector),
                 userEmail: requestForm.email.trim(),
+                prioridade: queuePriority,
             });
             await updateDoc(doc(firestore, createdRequestCollection || getReceptionCollection(selectedSector), createdProtocol), {
                 // O encaixe confirmado é tratado como um agendamento operacional;
@@ -811,6 +814,7 @@ const RecepcaoAtendimento = () => {
                     assunto: getAppointmentSubject(appointment),
                     setor: appointment.setorAtendimento || selectedSector,
                     collectionName,
+                    prioridade: queuePriority,
                     requestRef,
                     requestUpdates,
                 })
@@ -827,6 +831,7 @@ const RecepcaoAtendimento = () => {
                 appointmentTime: getAppointmentTime(appointment),
                 setor: appointment.setorAtendimento || selectedSector,
                 collectionName,
+                prioridade: queuePriority,
                 requestRef,
                 requestUpdates,
             });
@@ -1123,7 +1128,8 @@ const RecepcaoAtendimento = () => {
             const alreadyPrinted = isCreateFlow ? !!createdProtocol : !!queuePassword;
             return (
                 <div className="reception-step-card reception-review-card">
-                    <h4>Impressão de Protocolo</h4>
+                    <h4>Protocolo e fila</h4>
+                    {!alreadyPrinted && <label className="reception-priority-field"><strong>Tipo de atendimento</strong><select required value={queuePriority === null ? '' : queuePriority ? 'prioridade' : 'normal'} onChange={event => setQueuePriority(event.target.value === 'prioridade')}><option value="" disabled>Selecione...</option><option value="normal">Normal</option><option value="prioridade">Prioridade</option></select></label>}
                     {alreadyPrinted ? (
                         <>
                             <p><strong>{isCreateFlow ? 'Protocolo:' : 'Senha:'}</strong> {isCreateFlow ? createdProtocol : queuePassword}</p>
@@ -1135,12 +1141,13 @@ const RecepcaoAtendimento = () => {
                                     <div>
                                         <strong>Deseja encaixar este cidadão na fila de hoje?</strong>
                                         <span>São permitidos até 20 atendimentos sem agendamento por dia.</span>
+                                        <label className="reception-priority-field"><strong>Tipo de atendimento</strong><select required value={queuePriority === null ? '' : queuePriority ? 'prioridade' : 'normal'} onChange={event => setQueuePriority(event.target.value === 'prioridade')}><option value="" disabled>Selecione...</option><option value="normal">Normal</option><option value="prioridade">Prioridade</option></select></label>
                                     </div>
                                     <div className="reception-walk-in-actions">
-                                        <button type="button" className="btn-primary btn-save-status" onClick={() => handleWalkInChoice(true)} disabled={loading}>
+                                        <button type="button" className="btn-primary btn-save-status" onClick={() => handleWalkInChoice(true)} disabled={loading || queuePriority === null}>
                                             <LiaCheckCircleSolid /> {loading ? 'Encaixando...' : 'Encaixar na fila'}
                                         </button>
-                                        <button type="button" className="btn-secondary" onClick={() => handleWalkInChoice(false)} disabled={loading}>
+                                        <button type="button" className="btn-secondary" onClick={() => handleWalkInChoice(false)} disabled={loading || queuePriority === null}>
                                             Somente criar solicitação
                                         </button>
                                     </div>
@@ -1173,7 +1180,7 @@ const RecepcaoAtendimento = () => {
                                     type="button"
                                     className="btn-primary btn-save-status"
                                     onClick={() => isCreateFlow ? handleCreateRequest(true) : handleConfirmArrival(true)}
-                                    disabled={loading}
+                                    disabled={loading || queuePriority === null}
                                 >
                                     <LiaPrintSolid /> {loading ? 'Gerando...' : 'Gerar e Imprimir'}
                                 </button>
@@ -1181,7 +1188,7 @@ const RecepcaoAtendimento = () => {
                                     type="button"
                                     className="btn-secondary reception-skip-print"
                                     onClick={() => isCreateFlow ? handleCreateRequest(false) : handleConfirmArrival(false)}
-                                    disabled={loading}
+                                    disabled={loading || queuePriority === null}
                                 >
                                     {loading ? 'Gerando...' : 'Pular impressão'}
                                 </button>
@@ -1214,9 +1221,9 @@ const RecepcaoAtendimento = () => {
                             <p>Fluxo presencial em passos para confirmação e criação de atendimentos.</p>
                         </div>
                         <div className="admin-balcao-header-actions">
-                            <button type="button" onClick={() => setShowQueueManager(true)} className="admin-action-button action-queue">
+                            <button type="button" onClick={() => setShowReceptionQueue(true)} className="admin-action-button action-queue">
                                 <LiaClipboardListSolid />
-                                <span className="admin-action-label">Gerenciar fila</span>
+                                <span className="admin-action-label">Fila da recepção</span>
                             </button>
                             <button onClick={openQueuePanelWindow} className="admin-action-button action-queue">
                                 <LiaClipboardListSolid />
@@ -1228,7 +1235,7 @@ const RecepcaoAtendimento = () => {
 
                 {renderSettingsButton()}
 
-                {showQueueManager && <QueueManagerModal onClose={() => setShowQueueManager(false)} />}
+                {showReceptionQueue && <ReceptionQueueModal onClose={() => setShowReceptionQueue(false)} />}
 
                 <section className="reception-flow-shell">
                     <div className="reception-stepper reception-main-stepper">
