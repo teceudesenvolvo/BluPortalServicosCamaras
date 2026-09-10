@@ -117,7 +117,11 @@ const AdminSidebar = () => {
 
                 setUnreadMessagesCount(total);
             } catch (error) {
-                console.error('Erro ao buscar mensagens não lidas do menu:', error);
+                // Um perfil sem acesso a uma das áreas não deve produzir uma
+                // rejeição não tratada nem repetir o mesmo erro a cada montagem.
+                if (error?.code !== 'permission-denied') {
+                    console.error('Erro ao buscar mensagens não lidas do menu:', error);
+                }
                 setUnreadMessagesCount(0);
             }
         };

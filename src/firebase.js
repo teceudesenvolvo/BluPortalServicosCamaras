@@ -28,10 +28,11 @@ const app = initializeApp(firebaseConfig);
 // Exporta os serviços que iremos usar
 export const auth = getAuth(app);
 
-// Inicializa o Firestore com configurações de rede mais robustas para evitar timeouts
+// Detecta automaticamente quando o navegador precisa de long polling. Forçá-lo
+// em todos os navegadores gera falhas WebChannel 400 em alguns proxies e CDNs.
 export const firestore = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-  useFetchStreams: false // Desabilita streams que causam erros de CORS em alguns ambientes
+  experimentalAutoDetectLongPolling: true,
+  useFetchStreams: false
 });
 
 export const storage = getStorage(app);

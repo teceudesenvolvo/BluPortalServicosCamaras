@@ -167,7 +167,7 @@ const getReceptionUploadPath = (sector, userId) => {
     return `${config.cityCollection}/balcao-cidadao/${userId}/anexos`;
 };
 
-const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDate, appointmentTime, setor, collectionName, beneficiarioNome, solicitanteNome, userId, userEmail }) => {
+const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDate, appointmentTime, setor, collectionName, beneficiarioNome, solicitanteNome, userId, userEmail, requestRef, requestUpdates }) => {
     const dateKey = todayKey();
     const prefix = queuePrefixes[setor] || 'B';
     const counterRef = doc(firestore, 'atendimento-fila-meta', `${dateKey}-${prefix}`);
@@ -203,12 +203,15 @@ const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDat
             chamadoEm: null,
             criadoPor: auth.currentUser?.email || 'Recepção',
         });
+        if (requestRef && requestUpdates) {
+            transaction.update(requestRef, { ...requestUpdates, senhaAtendimento: password });
+        }
 
         return password;
     });
 };
 
-const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, collectionName, userId, userEmail, beneficiarioNome, solicitanteNome }) => {
+const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, collectionName, userId, userEmail, beneficiarioNome, solicitanteNome, requestRef, requestUpdates }) => {
     const dateKey = todayKey();
     const prefix = queuePrefixes[setor] || 'B';
     const counterRef = doc(firestore, 'atendimento-fila-meta', `${dateKey}-${prefix}`);
@@ -265,6 +268,9 @@ const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, c
             chamadoEm: null,
             criadoPor: auth.currentUser?.email || 'Recepção',
         });
+        if (requestRef && requestUpdates) {
+            transaction.update(requestRef, { ...requestUpdates, senhaAtendimento: password });
+        }
 
         return { password, walkInNumber: nextWalkIn };
     });
@@ -774,6 +780,15 @@ const RecepcaoAtendimento = () => {
         setLoading(true);
         try {
             const collectionName = appointment.collectionName || getReceptionCollection(appointment.setorAtendimento || selectedSector);
+            const requestRef = doc(firestore, collectionName, appointment.id);
+            const requestUpdates = {
+                status: 'Agendado',
+                statusFila: 'Aguardando Atendimento Presencial',
+                tipoEntradaFila: appointmentLateToday ? 'Encaixe' : 'Agendamento',
+                confirmadoComAtraso: appointmentLateToday,
+                chegadaRecepcaoEm: new Date(),
+                ultimaAtualizacao: new Date(),
+            };
             const queueResult = appointmentLateToday
                 ? await createWalkInQueueTicket({
                     protocolo: appointment.id,
@@ -786,6 +801,8 @@ const RecepcaoAtendimento = () => {
                     assunto: getAppointmentSubject(appointment),
                     setor: appointment.setorAtendimento || selectedSector,
                     collectionName,
+                    requestRef,
+                    requestUpdates,
                 })
                 : await createQueueTicket({
                 protocolo: appointment.id,
@@ -800,20 +817,10 @@ const RecepcaoAtendimento = () => {
                 appointmentTime: getAppointmentTime(appointment),
                 setor: appointment.setorAtendimento || selectedSector,
                 collectionName,
+                requestRef,
+                requestUpdates,
             });
             const senha = typeof queueResult === 'string' ? queueResult : queueResult.password;
-
-            await updateDoc(doc(firestore, collectionName, appointment.id), {
-                // A confirmação apenas coloca o agendamento na fila. Mesmo em
-                // atraso, o status principal continua agendado até a conclusão.
-                status: 'Agendado',
-                statusFila: 'Aguardando Atendimento Presencial',
-                senhaAtendimento: senha,
-                tipoEntradaFila: appointmentLateToday ? 'Encaixe' : 'Agendamento',
-                confirmadoComAtraso: appointmentLateToday,
-                chegadaRecepcaoEm: new Date(),
-                ultimaAtualizacao: new Date(),
-            });
 
             setQueuePassword(senha);
             if (shouldPrint) printProtocolReceipt({

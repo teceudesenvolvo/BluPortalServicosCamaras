@@ -46,7 +46,7 @@ npm run tenant:create -- \
 npm run tenant:validate
 ```
 
-O comando cria `tenants/municipio/tenant.config.json` e ativa a configuração em `public/tenant.config.json`.
+O comando cria `tenants/municipio/tenant.config.json` e ativa a configuração pública em `public/tenant-config.json`.
 
 ## Configurar o Firebase
 

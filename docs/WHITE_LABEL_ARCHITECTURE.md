@@ -30,7 +30,7 @@ Referências oficiais:
 Da menor para a maior prioridade:
 
 1. padrões definidos no código;
-2. `public/tenant.config.json` criado durante a instalação;
+2. `public/tenant-config.json` criado durante a instalação;
 3. configuração salva pelo CMS no Firestore;
 4. variáveis e secrets do ambiente para endpoints protegidos.
 

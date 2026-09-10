@@ -23,7 +23,7 @@ export const SystemControlProvider = ({ children }) => {
             security: { ...current.security, ...(data.security || {}) },
         }));
 
-        fetch('/tenant.config.json', { cache: 'no-store' })
+        fetch('/tenant-config.json', { cache: 'no-store' })
             .then(response => response.ok ? response.json() : null)
             .then(config => { if (active && config) mergeSettings(config); })
             .catch(error => console.warn('Configuração local do tenant não encontrada:', error))

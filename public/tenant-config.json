@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "security": {
+    "rootEmails": ["leo@gmail.com"]
+  },
+  "tenant": {
+    "name": "Câmara Municipal de Paraipaba",
+    "shortName": "Câmara de Paraipaba",
+    "slug": "paraipaba",
+    "city": "Paraipaba",
+    "state": "CE",
+    "portalTitle": "Portal de Serviços",
+    "address": "Av. Domingos Barroso, 350 - Monte Alverne",
+    "postalCode": "62685-000",
+    "phone": "",
+    "email": "",
+    "website": ""
+  },
+  "design": {
+    "primaryColor": "#025AA1",
+    "secondaryColor": "#0284C7",
+    "accentColor": "#F59E0B",
+    "backgroundColor": "#F3F8FE",
+    "textColor": "#10233F",
+    "borderRadius": 14,
+    "fontFamily": "Inter, system-ui, sans-serif"
+  },
+  "branding": {
+    "logoUrl": "",
+    "compactLogoUrl": "",
+    "faviconUrl": "",
+    "loginCoverUrl": "",
+    "logoAlt": "Câmara Municipal de Paraipaba"
+  },
+  "integrations": {
+    "functionsBaseUrl": "",
+    "publicApiUrl": "",
+    "youtubeApiUrl": "",
+    "appDownloadUrl": "https://servicos.camaraparaipaba.ce.gov.br/download-app",
+    "androidStoreUrl": "",
+    "iosStoreUrl": "",
+    "privacyUrl": "",
+    "supportEmail": ""
+  }
+}

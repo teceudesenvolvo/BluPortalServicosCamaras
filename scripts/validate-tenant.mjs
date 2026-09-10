@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const configPath = resolve(import.meta.dirname, '../public/tenant.config.json');
+const configPath = resolve(import.meta.dirname, '../public/tenant-config.json');
 const config = JSON.parse(readFileSync(configPath, 'utf8'));
 const errors = [];
 if (config.schemaVersion !== 1) errors.push('schemaVersion deve ser 1');
