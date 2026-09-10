@@ -420,21 +420,19 @@ const BalcaoCidadao = () => {
             const solicitacoesRef = collection(firestore, 'balcao-cidadao');
             // Removemos o orderBy da query do Firestore para evitar a necessidade de índice composto
             const q = query(solicitacoesRef, where('userId', '==', currentUser.uid));
-
             const unsubscribe = onSnapshot(q, (snapshot) => {
-                const solicitacoesList = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data(),
-                    dataSolicitacao: doc.data().dataSolicitacao?.toMillis ? doc.data().dataSolicitacao.toMillis() : doc.data().dataSolicitacao
-                })).sort((a, b) => (b.dataSolicitacao || 0) - (a.dataSolicitacao || 0)); // Ordenação local (descendente)
+                const solicitacoesList = snapshot.docs.map(itemDoc => ({
+                    id: itemDoc.id,
+                    ...itemDoc.data(),
+                    dataSolicitacao: itemDoc.data().dataSolicitacao?.toMillis ? itemDoc.data().dataSolicitacao.toMillis() : itemDoc.data().dataSolicitacao,
+                })).sort((a, b) => (b.dataSolicitacao || 0) - (a.dataSolicitacao || 0));
                 setSolicitacoes(solicitacoesList);
                 setLoading(false);
             }, (err) => {
-                console.error("Erro no stream de solicitações:", err);
-                setError("Falha ao carregar dados.");
+                console.error("Erro ao buscar solicitações:", err);
+                setError(err.code === 'permission-denied' ? 'Não foi possível acessar suas solicitações. Publique as regras do Firebase ou faça login novamente.' : 'Falha ao carregar dados.');
                 setLoading(false);
             });
-
             return unsubscribe;
         };
 
