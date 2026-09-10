@@ -33,7 +33,8 @@ npm run tenant:create -- \
   --name="Câmara Municipal de Município" \
   --shortName="Câmara de Município" \
   --city=Município \
-  --state=CE
+  --state=CE \
+  --rootEmail=administrador@camara.gov.br
 npm run tenant:validate
 ```
 
@@ -65,7 +66,7 @@ firebase deploy --only hosting
 
 ## Configurar pelo CMS
 
-Entre com `leo@gmail.com` e acesse `/controle-sistema`. O CMS controla identificação institucional, módulos, cores, tipografia, logomarca, favicon, endpoints públicos, lojas de aplicativos, integrações e manutenção.
+Cadastre o primeiro e-mail informado em `security.rootEmails` com o perfil `Admin`, entre com essa conta e acesse `/controle-sistema`. Na primeira gravação, esse administrador inicializa a autorização do tenant. Depois disso, a seção **Usuários root**, na aba **Geral**, permite incluir ou remover os responsáveis por todo o sistema. O CMS controla identificação institucional, módulos, cores, tipografia, logomarca, favicon, endpoints públicos, lojas de aplicativos, integrações e manutenção.
 
 ## Desenvolvimento e validação
 
@@ -83,9 +84,10 @@ Configure no GitHub da Câmara:
 
 ```text
 BLU_PLATFORM_UPSTREAM=teceudesenvolvo/BluPortalServicosCamaras
+BLU_PLATFORM_AUTO_MERGE=true # opcional
 ```
 
-O workflow `.github/workflows/sync-platform.yml` verifica atualizações semanalmente e abre um pull request. Homologue o PR em staging antes do merge em produção.
+O workflow `.github/workflows/sync-platform.yml` verifica atualizações semanalmente, ignora execuções sem mudanças e abre um pull request quando há uma nova versão. Com `BLU_PLATFORM_AUTO_MERGE=true`, o GitHub faz o merge depois que os checks obrigatórios passarem; habilite também **Allow auto-merge** nas configurações do repositório. A produção recebe a versão quando o pipeline de implantação do servidor for acionado por mudanças em `main`.
 
 Use tenant e CMS para trocar nome, cor, marca ou endpoint. Mudanças úteis para todas as Câmaras devem entrar neste repositório base.
 

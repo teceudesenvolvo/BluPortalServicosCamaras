@@ -125,8 +125,8 @@ const LoginPage = () => {
                 <div className="logo-section">
                     {/* Substitua pela imagem real do brasão */}
                     <img
-                        src={Brasao}
-                        alt="Brasão de Paraipaba"
+                        src={settings.branding?.loginCoverUrl || Brasao}
+                        alt={settings.branding?.logoAlt || settings.tenant?.name || 'Identidade da Câmara'}
                         className="brasao"
                     />
                 </div>
@@ -138,13 +138,13 @@ const LoginPage = () => {
                 <div className="login-form-box">
                     <img
                         src={settings.branding?.logoUrl || Logo}
-                        alt="Logo Paraipaba"
+                        alt={settings.branding?.logoAlt || settings.tenant?.name || 'Logo da Câmara'}
                         className="logo-horizontal"
                         style={{ height: '50px', marginBottom: '40px' }}
                     />
                     <div className='div-portal-title'>
                         <p className="portal-title">Seja bem-vindo</p>
-                        <h2 className="portal-subtitle">Portal de Serviços</h2>
+                        <h2 className="portal-subtitle">{settings.tenant?.portalTitle || 'Portal de Serviços'}</h2>
                     </div>
 
                     <form onSubmit={handleLogin}>

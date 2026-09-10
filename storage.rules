@@ -1,10 +1,14 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    function isConfiguredRoot() {
+      return request.auth != null
+        && request.auth.token.email in firestore.get(/databases/(default)/documents/system-control/portal).data.security.rootEmails;
+    }
+
     match /system-control/{tenant}/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-        && request.auth.token.email == 'leo@gmail.com'
+      allow write: if isConfiguredRoot()
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }

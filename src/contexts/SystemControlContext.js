@@ -20,6 +20,7 @@ export const SystemControlProvider = ({ children }) => {
             branding: { ...current.branding, ...(data.branding || {}) },
             integrations: { ...current.integrations, ...(data.integrations || {}) },
             apiFeatures: { ...current.apiFeatures, ...(data.apiFeatures || {}) },
+            security: { ...current.security, ...(data.security || {}) },
         }));
 
         fetch('/tenant.config.json', { cache: 'no-store' })
@@ -51,6 +52,8 @@ export const SystemControlProvider = ({ children }) => {
         root.style.setProperty('--cms-font', design.fontFamily);
         root.style.setProperty('--admin-premium-bg', design.backgroundColor);
         document.body.style.fontFamily = design.fontFamily;
+        document.body.style.backgroundColor = design.backgroundColor;
+        document.body.style.color = design.textColor;
         if (settings.branding?.faviconUrl) {
             let favicon = document.querySelector("link[rel='icon']");
             if (!favicon) { favicon = document.createElement('link'); favicon.rel = 'icon'; document.head.appendChild(favicon); }

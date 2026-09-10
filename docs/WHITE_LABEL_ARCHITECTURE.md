@@ -42,7 +42,7 @@ cd camara-municipio
 git remote rename origin platform
 git remote add origin git@github.com:SUA-ORGANIZACAO/camara-municipio.git
 npm install
-npm run tenant:create -- --slug=municipio --name="Câmara Municipal de Município" --city=Município --state=CE
+npm run tenant:create -- --slug=municipio --name="Câmara Municipal de Município" --city=Município --state=CE --rootEmail=administrador@camara.gov.br
 npm run tenant:validate
 git add .
 git commit -m "Configurar tenant da Câmara de Município"

@@ -225,9 +225,16 @@ async function requireAdminUser(req) {
       .doc(decodedToken.uid)
       .get();
   const userData = userSnap.exists ? userSnap.data() || {} : {};
+  const systemControlSnap = await admin.firestore()
+      .collection("system-control")
+      .doc("portal")
+      .get();
+  const rootEmails = systemControlSnap.exists &&
+      Array.isArray(systemControlSnap.data()?.security?.rootEmails) ?
+    systemControlSnap.data().security.rootEmails
+        .map((email) => String(email).trim().toLowerCase()) : [];
   const allowed = userData.tipo === "Admin" ||
-      decodedToken.email === "leo@gmail.com" ||
-      decodedToken.email === "blutecnologiasbr@gmail.com";
+      rootEmails.includes(String(decodedToken.email || "").toLowerCase());
 
   if (!allowed) {
     const error = new Error("Usuário sem permissão administrativa.");

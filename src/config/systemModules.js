@@ -1,4 +1,14 @@
-export const SYSTEM_OWNER_EMAIL = 'leo@gmail.com';
+export const INITIAL_SYSTEM_ROOT_EMAILS = ['leo@gmail.com'];
+
+export const normalizeRootEmails = emails => [...new Set((Array.isArray(emails) ? emails : [])
+    .map(email => String(email || '').trim().toLowerCase())
+    .filter(email => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))];
+
+export const isSystemRootEmail = (settings, email) => {
+    const configured = normalizeRootEmails(settings?.security?.rootEmails);
+    const roots = configured.length ? configured : INITIAL_SYSTEM_ROOT_EMAILS;
+    return roots.includes(String(email || '').trim().toLowerCase());
+};
 
 export const SYSTEM_MODULES = [
     { id: 'juridico', name: 'Atendimento Jurídico', description: 'Orientações e solicitações jurídicas.', adminPaths: ['/admin-juridico'], userPaths: ['/juridico'], app: true },
@@ -23,6 +33,7 @@ export const buildDefaultModuleSettings = () => Object.fromEntries(
 );
 
 export const DEFAULT_CMS_SETTINGS = {
+    security: { rootEmails: INITIAL_SYSTEM_ROOT_EMAILS },
     tenant: { name: 'Câmara Municipal de Paraipaba', shortName: 'Câmara de Paraipaba', slug: 'paraipaba', city: 'Paraipaba', state: 'CE', portalTitle: 'Portal de Serviços', address: 'Av. Domingos Barroso, 350 - Monte Alverne', postalCode: '62685-000', phone: '', email: '', website: '' },
     design: { primaryColor: '#025AA1', secondaryColor: '#0284C7', accentColor: '#F59E0B', backgroundColor: '#F3F8FE', textColor: '#10233F', borderRadius: 14, fontFamily: 'Inter, system-ui, sans-serif' },
     branding: { logoUrl: '', compactLogoUrl: '', faviconUrl: '', loginCoverUrl: '', logoAlt: 'Câmara Municipal' },

@@ -293,8 +293,8 @@ const CadastroPage = () => {
             <div className="login-left-panel">
                 <div className="logo-section">
                     <img
-                        src={Brasao}
-                        alt="Brasão de Paraipaba"
+                        src={settings.branding?.loginCoverUrl || Brasao}
+                        alt={settings.branding?.logoAlt || settings.tenant?.name || 'Identidade da Câmara'}
                         className="brasao"
                         style={{ height: '300px', marginTop: '20%' }}
                     />
@@ -307,13 +307,13 @@ const CadastroPage = () => {
                 <div className="login-form-box">
                     <img
                         src={settings.branding?.logoUrl || Logo}
-                        alt="Logo Paraipaba"
+                        alt={settings.branding?.logoAlt || settings.tenant?.name || 'Logo da Câmara'}
                         className="logo-horizontal"
                         style={{ height: '50px', marginBottom: '40px' }}
                     />
                     <div className='div-portal-title'>
                         <p className="portal-title">Crie sua conta</p>
-                        <h2 className="portal-subtitle">Portal de Serviços</h2>
+                        <h2 className="portal-subtitle">{settings.tenant?.portalTitle || 'Portal de Serviços'}</h2>
                     </div>
 
                     <div className="step-indicator">

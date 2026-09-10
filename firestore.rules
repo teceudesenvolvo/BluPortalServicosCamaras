@@ -1,9 +1,28 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isConfiguredRoot() {
+      return request.auth != null
+        && request.auth.token.email in get(/databases/$(database)/documents/system-control/portal).data.security.rootEmails;
+    }
+
+    function isAdminProfile() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'Admin';
+    }
+
     match /system-control/{documentId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.token.email == 'leo@gmail.com';
+      allow read: if documentId == 'portal';
+      allow create: if documentId == 'portal'
+        && isAdminProfile()
+        && request.auth.token.email in request.resource.data.security.rootEmails;
+      allow update: if documentId == 'portal' && (
+        isConfiguredRoot()
+        || (isAdminProfile()
+          && !('security' in resource.data)
+          && request.auth.token.email in request.resource.data.security.rootEmails)
+      );
+      allow delete: if documentId == 'portal' && isConfiguredRoot();
     }
 
     // Regras básicas para permitir operações autenticadas

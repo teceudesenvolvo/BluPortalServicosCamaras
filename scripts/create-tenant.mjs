@@ -5,10 +5,10 @@ const args = Object.fromEntries(process.argv.slice(2).map(value => {
   const [key, ...rest] = value.replace(/^--/, '').split('=');
   return [key, rest.join('=')];
 }));
-const required = ['slug', 'name', 'city', 'state'];
+const required = ['slug', 'name', 'city', 'state', 'rootEmail'];
 const missing = required.filter(key => !args[key]);
 if (missing.length) {
-  console.error(`Uso: npm run tenant:create -- --slug=municipio --name="Câmara Municipal de Município" --city=Município --state=CE`);
+  console.error(`Uso: npm run tenant:create -- --slug=municipio --name="Câmara Municipal de Município" --city=Município --state=CE --rootEmail=admin@camara.gov.br`);
   process.exit(1);
 }
 if (!/^[a-z0-9-]+$/.test(args.slug)) {
@@ -24,6 +24,7 @@ if (existsSync(tenantDir)) {
 }
 const template = JSON.parse(readFileSync(resolve(projectRoot, 'tenants/example/tenant.config.json'), 'utf8'));
 template.tenant = { ...template.tenant, name: args.name, shortName: args.shortName || args.name, slug: args.slug, city: args.city, state: args.state.toUpperCase(), portalTitle: args.portalTitle || 'Portal de Serviços' };
+template.security = { rootEmails: args.rootEmail.split(',').map(email => email.trim().toLowerCase()).filter(Boolean) };
 mkdirSync(tenantDir, { recursive: true });
 writeFileSync(resolve(tenantDir, 'tenant.config.json'), `${JSON.stringify(template, null, 2)}\n`);
 writeFileSync(resolve(projectRoot, 'public/tenant.config.json'), `${JSON.stringify(template, null, 2)}\n`);

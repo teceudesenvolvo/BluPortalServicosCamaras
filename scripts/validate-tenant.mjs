@@ -7,5 +7,7 @@ const errors = [];
 if (config.schemaVersion !== 1) errors.push('schemaVersion deve ser 1');
 for (const field of ['name','slug','city','state']) if (!config.tenant?.[field]) errors.push(`tenant.${field} é obrigatório`);
 for (const field of ['primaryColor','secondaryColor','accentColor']) if (!/^#[0-9a-f]{6}$/i.test(config.design?.[field] || '')) errors.push(`design.${field} deve ser uma cor hexadecimal`);
+if (!Array.isArray(config.security?.rootEmails) || !config.security.rootEmails.length) errors.push('security.rootEmails deve ter ao menos um e-mail');
+for (const email of config.security?.rootEmails || []) if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push(`E-mail root inválido: ${email}`);
 if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
 console.log(`Tenant ${config.tenant.slug} válido.`);

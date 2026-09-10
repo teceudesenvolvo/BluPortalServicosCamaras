@@ -1658,7 +1658,7 @@ body{
 /* Coluna Esquerda (Azul) */
 .login-left-panel {
   flex: 1;
-  background-color: #00128A;
+  background-color: var(--cms-primary);
   /* Azul Institucional */
   color: white;
   display: flex;
@@ -11522,7 +11522,9 @@ color: #fff !important;
 .system-fields-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
 .system-field { display: grid; gap: 7px; min-width: 0; color: #475569; font-weight: 850; }
 .system-field > span { font-size: .82rem; }
-.system-field > input, .system-color-field input:not([type="color"]) { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; border: 1px solid rgba(2,90,161,.16); border-radius: 10px; padding: 0 12px; background: #fff; color: #10233f; font: inherit; }
+.system-field > input, .system-field > textarea, .system-color-field input:not([type="color"]) { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; border: 1px solid rgba(2,90,161,.16); border-radius: 10px; padding: 11px 12px; background: #fff; color: #10233f; font: inherit; }
+.system-field > textarea { resize: vertical; }
+.system-field > small { color: #64748b; font-size: .78rem; font-weight: 650; }
 .system-color-field { display: grid; grid-template-columns: 48px minmax(0,1fr); gap: 8px; }
 .system-color-field input[type="color"] { width: 48px; height: 44px; border: 1px solid rgba(2,90,161,.16); border-radius: 10px; padding: 3px; background: #fff; cursor: pointer; }
 .system-design-layout { display: grid; grid-template-columns: minmax(0,1fr) minmax(280px,.72fr); gap: 22px; align-items: start; }

@@ -18,16 +18,28 @@ jobs:
         with:
           fetch-depth: 0
       - name: Incorporar atualizações da plataforma
+        id: sync
         env:
           GH_TOKEN: ${{ github.token }}
           UPSTREAM: ${{ vars.BLU_PLATFORM_UPSTREAM }}
         run: |
           BRANCH="chore/sync-platform-$(date +%Y%m%d)"
+          CURRENT_SHA="$(git rev-parse HEAD)"
           git config user.name "blu-platform-bot"
           git config user.email "actions@users.noreply.github.com"
           git remote add platform "https://github.com/${UPSTREAM}.git"
           git fetch platform main
           git checkout -b "$BRANCH"
           git merge platform/main --no-edit
+          if [ "$(git rev-parse HEAD)" = "$CURRENT_SHA" ]; then
+            echo "Nenhuma atualização nova no núcleo."
+            exit 0
+          fi
           git push origin "$BRANCH"
-          gh pr create --title "Atualizar núcleo Blu Câmara" --body "Sincronização automática com ${UPSTREAM}. Revise testes, migrações e personalizações do tenant antes do merge." --base main --head "$BRANCH"
+          PR_URL="$(gh pr create --title "Atualizar núcleo Blu Câmara" --body "Sincronização automática com ${UPSTREAM}. Revise testes, migrações e personalizações do tenant antes do merge." --base main --head "$BRANCH")"
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+      - name: Ativar merge automático após os checks
+        if: steps.sync.outputs.pr_url != '' && vars.BLU_PLATFORM_AUTO_MERGE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr merge "${{ steps.sync.outputs.pr_url }}" --auto --squash

@@ -7,6 +7,8 @@
 
 Configure no repositório da Câmara a variável GitHub `BLU_PLATFORM_UPSTREAM` com `teceudesenvolvo/BluPortalServicosCamaras`. O workflow `sync-platform.yml` verifica atualizações semanalmente e abre um pull request. Ele não publica diretamente em produção.
 
+O recebimento do PR é automático. Para incorporar a atualização depois dos checks, habilite **Allow auto-merge** no GitHub e defina `BLU_PLATFORM_AUTO_MERGE=true`. A publicação ainda depende de um pipeline do servidor acionado por mudanças em `main`, pois cada Câmara possui projeto Firebase e credenciais próprios.
+
 ## Fluxo de atualização
 
 1. Atualize e teste o núcleo neste repositório base.

@@ -25,7 +25,7 @@ import { auth, firestore } from '../firebase';
 import { collection, doc, getDoc, getDocs, limit, query } from 'firebase/firestore';
 import { countUnreadAdminMessages } from '../utils/adminMessages';
 import { useSystemControl } from '../contexts/SystemControlContext';
-import { findModuleByPath, SYSTEM_OWNER_EMAIL } from '../config/systemModules';
+import { findModuleByPath, isSystemRootEmail } from '../config/systemModules';
 
 const MESSAGE_MENU_AREAS = [
     { role: 'Balcão', collectionName: 'balcao-cidadao' },
@@ -149,10 +149,10 @@ const AdminSidebar = () => {
 
     // Filtra os itens do menu com base no tipo de usuário
     const visibleMenuItems = allMenuItems.filter(item => {
-        const isSystemOwner = userEmail?.toLowerCase() === SYSTEM_OWNER_EMAIL;
+        const isSystemOwner = isSystemRootEmail(settings, userEmail);
         if (item.path === '/controle-sistema') return isSystemOwner;
 
-        // Restrição específica: Itens de sistema aparecem apenas para o email leo@gmail.com
+        // Itens de infraestrutura aparecem apenas para os usuários root configurados no CMS.
         const systemPaths = ['/admin-migration', '/admin-mail', '/admin-notifications'];
         if (systemPaths.includes(item.path)) {
             return isSystemOwner;
@@ -161,6 +161,7 @@ const AdminSidebar = () => {
         const module = findModuleByPath(item.path);
         if (module && settings.modules?.[module.id]?.admin === false) return false;
 
+        if (isSystemOwner) return true;
         if (userType === 'Admin') {
             return true; // Admin vê tudo
         }

@@ -2,12 +2,13 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/FirebaseAuthContext';
 import { useSystemControl } from '../contexts/SystemControlContext';
-import { findModuleByPath, SYSTEM_OWNER_EMAIL } from '../config/systemModules';
+import { findModuleByPath, isSystemRootEmail } from '../config/systemModules';
 
 export const OwnerRoute = ({ children }) => {
-    const { currentUser, loading } = useAuth();
-    if (loading) return null;
-    return currentUser?.email?.toLowerCase() === SYSTEM_OWNER_EMAIL ? children : <Navigate to="/dashboard" replace />;
+    const { currentUser, loading: authLoading } = useAuth();
+    const { settings, loading: settingsLoading } = useSystemControl();
+    if (authLoading || settingsLoading) return null;
+    return isSystemRootEmail(settings, currentUser?.email) ? children : <Navigate to="/dashboard" replace />;
 };
 
 export const ModuleRoute = ({ children, surface }) => {

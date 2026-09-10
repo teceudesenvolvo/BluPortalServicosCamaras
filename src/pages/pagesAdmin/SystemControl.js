@@ -3,7 +3,7 @@ import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { LiaCheckCircleSolid, LiaCloudSolid, LiaCogSolid, LiaImageSolid, LiaMobileSolid, LiaPaletteSolid, LiaSaveSolid, LiaShieldAltSolid, LiaUploadSolid, LiaUserCogSolid } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
 import { auth, firestore } from '../../firebase';
-import { buildDefaultModuleSettings, DEFAULT_CMS_SETTINGS, SYSTEM_MODULES } from '../../config/systemModules';
+import { buildDefaultModuleSettings, DEFAULT_CMS_SETTINGS, normalizeRootEmails, SYSTEM_MODULES } from '../../config/systemModules';
 import { useSystemControl } from '../../contexts/SystemControlContext';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
@@ -32,6 +32,7 @@ const SystemControl = () => {
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState('');
     const [uploadError, setUploadError] = useState('');
+    const [saveError, setSaveError] = useState('');
     const [saved, setSaved] = useState(false);
     const current = useMemo(() => draft || {
         ...DEFAULT_CMS_SETTINGS, ...settings,
@@ -41,6 +42,7 @@ const SystemControl = () => {
         branding: { ...DEFAULT_CMS_SETTINGS.branding, ...settings.branding },
         integrations: { ...DEFAULT_CMS_SETTINGS.integrations, ...settings.integrations },
         apiFeatures: { ...DEFAULT_CMS_SETTINGS.apiFeatures, ...settings.apiFeatures },
+        security: { ...DEFAULT_CMS_SETTINGS.security, ...settings.security },
     }, [draft, settings]);
 
     const update = (section, field, value) => {
@@ -48,6 +50,7 @@ const SystemControl = () => {
         setDraft(previous => { const base = previous || current; return { ...base, [section]: { ...base[section], [field]: value } }; });
     };
     const updateGlobal = (field, value) => { setSaved(false); setDraft(previous => ({ ...(previous || current), [field]: value })); };
+    const updateRootEmails = value => update('security', 'rootEmails', value.split(/[\n,;]+/).map(email => email.trim()));
     const uploadBrandAsset = async (field, file) => {
         if (!file) return;
         setUploading(field); setUploadError('');
@@ -56,10 +59,14 @@ const SystemControl = () => {
         finally { setUploading(''); }
     };
     const save = async () => {
-        setSaving(true);
+        setSaving(true); setSaveError('');
         try {
-            await setDoc(doc(firestore, 'system-control', 'portal'), { ...current, schemaVersion: 1, updatedAt: serverTimestamp(), updatedBy: auth.currentUser?.email || '' }, { merge: true });
+            const rootEmails = normalizeRootEmails(current.security?.rootEmails);
+            if (!rootEmails.length) throw new Error('Informe pelo menos um usuário root válido.');
+            await setDoc(doc(firestore, 'system-control', 'portal'), { ...current, security: { ...current.security, rootEmails }, schemaVersion: 1, updatedAt: serverTimestamp(), updatedBy: auth.currentUser?.email || '' }, { merge: true });
             setDraft(null); setSaved(true);
+        } catch (error) {
+            setSaveError(error.message || 'Não foi possível salvar as configurações.');
         } finally { setSaving(false); }
     };
 
@@ -67,10 +74,12 @@ const SystemControl = () => {
         <header className="system-control-header"><div><span><LiaShieldAltSolid /> CMS da Câmara</span><h1>Controle do sistema</h1><p>Personalize a instituição, o portal, o painel administrativo e o aplicativo.</p></div><button onClick={save} disabled={saving}><LiaSaveSolid /> {saving ? 'Salvando...' : 'Salvar configurações'}</button></header>
         <nav className="system-control-tabs" aria-label="Seções de configuração">{TABS.map(tab => { const Icon = tab.icon; return <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} onClick={() => setActiveTab(tab.id)}><Icon />{tab.label}</button>; })}</nav>
         {saved && <div className="system-save-feedback"><LiaCheckCircleSolid /> Configurações salvas e distribuídas para o portal.</div>}
+        {saveError && <div className="system-upload-error">{saveError}</div>}
 
         {activeTab === 'general' && <>
             <section className="system-control-summary"><article><LiaCogSolid /><div><strong>{SYSTEM_MODULES.length}</strong><span>Módulos configuráveis</span></div></article><article><LiaUserCogSolid /><div><strong>{SYSTEM_MODULES.filter(item => current.modules[item.id]?.admin !== false).length}</strong><span>Ativos no admin</span></div></article><article><LiaMobileSolid /><div><strong>{SYSTEM_MODULES.filter(item => current.modules[item.id]?.app && item.app).length}</strong><span>Ativos no aplicativo</span></div></article></section>
             <SettingsCard title="Identificação da Câmara" description="Esses dados formam a identidade do tenant e permitem reutilizar o projeto em outros municípios."><div className="system-fields-grid">{TENANT_FIELDS.map(([field,label]) => <Field key={field} label={label} value={current.tenant[field]} onChange={value => update('tenant', field, value)} />)}</div></SettingsCard>
+            <SettingsCard title="Usuários root" description="Estes usuários podem acessar o controle do sistema e administrar toda a instalação."><label className="system-field"><span>E-mails dos usuários root</span><textarea value={(current.security?.rootEmails || []).join('\n')} onChange={event => updateRootEmails(event.target.value)} placeholder="administrador@camara.gov.br" rows="4" /><small>Informe um e-mail por linha. Mantenha ao menos um usuário root ativo.</small></label></SettingsCard>
             <section className="data-card system-global-card"><div><h2>Funcionamento geral</h2><p>Defina um aviso de manutenção compartilhado com o portal e o aplicativo.</p></div><Switch checked={Boolean(current.maintenance)} onChange={value => updateGlobal('maintenance', value)} label="Modo manutenção" /><textarea value={current.maintenanceMessage || ''} onChange={event => updateGlobal('maintenanceMessage', event.target.value)} placeholder="Mensagem exibida durante a manutenção" rows="2" /></section>
         </>}
 
