@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Routes, Route } from 'react-router-dom';
 import './App.css';
 
 // Importa o provedor de autenticação
@@ -55,7 +55,6 @@ import AdminOuvidoria from './pages/pagesAdmin/AdminOuvidoria';
 import AdminProcuradoria from './pages/pagesAdmin/AdminProcuradoria';
 import AdminVereadores from './pages/pagesAdmin/AdminVereadores';
 import AdminUsers from './pages/pagesAdmin/AdminUsers';
-import AdminMigration from './pages/pagesAdmin/AdminMigration';
 import AdminMail from './pages/pagesAdmin/AdminMail';
 import AdminNotifications from './pages/pagesAdmin/AdminNotifications';
 import AdminMensagens from './pages/pagesAdmin/AdminMensagens';
@@ -129,7 +128,7 @@ function App() {
           <Route path="/admin-tv-camara" element={<ModuleRoute surface="admin"><AdminTvCamara /></ModuleRoute>} />
           <Route path="/admin-microempreendedor" element={<ModuleRoute surface="admin"><AdminMicroempreendedor /></ModuleRoute>} />
           <Route path="/admin-avaliacoes" element={<ModuleRoute surface="admin"><AdminAvaliacoes /></ModuleRoute>} />
-          <Route path="/admin-migration" element={<AdminMigration />} />
+          <Route path="/admin-migration" element={<Navigate to="/controle-sistema" replace />} />
           <Route path="/recepcao" element={<ModuleRoute surface="admin"><RecepcaoAtendimento /></ModuleRoute>} />
           <Route path="/painel-atendimento" element={<PainelAtendimento />} />
           <Route path="/controle-sistema" element={<OwnerRoute><SystemControl /></OwnerRoute>} />

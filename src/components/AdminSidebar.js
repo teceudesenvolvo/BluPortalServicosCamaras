@@ -10,7 +10,6 @@ import {
     LiaBarsSolid,
     LiaTimesSolid,
     LiaUsersSolid,
-    LiaCloudDownloadAltSolid,
     LiaBellSolid,
     LiaBriefcaseSolid,
     LiaClipboardListSolid,
@@ -143,7 +142,6 @@ const AdminSidebar = () => {
         { title: 'Controle do Sistema', icon: <LiaCogSolid />, path: '/controle-sistema', roles: ['Admin'] },
         { title: 'Gerenciar Usuários', icon: <LiaUsersCogSolid />, path: '/admin-users', roles: ['Admin'] },
         { title: 'Histórico Notificações', icon: <LiaBellSolid />, path: '/admin-notifications', roles: ['Admin'] },
-        { title: 'Migração Firestore', icon: <LiaCloudDownloadAltSolid />, path: '/admin-migration', roles: ['Admin'] },
         { title: 'Perfil', icon: <LiaUser />, path: '/perfil', roles: ['Admin', 'Vereador', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor'] },
     ];
 
@@ -153,7 +151,7 @@ const AdminSidebar = () => {
         if (item.path === '/controle-sistema') return isSystemOwner;
 
         // Itens de infraestrutura aparecem apenas para os usuários root configurados no CMS.
-        const systemPaths = ['/admin-migration', '/admin-mail', '/admin-notifications'];
+        const systemPaths = ['/admin-mail', '/admin-notifications'];
         if (systemPaths.includes(item.path)) {
             return isSystemOwner;
         }
