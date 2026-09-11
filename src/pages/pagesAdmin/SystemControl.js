@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { LiaCheckCircleSolid, LiaCloudSolid, LiaCogSolid, LiaDatabaseSolid, LiaEnvelopeSolid, LiaImageSolid, LiaMobileSolid, LiaPaletteSolid, LiaSaveSolid, LiaShieldAltSolid, LiaUploadSolid, LiaUserCogSolid, LiaSyncSolid } from 'react-icons/lia';
+import SystemRolePermissions from '../../components/SystemRolePermissions';
 import AdminSidebar from '../../components/AdminSidebar';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
@@ -11,6 +12,7 @@ import { useSystemControl } from '../../contexts/SystemControlContext';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 
 const TABS = [
+    { id: 'permissions', label: 'Permissões', icon: LiaShieldAltSolid },
     { id: 'general', label: 'Geral', icon: LiaCogSolid },
     { id: 'modules', label: 'Módulos e páginas', icon: LiaUserCogSolid },
     { id: 'design', label: 'Design e cores', icon: LiaPaletteSolid },
@@ -85,6 +87,7 @@ const SystemControl = () => {
         {saved && <div className="system-save-feedback"><LiaCheckCircleSolid /> Configurações salvas e distribuídas para o portal.</div>}
         {saveError && <div className="system-upload-error">{saveError}</div>}
 
+        {activeTab === 'permissions' && <SystemRolePermissions settings={current} onChange={value => update('security', 'rolePermissions', value)} />}
         {activeTab === 'general' && <>
             <section className="system-control-summary"><article><LiaCogSolid /><div><strong>{SYSTEM_MODULES.length}</strong><span>Módulos configuráveis</span></div></article><article><LiaUserCogSolid /><div><strong>{SYSTEM_MODULES.filter(item => current.modules[item.id]?.admin !== false).length}</strong><span>Ativos no admin</span></div></article><article><LiaMobileSolid /><div><strong>{SYSTEM_MODULES.filter(item => current.modules[item.id]?.app && item.app).length}</strong><span>Ativos no aplicativo</span></div></article></section>
             <SettingsCard title="Identificação da Câmara" description="Esses dados formam a identidade do tenant e permitem reutilizar o projeto em outros municípios."><div className="system-fields-grid">{TENANT_FIELDS.map(([field,label]) => <Field key={field} label={label} value={current.tenant[field]} onChange={value => update('tenant', field, value)} />)}</div></SettingsCard>

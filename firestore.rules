@@ -3,12 +3,14 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function isConfiguredRoot() {
       return request.auth != null
-        && request.auth.token.email in get(/databases/$(database)/documents/system-control/portal).data.security.rootEmails;
+        && exists(/databases/$(database)/documents/system-control/portal)
+        && request.auth.token.get('email', '') in get(/databases/$(database)/documents/system-control/portal).data.get('security', {}).get('rootEmails', []);
     }
 
     function isAdminProfile() {
       return request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'Admin';
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', '') == 'Admin';
     }
 
     match /system-control/{documentId} {
@@ -53,6 +55,14 @@ service cloud.firestore {
         && (request.auth.uid == userId || isConfiguredRoot() || isAdminProfile());
     }
 
+    match /balcao-config/{documentId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (documentId == 'bookedSlots' || hasModuleAdminAccess('balcao', ['Admin', 'Balcão']));
+    }
+    match /balcao-monthly-configs/{monthId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && hasModuleAdminAccess('balcao', ['Admin', 'Balcão']);
+    }
     match /atendimento-calendario/{documentId} {
       allow read, write: if request.auth != null;
     }
@@ -99,9 +109,62 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    function hasModuleAdminAccess(moduleId, defaults) {
+      let role = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', '');
+      let control = exists(/databases/$(database)/documents/system-control/portal)
+        ? get(/databases/$(database)/documents/system-control/portal).data : {};
+      return request.auth != null
+        && control.get('modules', {}).get(moduleId, {}).get('admin', true)
+        && (isConfiguredRoot() || control.get('security', {}).get('rolePermissions', {}).get(role, {}).get(moduleId, {}).get('admin', role in defaults));
+    }
+
+    function isReceptionStaff() {
+      return request.auth != null && hasModuleAdminAccess('recepcao', ['Admin', 'Recepção', 'Recepcao', 'Balcão', 'Microempreendedor']);
+    }
+
+    match /solicitacoes-vereadores/{requestId} {
+      allow read: if request.auth != null && (
+        isReceptionStaff()
+        || hasModuleAdminAccess('agendaVereadores', ['Admin'])
+        || resource.data.get('userId', '') == request.auth.uid
+        || resource.data.dadosSolicitacao.vereadorId == request.auth.uid
+      );
+      allow create: if request.auth != null
+        && request.resource.data.status == 'Aguardando Análise'
+        && !request.resource.data.keys().hasAny(['aprovadoPor', 'appointmentDate', 'appointmentTime', 'horariosOferecidos'])
+        && (request.resource.data.userId == request.auth.uid || isReceptionStaff());
+      allow update: if request.auth != null && (
+        // Somente o parlamentar destinatário aceita o motivo e oferece horários.
+        (resource.data.dadosSolicitacao.vereadorId == request.auth.uid
+          && resource.data.status in ['Aguardando Análise', 'Aguardando Confirmação', 'Datas Liberadas']
+          && request.resource.data.status in ['Datas Liberadas', 'Recusado']
+          && (request.resource.data.status == 'Recusado' || request.resource.data.aprovadoPor == request.auth.uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'horariosOferecidos', 'aprovadoPor', 'analisadoPor', 'parecerVereador', 'analisadoEm', 'ultimaAtualizacao']))
+        || (resource.data.status == 'Datas Liberadas'
+          && resource.data.aprovadoPor == resource.data.dadosSolicitacao.vereadorId
+          && (resource.data.userId == request.auth.uid || isReceptionStaff())
+          && request.resource.data.status == 'Agendado'
+          && {'date': request.resource.data.appointmentDate, 'time': request.resource.data.appointmentTime} in resource.data.horariosOferecidos
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'appointmentDate', 'appointmentTime', 'agendadoPor', 'ultimaAtualizacao']))
+        || ((isReceptionStaff() || resource.data.dadosSolicitacao.vereadorId == request.auth.uid)
+          && request.resource.data.status in ['Cancelado', 'Realizado']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'ultimaAtualizacao', 'atualizadoPor']))
+        || (isReceptionStaff() && resource.data.status == 'Agendado'
+          && resource.data.aprovadoPor == resource.data.dadosSolicitacao.vereadorId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statusFila', 'tipoEntradaFila', 'confirmadoComAtraso', 'chegadaRecepcaoEm', 'ultimaAtualizacao', 'senhaAtendimento']))
+      );
+    }
+    match /gabinetes-equipe/{memberId} {
+      allow read, write: if request.auth != null && (
+        resource.data.get('vereadorId', '') == request.auth.uid
+        || request.resource.data.get('vereadorId', '') == request.auth.uid
+        || isConfiguredRoot()
+      );
+    }
+
     // Regras básicas para permitir operações autenticadas
     match /{document=**} {
-      allow read, write: if request.auth != null && !document.matches('system-control/.*');
+      allow read, write: if request.auth != null && !document.matches('system-control/.*') && !document.matches('solicitacoes-vereadores/.*') && !document.matches('balcao-config/.*') && !document.matches('balcao-monthly-configs/.*');
     }
   }
 }

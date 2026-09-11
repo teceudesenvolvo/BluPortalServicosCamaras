@@ -4,9 +4,11 @@ const getTime = (value) => {
     return new Date(value).getTime() || 0;
 };
 
-const getAppointmentSortTime = (ticket) => {
-    const dateValue = ticket?.appointmentDate;
-    const timeValue = ticket?.appointmentTime;
+export const getAppointmentSortTime = (ticket) => {
+    const storedTime = getTime(ticket?.agendamentoOrdenacaoEm);
+    if (storedTime) return storedTime;
+    const dateValue = ticket?.appointmentDate || ticket?.dadosSolicitacao?.appointmentDate;
+    const timeValue = ticket?.appointmentTime || ticket?.dadosSolicitacao?.appointmentTime;
     if (!dateValue || !timeValue) return Number.POSITIVE_INFINITY;
 
     let normalizedDate = '';
@@ -18,7 +20,9 @@ const getAppointmentSortTime = (ticket) => {
     }
 
     if (!normalizedDate) return Number.POSITIVE_INFINITY;
-    const parsed = new Date(`${normalizedDate}T${String(timeValue).slice(0, 5)}:00-03:00`).getTime();
+    const time = String(timeValue).match(/^(\d{1,2}):(\d{2})/);
+    if (!time) return Number.POSITIVE_INFINITY;
+    const parsed = new Date(`${normalizedDate}T${time[1].padStart(2, '0')}:${time[2]}:00-03:00`).getTime();
     return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
 };
 
@@ -54,4 +58,3 @@ export const buildAlternatingQueue = (tickets = [], lastCalledPriority = null) =
 
     return result;
 };
-

@@ -24,6 +24,7 @@ import { buildAlternatingQueue, getLastCalledPriority } from '../utils/queueOrde
 import { useSystemControl } from '../contexts/SystemControlContext';
 
 const SERVICES = [
+    'Vereadores',
     'Todos os serviços',
     'Balcão do Cidadão',
     'Assessoria ao Microempreendedor',
@@ -40,6 +41,7 @@ const REQUEST_COLLECTIONS = {
     'Procuradoria da Mulher': 'procuradoria-mulher',
     PIEL: 'piel-atendimentos',
     PROCON: 'procon-agendamentos',
+    Vereadores: 'solicitacoes-vereadores',
 };
 
 const SERVICE_MODULES = {
@@ -49,6 +51,7 @@ const SERVICE_MODULES = {
     'Procuradoria da Mulher': 'procuradoria',
     PIEL: 'piel',
     PROCON: 'procon',
+    Vereadores: 'agendaVereadores',
 };
 
 const isToday = (value) => {
@@ -198,6 +201,9 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
         if (!ticket?.sessaoGuicheId) return;
         writer.set(doc(firestore, 'atendimento-calendario', `${ticket.sessaoGuicheId}_${ticketRefId}`), {
             ticketId: ticketRefId,
+            appointmentDate: ticket.appointmentDate || null,
+            appointmentTime: ticket.appointmentTime || null,
+            agendamentoOrdenacaoEm: ticket.agendamentoOrdenacaoEm || null,
             semAgendamento: Boolean(ticket.semAgendamento || ticket.tipoEntrada === 'Encaixe'),
             tipoEntrada: ticket.tipoEntrada || '',
             nome: ticket.nome || 'Cidadão',
@@ -350,6 +356,9 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
             const calendarRef = doc(firestore, 'atendimento-calendario', `${ticket.sessaoGuicheId}_${ticket.id}`);
             updates.push(setDoc(calendarRef, {
                 ticketId: ticket.id,
+                appointmentDate: ticket.appointmentDate || null,
+                appointmentTime: ticket.appointmentTime || null,
+                agendamentoOrdenacaoEm: ticket.agendamentoOrdenacaoEm || null,
                 semAgendamento: Boolean(ticket.semAgendamento || ticket.tipoEntrada === 'Encaixe'),
                 tipoEntrada: ticket.tipoEntrada || '',
                 nome: ticket.nome || 'Cidadão',
@@ -606,7 +615,7 @@ const QueueManagerModal = ({ onClose, lockedService = '' }) => {
                     <div>
                         <span>Atendimento presencial</span>
                         <h2>Organizar fila</h2>
-                        <p>Prioridades são chamadas primeiro; depois vale a ordem de chegada.</p>
+                        <p>Prioritários e normais se alternam. Em cada grupo, os agendamentos seguem o horário marcado; os encaixes seguem a chegada.</p>
                     </div>
                     <button type="button" onClick={onClose} className="modal-close-btn" aria-label="Fechar"><LiaTimesSolid /></button>
                 </div>

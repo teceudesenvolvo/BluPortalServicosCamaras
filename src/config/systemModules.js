@@ -11,6 +11,7 @@ export const isSystemRootEmail = (settings, email) => {
 };
 
 export const SYSTEM_MODULES = [
+    { id: 'agendaVereadores', name: 'Agendamentos dos vereadores', description: 'Solicitação, confirmação e horários de atendimento dos gabinetes.', adminPaths: ['/admin-agenda-vereadores'], userPaths: ['/vereadores'], app: true },
     { id: 'juridico', name: 'Atendimento Jurídico', description: 'Orientações e solicitações jurídicas.', adminPaths: ['/admin-juridico'], userPaths: ['/juridico'], app: true },
     { id: 'balcao', name: 'Balcão do Cidadão', description: 'Solicitações, agenda e atendimento nos guichês.', adminPaths: ['/admin-balcao'], userPaths: ['/balcao'], app: true },
     { id: 'microempreendedor', name: 'Microempreendedor', description: 'Assessoria e solicitações para empreendedores.', adminPaths: ['/admin-microempreendedor'], userPaths: ['/microempreendedor'], app: true },
@@ -21,7 +22,7 @@ export const SYSTEM_MODULES = [
     { id: 'avaliacoes', name: 'Avaliações', description: 'Avaliação dos atendimentos realizados.', adminPaths: ['/admin-avaliacoes'], userPaths: ['/avaliar-atendimento'], app: true },
     { id: 'ouvidoria', name: 'Ouvidoria', description: 'Manifestações e acompanhamento da Ouvidoria.', adminPaths: ['/admin-ouvidoria'], userPaths: ['/ouvidoria'], app: true },
     { id: 'procuradoria', name: 'Procuradoria da Mulher', description: 'Solicitações, acolhimento e botão de pânico.', adminPaths: ['/admin-procuradoria'], userPaths: ['/procuradoria'], app: true },
-    { id: 'vereadores', name: 'Vereadores', description: 'Solicitações direcionadas aos vereadores.', adminPaths: ['/admin-vereadores'], userPaths: ['/vereadores'], app: true },
+    { id: 'vereadores', name: 'Vereadores', description: 'Cadastro e apresentação dos parlamentares.', adminPaths: ['/admin-vereadores'], userPaths: [], app: true },
     { id: 'piel', name: 'PIEL', description: 'Programa de integração do Legislativo.', adminPaths: ['/admin-piel'], userPaths: ['/piel'], app: true },
     { id: 'procon', name: 'PROCON', description: 'Atendimentos, fila, consumidores e fornecedores.', adminPaths: ['/admin-procon'], userPaths: ['/procon'], app: true },
     { id: 'usuarios', name: 'Gestão de usuários', description: 'Perfis, papéis e permissões administrativas.', adminPaths: ['/admin-users'], userPaths: [], app: false },

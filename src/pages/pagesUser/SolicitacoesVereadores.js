@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { firestore } from '../../firebase';
+import VereadorAppointmentOffer from '../../components/VereadorAppointmentOffer';
 import Sidebar from '../../components/Sidebar';
 import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 
@@ -25,13 +26,15 @@ const SolicitacaoModal = ({ solicitacao, onClose }) => {
                 </div>
                 <div className="modal-body">
                     <div className="detail-item"><strong>Status:</strong> <span className={`status-badge ${getStatusClass(status)}`}>{status}</span></div>
-                    <div className="detail-item"><strong>Data da Solicitação:</strong> {new Date(dataSolicitacao).toLocaleDateString('pt-BR')}</div>
+                    <div className="detail-item"><strong>Data da Solicitação:</strong> {new Date(dataSolicitacao?.toDate?.() || dataSolicitacao).toLocaleDateString('pt-BR')}</div>
+                    {status === 'Datas Liberadas' && <VereadorAppointmentOffer key={solicitacao.id} request={solicitacao} onSaved={onClose} />}
+                    {solicitacao.parecerVereador && <p>Parecer: {solicitacao.parecerVereador}</p>}
                     <hr />
                     <h4>Detalhes</h4>
                     <div className="detail-item"><strong>Vereador(a):</strong> {dadosSolicitacao?.vereadorNome || 'N/A'}</div>
                     <div className="detail-item"><strong>Assunto:</strong> {dadosSolicitacao?.assunto || 'N/A'}</div>
-                    <div className="detail-item"><strong>Data Preferencial:</strong> {dadosSolicitacao?.dataPreferencial ? new Date(dadosSolicitacao.dataPreferencial).toLocaleDateString('pt-BR') : 'N/A'}</div>
-                    <div className="detail-item"><strong>Horário Preferencial:</strong> {dadosSolicitacao?.horarioPreferencial || 'N/A'}</div>
+                    <div className="detail-item"><strong>{solicitacao.appointmentDate ? 'Data confirmada:' : 'Data preferencial:'}</strong> {(solicitacao.appointmentDate || dadosSolicitacao?.dataPreferencial || '').split('-').reverse().join('/') || 'N/A'}</div>
+                    <div className="detail-item"><strong>Horário:</strong> {solicitacao.appointmentTime || dadosSolicitacao?.horarioPreferencial || 'N/A'}</div>
                     <div className="detail-item"><strong>Descrição:</strong></div>
                     <p className="detail-description">{dadosSolicitacao?.descricao || 'N/A'}</p>
                 </div>
@@ -157,7 +160,7 @@ const SolicitacoesVereadores = () => {
                                 <li key={item.id} className="data-list-item" onClick={() => handleOpenModal(item)}>
                                     <div className="item-main-info">
                                         <strong>Vereador(a): {item.dadosSolicitacao?.vereadorNome || 'Não especificado'}</strong>
-                                        <span>Data: {new Date(item.dataSolicitacao).toLocaleDateString('pt-BR')}</span>
+                                        <span>Data: {new Date(item.dataSolicitacao?.toDate?.() || item.dataSolicitacao).toLocaleDateString('pt-BR')}</span>
                                     </div>
                                     <div className="item-status">
                                         <span className={`status-badge ${getStatusClass(item.status)}`}>
@@ -170,7 +173,7 @@ const SolicitacoesVereadores = () => {
                     )}
                 </div>
 
-                <SolicitacaoModal solicitacao={selectedSolicitacao} onClose={() => setSelectedSolicitacao(null)} />
+                <SolicitacaoModal solicitacao={solicitacoes.find(item => item.id === selectedSolicitacao?.id)} onClose={() => setSelectedSolicitacao(null)} />
             </div>
         </div>
     );

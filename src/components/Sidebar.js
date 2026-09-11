@@ -1,3 +1,5 @@
+import { useAuth } from '../contexts/FirebaseAuthContext';
+import { canAccessModule } from '../config/rolePermissions';
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import Logo from '../assets/logo-paraipaba.png';
@@ -35,6 +37,7 @@ const Sidebar = ({ onItemClick }) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isMobileExpanded, setIsMobileExpanded] = useState(false);
     const { settings } = useSystemControl();
+    const { currentUser, role } = useAuth();
 
     // Itens do menu agora são definidos diretamente aqui
     const menuItems = [
@@ -47,12 +50,12 @@ const Sidebar = ({ onItemClick }) => {
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/ouvidoria' },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/procuradoria' },
         { title: 'TV Câmara', icon: <LiaTvSolid />, path: '/tv-camara' },
-        // { title: 'Vereadores', icon: <LiaUsersSolid />, path: '/vereadores' },
+        { title: 'Agendar com vereador', icon: <LiaUserFriendsSolid />, path: '/vereadores' },
         { title: 'Perfil', icon: <LiaUser />, path: '/perfil' },
     ];
     const visibleMenuItems = menuItems.filter(item => {
         const module = findModuleByPath(item.path);
-        return !module || settings.modules?.[module.id]?.portal !== false;
+        return !module || canAccessModule(settings, role, currentUser?.email, module.id, 'portal');
     });
 
     const handleItemClick = (path) => {

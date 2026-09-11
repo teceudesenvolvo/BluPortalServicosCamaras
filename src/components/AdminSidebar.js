@@ -1,3 +1,4 @@
+import { canAccessModule } from '../config/rolePermissions';
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate,  } from 'react-router-dom';
 import Logo from '../assets/logo-paraipaba.png';
@@ -141,6 +142,7 @@ const AdminSidebar = () => {
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/admin-ouvidoria', roles: ['Admin', 'Ouvidoria'] },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/admin-procuradoria', roles: ['Admin', 'Procuradoria'] },
         { title: 'Vereadores', icon: <LiaUserFriendsSolid />, path: '/admin-vereadores', roles: ['Admin', 'Vereador'] },
+        { title: 'Agendamentos dos vereadores', icon: <LiaClipboardListSolid />, path: '/admin-agenda-vereadores', roles: ['Admin', 'Vereador'] },
         { title: 'PIEL', icon: <LiaUsersSolid />, path: '/admin-piel', roles: ['Admin'] },
         { title: 'PROCON', icon: <LiaBriefcaseSolid />, path: '/admin-procon', roles: ['Admin', 'Procon'] },
         { title: 'Controle do Sistema', icon: <LiaCogSolid />, path: '/controle-sistema', roles: ['Admin'] },
@@ -161,7 +163,7 @@ const AdminSidebar = () => {
         }
 
         const module = findModuleByPath(item.path);
-        if (module && settings.modules?.[module.id]?.admin === false) return false;
+        if (module) return canAccessModule(settings, userType, userEmail, module.id, 'admin');
 
         if (isSystemOwner) return true;
         if (userType === 'Admin') {

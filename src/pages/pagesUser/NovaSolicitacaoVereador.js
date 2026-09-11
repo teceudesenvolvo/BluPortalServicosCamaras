@@ -21,6 +21,7 @@ const NovaSolicitacaoVereador = () => {
         dataPreferencial: '',
         horarioPreferencial: 'Manhã',
         descricao: '',
+        categoriaDemanda: 'Atendimento no gabinete',
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -114,7 +115,9 @@ const NovaSolicitacaoVereador = () => {
                 dadosSolicitacao: formData,
                 dadosUsuario: dadosUsuarioParaSalvar,
                 userId: currentUser.uid,
-                status: 'Aguardando Confirmação',
+                status: 'Aguardando Análise',
+                tipoDemanda: formData.categoriaDemanda,
+                gabineteId: formData.vereadorId,
                 dataSolicitacao: serverTimestamp(),
             });
 
@@ -160,6 +163,12 @@ const NovaSolicitacaoVereador = () => {
                             </select>
                         </div>
 
+                        <div className="form-group">
+                            <label htmlFor="categoriaDemanda">Tipo de demanda *</label>
+                            <select id="categoriaDemanda" name="categoriaDemanda" value={formData.categoriaDemanda} onChange={handleChange} required>
+                                <option>Atendimento no gabinete</option><option>Poda de árvores</option><option>Tapa-buracos</option><option>Iluminação pública</option><option>Limpeza urbana</option><option>Fiscalização de serviço público</option><option>Outra demanda comunitária</option>
+                            </select>
+                        </div>
                         <div className="form-group">
                             <label htmlFor="assunto">Assunto *</label>
                             <input type="text" id="assunto" name="assunto" value={formData.assunto} onChange={handleChange} required />

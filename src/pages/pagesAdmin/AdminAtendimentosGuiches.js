@@ -18,7 +18,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { firestore } from '../../firebase';
 import { printTableReport } from '../../utils/printReport';
 import { isWalkIn, mergeCompletedWalkIns } from '../../utils/attendanceCalendar';
-import { buildAttendanceConsultancy, buildAttendantTimeStats, buildDailyTimeSeries } from '../../utils/attendanceInsights';
+import { buildAttendanceConsultancy, buildAttendantTimeStats, buildDailyTimeSeries, getAttendanceTimes } from '../../utils/attendanceInsights';
 
 const toDate = (value) => {
     if (!value) return null;
@@ -49,8 +49,6 @@ const formatDuration = (minutes) => {
     const remainingMinutes = minutes % 60;
     return remainingMinutes ? `${hours}h ${remainingMinutes}min` : `${hours}h`;
 };
-const getQueueEntryTime = (item) => item.entradaFilaEm || item.chegadaRecepcaoEm || item.ordemFilaEm || item.criadoEm;
-const getCallTime = (item) => item.chamadoEm || item.atendimentoIniciadoEm || item.horarioInicio;
 const getServiceStartTime = (item) => item.atendimentoIniciadoEm || item.horarioInicio || item.chamadoEm;
 const getServiceEndTime = (item) => item.concluidoEm || item.horarioFim || item.dataAtendimento;
 const normalizeSearch = (value = '') => String(value)
@@ -471,7 +469,7 @@ const AdminAtendimentosGuiches = () => {
                         </div>
                         <div className="counter-day-list">
                             {filteredDayAttendances.map(item => {
-                                const waitMinutes = getDurationInMinutes(getQueueEntryTime(item), getCallTime(item));
+                                const waitMinutes = getAttendanceTimes(item).wait;
                                 const serviceMinutes = getDurationInMinutes(getServiceStartTime(item), getServiceEndTime(item));
                                 return (
                                     <article key={item.id}>

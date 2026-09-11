@@ -1,3 +1,5 @@
+import { getAppointmentSortTime } from './queueOrdering';
+
 const toDate = (value) => {
     if (!value) return null;
     const date = value?.toDate ? value.toDate() : new Date(value);
@@ -17,8 +19,11 @@ const duration = (startValue, endValue) => {
     return Math.round((end.getTime() - start.getTime()) / 60000);
 };
 
-export const getAttendanceTimes = (item = {}) => ({
-    wait: duration(
+export const getAttendanceTimes = (item = {}) => {
+    const scheduled = getAppointmentSortTime(item);
+    const call = toDate(item.chamadoEm || item.atendimentoIniciadoEm || item.horarioInicio);
+    return {
+    wait: Number.isFinite(scheduled) && call ? Math.max(0, Math.round((call.getTime() - scheduled) / 60000)) : duration(
         item.entradaFilaEm || item.chegadaRecepcaoEm || item.ordemFilaEm || item.criadoEm,
         item.chamadoEm || item.atendimentoIniciadoEm || item.horarioInicio,
     ),
@@ -26,7 +31,8 @@ export const getAttendanceTimes = (item = {}) => ({
         item.atendimentoIniciadoEm || item.horarioInicio || item.chamadoEm,
         item.concluidoEm || item.horarioFim || item.dataAtendimento,
     ),
-});
+};
+};
 
 const average = (values) => values.length
     ? Math.round(values.reduce((total, value) => total + value, 0) / values.length)
@@ -131,4 +137,3 @@ export const buildAttendanceConsultancy = (items = [], getAttendantName = () => 
 
     return { ...summary, coverage, status, tone, findings, recommendations };
 };
-

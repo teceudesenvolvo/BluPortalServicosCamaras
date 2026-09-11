@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../firebase'; // Importa a instância do auth
+import { doc, onSnapshot } from 'firebase/firestore';
+import { auth, firestore } from '../firebase'; // Importa a instância do auth
 import PreLoader from '../components/PreLoader';
 
 // 1. Cria o Contexto
@@ -14,6 +15,14 @@ export function useAuth() {
 // 3. Cria o Componente Provedor
 export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
+    const [role, setRole] = useState(null);
+    const [roleLoading, setRoleLoading] = useState(true);
+    useEffect(() => {
+        setRole(null);
+        if (!currentUser) { setRoleLoading(false); return undefined; }
+        setRoleLoading(true);
+        return onSnapshot(doc(firestore, 'users', currentUser.uid), snapshot => { setRole(snapshot.data()?.tipo || 'Cidadão'); setRoleLoading(false); }, () => { setRole(null); setRoleLoading(false); });
+    }, [currentUser]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -28,10 +37,10 @@ export function AuthProvider({ children }) {
     }, []);
 
     const value = useMemo(() => ({
-        currentUser,
+        currentUser, role, roleLoading,
         loading, // Exporta o estado de loading para os consumidores do contexto
         // Você pode adicionar funções como logout aqui
-    }), [currentUser, loading]);
+    }), [currentUser, loading, role, roleLoading]);
 
     if (loading) {
         return <PreLoader />;

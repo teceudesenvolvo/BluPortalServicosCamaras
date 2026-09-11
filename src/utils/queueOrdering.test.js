@@ -1,4 +1,21 @@
 import { buildAlternatingQueue, getLastCalledPriority } from './queueOrdering';
+import { getAttendanceTimes } from './attendanceInsights';
+
+test('orders appointments by scheduled time ahead of walk-ins within each group', () => {
+    const result = buildAlternatingQueue([
+        { id: 'walk', criadoEm: '2026-09-10T07:00:00-03:00' },
+        { id: 'later', appointmentDate: '2026-09-10', appointmentTime: '10:00' },
+        { id: 'earlier', appointmentDate: '10/09/2026', appointmentTime: '9:00' },
+    ]);
+    expect(result.map(item => item.id)).toEqual(['earlier', 'later', 'walk']);
+});
+
+test('wait starts at the appointment, clamps early calls and falls back for walk-ins', () => {
+    const item = { appointmentDate: '2026-09-10', appointmentTime: '09:00', entradaFilaEm: '2026-09-10T08:00:00-03:00', chamadoEm: '2026-09-10T09:15:00-03:00' };
+    expect(getAttendanceTimes(item).wait).toBe(15);
+    expect(getAttendanceTimes({ ...item, chamadoEm: '2026-09-10T08:50:00-03:00' }).wait).toBe(0);
+    expect(getAttendanceTimes({ entradaFilaEm: item.entradaFilaEm, chamadoEm: item.chamadoEm }).wait).toBe(75);
+});
 
 const ticket = (id, prioridade, criadoEm, chamadoEm = null) => ({ id, prioridade, criadoEm, chamadoEm });
 
@@ -35,4 +52,3 @@ test('detects the priority of the most recent call', () => {
     ])).toBe(false);
     expect(getLastCalledPriority([])).toBeNull();
 });
-

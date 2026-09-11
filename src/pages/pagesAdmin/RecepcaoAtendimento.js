@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, doc, getDocs, limit, query, runTransaction, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, getDocs, limit, onSnapshot, query, runTransaction, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
+import { getWalkInLimit } from '../../utils/walkInLimit';
 import {
     LiaCheckCircleSolid,
     LiaClipboardListSolid,
@@ -16,10 +17,12 @@ import { printProtocolReceipt } from '../../utils/printReport';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { buildReceptionWelcomeEmail, isValidOptionalEmail } from '../../utils/receptionWelcomeEmail';
 import { openQueuePanelWindow } from '../../utils/openQueuePanelWindow';
+import VereadorAppointmentOffer from '../../components/VereadorAppointmentOffer';
 import ReceptionQueueModal from '../../components/ReceptionQueueModal';
 import { useSystemControl } from '../../contexts/SystemControlContext';
 
 const RECEPTION_MODULES = {
+    Vereadores: 'agendaVereadores',
     'Balcão do Cidadão': 'balcao',
     'Assessoria ao Microempreendedor': 'microempreendedor',
     PROCON: 'procon',
@@ -28,8 +31,9 @@ const RECEPTION_MODULES = {
     PIEL: 'piel',
 };
 
-const receptionSectors = ['Balcão do Cidadão', 'Assessoria ao Microempreendedor', 'PROCON', 'Ouvidoria', 'Procuradoria da Mulher', 'PIEL'];
+const receptionSectors = ['Vereadores', 'Balcão do Cidadão', 'Assessoria ao Microempreendedor', 'PROCON', 'Ouvidoria', 'Procuradoria da Mulher', 'PIEL'];
 const documentTypeOptions = {
+    Vereadores: [{ value: 'Atendimento com vereador', label: 'Atendimento com vereador' }],
     'Balcão do Cidadão': [
         { value: 'cin', label: 'Carteira de Identidade Nacional (CIN)' },
     ],
@@ -87,6 +91,7 @@ const todayKey = () => {
 };
 
 const queuePrefixes = {
+    Vereadores: 'V',
     'Balcão do Cidadão': 'B',
     'Assessoria ao Microempreendedor': 'M',
     Ouvidoria: 'O',
@@ -142,6 +147,7 @@ const getAppointmentSortKey = (item) => {
 };
 
 const appointmentCollections = [
+    { name: 'solicitacoes-vereadores', sector: 'Vereadores' },
     { name: 'balcao-cidadao', sector: 'Balcão do Cidadão' },
     { name: 'assessoria-microempreendedor', sector: 'Assessoria ao Microempreendedor' },
     { name: 'ouvidoria', sector: 'Ouvidoria' },
@@ -155,6 +161,7 @@ const getReceptionCollection = (sector) => {
     if (sector === 'Ouvidoria') return 'ouvidoria';
     if (sector === 'Procuradoria da Mulher') return 'procuradoria-mulher';
     if (sector === 'PIEL') return 'piel-atendimentos';
+    if (sector === 'Vereadores') return 'solicitacoes-vereadores';
     if (sector === 'PROCON') return 'procon-atendimentos';
     return 'balcao-cidadao';
 };
@@ -175,6 +182,13 @@ const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDat
     const queueRef = doc(collection(firestore, 'atendimento-fila'));
 
     return runTransaction(firestore, async (transaction) => {
+        if (requestRef?.path.startsWith('solicitacoes-vereadores/')) {
+            const requestSnapshot = await transaction.get(requestRef);
+            const fresh = requestSnapshot.data();
+            if (!fresh || fresh.status !== 'Agendado' || fresh.aprovadoPor !== fresh.dadosSolicitacao?.vereadorId || normalizeDate(fresh.appointmentDate) !== dateKey || fresh.senhaAtendimento) {
+                throw new Error('Agendamento não autorizado para confirmação ou já confirmado. Atualize a busca.');
+            }
+        }
         const counterSnap = await transaction.get(counterRef);
         const next = (counterSnap.exists() ? counterSnap.data().ultimoNumero || 0 : 0) + 1;
         const password = `${prefix}${String(next).padStart(3, '0')}`;
@@ -212,7 +226,7 @@ const createQueueTicket = async ({ protocolo, nome, cpf, assunto, appointmentDat
     });
 };
 
-const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, collectionName, userId, userEmail, beneficiarioNome, solicitanteNome, prioridade = false, requestRef, requestUpdates }) => {
+const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, collectionName, userId, userEmail, beneficiarioNome, solicitanteNome, prioridade = false, appointmentDate = null, appointmentTime = null, requestRef, requestUpdates }) => {
     const dateKey = todayKey();
     const prefix = queuePrefixes[setor] || 'B';
     const counterRef = doc(firestore, 'atendimento-fila-meta', `${dateKey}-${prefix}`);
@@ -220,13 +234,22 @@ const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, c
     const queueRef = doc(collection(firestore, 'atendimento-fila'));
 
     return runTransaction(firestore, async (transaction) => {
-        const [counterSnap, walkInSnap] = await Promise.all([
+        if (requestRef?.path.startsWith('solicitacoes-vereadores/')) {
+            const requestSnapshot = await transaction.get(requestRef);
+            const fresh = requestSnapshot.data();
+            if (!fresh || fresh.status !== 'Agendado' || fresh.aprovadoPor !== fresh.dadosSolicitacao?.vereadorId || normalizeDate(fresh.appointmentDate) !== dateKey || fresh.senhaAtendimento) {
+                throw new Error('Agendamento não autorizado para confirmação ou já confirmado. Atualize a busca.');
+            }
+        }
+        const [counterSnap, walkInSnap, limitSnap] = await Promise.all([
             transaction.get(counterRef),
             transaction.get(walkInRef),
+            transaction.get(doc(firestore, 'balcao-config', 'walkInLimits')),
         ]);
+        const dailyLimit = getWalkInLimit(limitSnap.data());
         const currentWalkIns = walkInSnap.exists() ? Number(walkInSnap.data().total || 0) : 0;
-        if (currentWalkIns >= 20) {
-            const error = new Error('O limite de 20 encaixes sem agendamento para hoje foi atingido.');
+        if (currentWalkIns >= dailyLimit) {
+            const error = new Error(`O limite de ${dailyLimit} encaixes sem agendamento para hoje foi atingido.`);
             error.code = 'reception/walk-in-limit';
             throw error;
         }
@@ -239,7 +262,7 @@ const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, c
         transaction.set(counterRef, { ultimoNumero: next, data: dateKey, setor, prefixo: prefix }, { merge: true });
         transaction.set(walkInRef, {
             total: nextWalkIn,
-            limite: 20,
+            limite: dailyLimit,
             data: dateKey,
             atualizadoEm: now,
         }, { merge: true });
@@ -251,8 +274,8 @@ const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, c
             solicitanteNome: solicitanteNome || '',
             cpf: cpf || '',
             assunto,
-            appointmentDate: null,
-            appointmentTime: null,
+            appointmentDate,
+            appointmentTime,
             agendamentoOrdenacaoEm: null,
             collectionName: collectionName || getReceptionCollection(setor),
             setor: setor || 'Balcão do Cidadão',
@@ -278,6 +301,8 @@ const createWalkInQueueTicket = async ({ protocolo, nome, cpf, assunto, setor, c
 };
 
 const RecepcaoAtendimento = () => {
+    const [dailyWalkInLimit, setDailyWalkInLimit] = useState(20);
+    useEffect(() => onSnapshot(doc(firestore, 'balcao-config', 'walkInLimits'), snapshot => setDailyWalkInLimit(getWalkInLimit(snapshot.data())), () => setDailyWalkInLimit(null)), []);
     const { settings } = useSystemControl();
     const availableSectors = useMemo(() => receptionSectors.filter(sector => (
         settings.modules?.[RECEPTION_MODULES[sector]]?.admin !== false
@@ -285,9 +310,15 @@ const RecepcaoAtendimento = () => {
     const availableAppointmentCollections = useMemo(() => appointmentCollections.filter(item => (
         availableSectors.includes(item.sector)
     )), [availableSectors]);
+    const [members, setMembers] = useState([]);
     const [flowStep, setFlowStep] = useState(0);
     const [attendanceType, setAttendanceType] = useState('');
     const [selectedSector, setSelectedSector] = useState('');
+    useEffect(() => {
+        if (selectedSector !== 'Vereadores') return;
+        getDocs(query(collection(firestore, 'users'), where('tipo', '==', 'Vereador'))).then(snapshot => setMembers(snapshot.docs.map(item => ({ ...item.data(), id: item.id })))).catch(() => alert('Não foi possível carregar os vereadores.'));
+    }, [selectedSector]);
+
     const [attachedFiles, setAttachedFiles] = useState([]);
     const [appointmentSearch, setAppointmentSearch] = useState('');
     const [appointmentResults, setAppointmentResults] = useState([]);
@@ -378,7 +409,7 @@ const RecepcaoAtendimento = () => {
         if (flowStep === 1) return !!attendanceType;
         if (flowStep === 2 && isCreateFlow) return !!requestForm.nome.trim() && isValidOptionalEmail(requestForm.email);
         if (flowStep === 2 && isConfirmFlow) return !!appointment && appointmentIsToday;
-        if (flowStep === 3 && isCreateFlow) return !!requestForm.tipoDocumento.trim();
+        if (flowStep === 3 && isCreateFlow) return !!requestForm.tipoDocumento.trim() && (selectedSector !== 'Vereadores' || Boolean(requestForm.vereadorId && requestForm.descricao.trim()));
         if (flowStep === 3 && isConfirmFlow) return true;
         return true;
     };
@@ -415,7 +446,7 @@ const RecepcaoAtendimento = () => {
             const snapshots = await Promise.all(availableAppointmentCollections.map(async (item) => {
                 const snapshot = await getDocs(query(
                     collection(firestore, item.name),
-                    where('status', '==', 'Agendado'),
+                    where('status', 'in', item.sector === 'Vereadores' ? ['Agendado', 'Datas Liberadas'] : ['Agendado']),
                     limit(500)
                 ));
                 return snapshot.docs.map(docSnap => ({
@@ -578,7 +609,11 @@ const RecepcaoAtendimento = () => {
             };
 
             let payload;
-            if (selectedSector === 'PROCON') {
+            if (selectedSector === 'Vereadores') {
+                const member = members.find(item => item.id === requestForm.vereadorId);
+                if (!member || !requestForm.descricao.trim()) throw new Error('Informe o vereador e o motivo do atendimento.');
+                payload = { ...commonFields, dadosBeneficiario: beneficiaryData, dadosSolicitacao: { vereadorId: member.id, vereadorNome: member.name || member.nome || '', assunto: requestForm.tipoDocumento, descricao: requestForm.descricao, anexos: uploadedFiles }, status: 'Aguardando Análise', dataSolicitacao: new Date(), criadoPor: auth.currentUser.uid };
+            } else if (selectedSector === 'PROCON') {
                 payload = {
                     ...commonFields,
                     userDataAtTimeOfComplaint: {
@@ -736,7 +771,7 @@ const RecepcaoAtendimento = () => {
     };
 
     const handleWalkInChoice = async (joinQueue) => {
-        if (!createdProtocol || loading || walkInDecision) return;
+        if (!createdProtocol || loading || walkInDecision || selectedSector === 'Vereadores') return;
         if (!joinQueue) {
             setWalkInDecision('request-only');
             return;
@@ -771,7 +806,7 @@ const RecepcaoAtendimento = () => {
             console.error('Erro ao encaixar atendimento na fila:', error);
             if (error.code === 'reception/walk-in-limit') {
                 setWalkInDecision('limit-reached');
-                alert('A solicitação foi criada, mas o limite diário de 20 encaixes sem agendamento já foi atingido.');
+                alert(error.message);
             } else {
                 alert('A solicitação foi criada, mas não foi possível realizar o encaixe na fila. Tente novamente.');
             }
@@ -781,7 +816,7 @@ const RecepcaoAtendimento = () => {
     };
 
     const handleConfirmArrival = async (shouldPrint = true) => {
-        if (!appointment || !appointmentIsToday) {
+        if (!appointment || !appointmentIsToday || queuePriority === null || (appointment.collectionName === 'solicitacoes-vereadores' && (appointment.status !== 'Agendado' || appointment.aprovadoPor !== appointment.dadosSolicitacao?.vereadorId))) {
             alert('Selecione um agendamento válido para hoje.');
             return;
         }
@@ -812,6 +847,8 @@ const RecepcaoAtendimento = () => {
                     userId: appointment.userId || appointment.dadosUsuario?.uid || appointment.dadosUsuario?.id || '',
                     userEmail: appointment.dadosUsuario?.email || appointment.email || '',
                     assunto: getAppointmentSubject(appointment),
+                    appointmentDate: getAppointmentDate(appointment),
+                    appointmentTime: getAppointmentTime(appointment),
                     setor: appointment.setorAtendimento || selectedSector,
                     collectionName,
                     prioridade: queuePriority,
@@ -998,6 +1035,7 @@ const RecepcaoAtendimento = () => {
                             {getBeneficiaryName(appointment) && getRequesterName(appointment) !== getBeneficiaryName(appointment) && <p>Solicitante: {getRequesterName(appointment) || 'Não informado'}</p>}
                             <p>Setor: {appointment.setorAtendimento || selectedSector}</p>
                             <p>Status: {appointment.status || 'Sem status'}</p>
+                            {appointment.collectionName === 'solicitacoes-vereadores' && appointment.status === 'Datas Liberadas' && <VereadorAppointmentOffer key={appointment.id} request={appointment} onSaved={handleFindAppointment} />}
                             <p>Data: {getAppointmentDate(appointment) || 'Não informado'}</p>
                             <p>Horário: {getAppointmentTime(appointment) || 'Não informado'}</p>
                             {appointmentLateToday && (
@@ -1045,6 +1083,7 @@ const RecepcaoAtendimento = () => {
             return (
                 <div className="reception-step-card">
                     <h4>Enviar Dados da Solicitação</h4>
+                    {selectedSector === 'Vereadores' && <label>Vereador<select className="form-input" name="vereadorId" value={requestForm.vereadorId || ''} onChange={handleRequestChange}><option value="">Selecione</option>{members.map(member => <option key={member.id} value={member.id}>{member.name || member.nome}</option>)}</select><p>Informe o motivo nas observações. O vereador deverá aprová-lo antes de liberar datas.</p></label>}
                     {selectedSector === 'Balcão do Cidadão' && (
                         <div className="form-group">
                             <label>Assunto</label>
@@ -1136,11 +1175,12 @@ const RecepcaoAtendimento = () => {
                             <p><strong>Setor:</strong> {selectedSector}</p>
                             <p>Protocolo gerado com sucesso. A impressão é opcional.</p>
                             {isCreateFlow && welcomeEmailStatus && <p role="status">{welcomeEmailStatus}</p>}
-                            {isCreateFlow && !walkInDecision && (
+                            {isCreateFlow && selectedSector === 'Vereadores' && <p>Visitante cadastrado. Aguarde a análise do vereador e a liberação de horários. Depois, busque o protocolo para agendar e confirmar a chegada.</p>}
+                            {isCreateFlow && selectedSector !== 'Vereadores' && !walkInDecision && (
                                 <div className="reception-walk-in-choice">
                                     <div>
                                         <strong>Deseja encaixar este cidadão na fila de hoje?</strong>
-                                        <span>São permitidos até 20 atendimentos sem agendamento por dia.</span>
+                                        <span>{dailyWalkInLimit === null ? 'Não foi possível consultar o limite de encaixes.' : `São permitidos até ${dailyWalkInLimit} atendimentos sem agendamento por dia.`}</span>
                                         <label className="reception-priority-field"><strong>Tipo de atendimento</strong><select required value={queuePriority === null ? '' : queuePriority ? 'prioridade' : 'normal'} onChange={event => setQueuePriority(event.target.value === 'prioridade')}><option value="" disabled>Selecione...</option><option value="normal">Normal</option><option value="prioridade">Prioridade</option></select></label>
                                     </div>
                                     <div className="reception-walk-in-actions">
@@ -1156,7 +1196,7 @@ const RecepcaoAtendimento = () => {
                             {isCreateFlow && walkInDecision === 'queued' && (
                                 <div className="reception-walk-in-result success" role="status">
                                     <LiaCheckCircleSolid />
-                                    <div><strong>Encaixe confirmado</strong><span>Senha {queuePassword} · Encaixe {walkInNumber} de 20 do dia</span></div>
+                                    <div><strong>Encaixe confirmado</strong><span>Senha {queuePassword} · Encaixe {walkInNumber} do dia · Limite atual: {dailyWalkInLimit ?? 'indisponível'}</span></div>
                                 </div>
                             )}
                             {isCreateFlow && walkInDecision === 'request-only' && (
@@ -1265,7 +1305,7 @@ const RecepcaoAtendimento = () => {
                         </div>
                     )}
 
-                    {flowStep === 5 && ((isCreateFlow && createdProtocol && walkInDecision) || (isConfirmFlow && queuePassword)) && (
+                    {flowStep === 5 && ((isCreateFlow && createdProtocol && (walkInDecision || selectedSector === 'Vereadores')) || (isConfirmFlow && queuePassword)) && (
                         <div className="reception-step-actions">
                             <button type="button" className="btn-primary" onClick={() => setFlowStep(6)}>
                                 Continuar

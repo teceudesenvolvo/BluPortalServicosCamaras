@@ -8,6 +8,7 @@ import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
 import config from '../../config';
+import { getWalkInLimit } from '../../utils/walkInLimit';
 import AdminSidebar from '../../components/AdminSidebar';
 import {
     LiaTimesSolid, LiaUploadSolid, LiaBellSolid, LiaPaperPlane,
@@ -400,6 +401,8 @@ const AvailabilityModal = ({ onClose, onSave }) => {
     const [currentMonthAvailability, setCurrentMonthAvailability] = useState(getDefaultDailyAvailability);
     const [loadingMonth, setLoadingMonth] = useState(false);
     const [blockedDates, setBlockedDates] = useState('');
+    const [walkInLimit, setWalkInLimit] = useState(20);
+    const [configError, setConfigError] = useState('');
     const [loading, setLoading] = useState(true);
 
     const getMonthOptions = () => {
@@ -422,6 +425,8 @@ const AvailabilityModal = ({ onClose, onSave }) => {
             try {
                 const blockedDatesRef = doc(firestore, 'balcao-config', 'blockedDates');
                 const blockedSnap = await getDoc(blockedDatesRef);
+                const limitSnap = await getDoc(doc(firestore, 'balcao-config', 'walkInLimits'));
+                setWalkInLimit(getWalkInLimit(limitSnap.data()));
                 if (blockedSnap.exists()) {
                     const blockedData = blockedSnap.data();
                     setBlockedDates(blockedData.dates ? blockedData.dates.join(', ') : '');
@@ -429,6 +434,7 @@ const AvailabilityModal = ({ onClose, onSave }) => {
                 setSelectedMonth(getCurrentMonthKey());
             } catch (error) {
                 console.error('Erro ao buscar configuração inicial:', error);
+                setConfigError('Não foi possível ler balcao-config. Verifique as permissões do seu perfil e as regras publicadas no projeto Firebase.');
             } finally {
                 setLoading(false);
             }
@@ -456,6 +462,7 @@ const AvailabilityModal = ({ onClose, onSave }) => {
                 }
             } catch (error) {
                 console.error(`Erro ao carregar disponibilidade para ${selectedMonth}:`, error);
+                setConfigError('Não foi possível carregar a configuração mensal. O salvamento foi bloqueado para preservar os horários existentes.');
             } finally {
                 setLoadingMonth(false);
             }
@@ -478,6 +485,7 @@ const AvailabilityModal = ({ onClose, onSave }) => {
     };
 
     const handleSaveMonthlyConfig = async () => {
+        if (configError || !Number.isInteger(Number(walkInLimit)) || Number(walkInLimit) < 0 || walkInLimit === '') return;
         if (!selectedMonth) {
             alert('Por favor, selecione um mês para salvar a configuração.');
             return;
@@ -490,6 +498,7 @@ const AvailabilityModal = ({ onClose, onSave }) => {
         try {
             const monthlyConfigRef = doc(firestore, 'balcao-monthly-configs', selectedMonth);
             await setDoc(monthlyConfigRef, finalConfig);
+            await setDoc(doc(firestore, 'balcao-config', 'walkInLimits'), { dailyLimit: Number(walkInLimit) }, { merge: true });
 
             if (isCurrentMonth) {
                 await onSave(finalConfig, blockedDatesConfig, {
@@ -507,6 +516,7 @@ const AvailabilityModal = ({ onClose, onSave }) => {
     };
 
     const handleApplyToLiveAvailability = async () => {
+        if (configError || !Number.isInteger(Number(walkInLimit)) || Number(walkInLimit) < 0 || walkInLimit === '') return;
         if (!selectedMonth) {
             alert('Por favor, selecione um mês para aplicar a configuração.');
             return;
@@ -522,6 +532,7 @@ const AvailabilityModal = ({ onClose, onSave }) => {
         try {
             const monthlyConfigRef = doc(firestore, 'balcao-monthly-configs', selectedMonth);
             await setDoc(monthlyConfigRef, configToApply);
+            await setDoc(doc(firestore, 'balcao-config', 'walkInLimits'), { dailyLimit: Number(walkInLimit) }, { merge: true });
             await onSave(configToApply, blockedDatesConfig, {
                 successMessage: `Configuração de ${selectedMonth} aplicada aos usuários.`
             });
@@ -591,6 +602,11 @@ const AvailabilityModal = ({ onClose, onSave }) => {
                                 </div>
                             ))}
                             <div className="form-group">
+                                <label>Limite diário de encaixes da recepção</label>
+                                <input type="number" min="0" step="1" className="form-input" value={walkInLimit} onChange={event => setWalkInLimit(event.target.value)} />
+                                <small>Vale para todos os setores da recepção e entra em vigor ao salvar, independentemente do mês selecionado. Zero bloqueia novos encaixes. Senhas já emitidas continuam na fila.</small>
+                            </div>
+                            <div className="form-group">
                                 <label>Dias sem atendimento (feriados, pontos facultativos)</label>
                                 <input
                                     type="text"
@@ -601,8 +617,9 @@ const AvailabilityModal = ({ onClose, onSave }) => {
                                 />
                             </div>
                             <div className="form-actions" style={{ justifyContent: 'space-between' }}>
-                                <button onClick={handleSaveMonthlyConfig} className="btn-secondary">Salvar Mês</button>
-                                <button onClick={handleApplyToLiveAvailability} className="btn-primary">Aplicar ao Vivo</button>
+                                {configError && <p role="alert">{configError}</p>}
+                                <button disabled={Boolean(configError)} onClick={handleSaveMonthlyConfig} className="btn-secondary">Salvar Mês</button>
+                                <button disabled={Boolean(configError)} onClick={handleApplyToLiveAvailability} className="btn-primary">Aplicar ao Vivo</button>
                             </div>
                         </>
                     )}

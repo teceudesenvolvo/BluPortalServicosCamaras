@@ -9,6 +9,9 @@ export const mergeCompletedWalkIns = (records, tickets) => {
         if (existing) {
             merged.set(existing.id, {
                 ...existing,
+                appointmentDate: existing.appointmentDate || ticket.appointmentDate,
+                appointmentTime: existing.appointmentTime || ticket.appointmentTime,
+                agendamentoOrdenacaoEm: existing.agendamentoOrdenacaoEm || ticket.agendamentoOrdenacaoEm,
                 entradaFilaEm: existing.entradaFilaEm || ticket.entradaFilaEm || ticket.chegadaRecepcaoEm || ticket.ordemFilaEm || ticket.criadoEm,
                 chamadoEm: existing.chamadoEm || ticket.chamadoEm,
                 atendimentoIniciadoEm: existing.atendimentoIniciadoEm || ticket.atendimentoIniciadoEm || ticket.chamadoEm,

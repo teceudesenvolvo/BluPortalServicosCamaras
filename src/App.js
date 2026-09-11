@@ -54,6 +54,7 @@ import AdminNoticiasSite from './pages/pagesAdmin/AdminNoticiasSite';
 import AdminOuvidoria from './pages/pagesAdmin/AdminOuvidoria';
 import AdminProcuradoria from './pages/pagesAdmin/AdminProcuradoria';
 import AdminVereadores from './pages/pagesAdmin/AdminVereadores';
+import AdminAgendaVereadores from './pages/pagesAdmin/AdminAgendaVereadores';
 import AdminUsers from './pages/pagesAdmin/AdminUsers';
 import AdminMail from './pages/pagesAdmin/AdminMail';
 import AdminNotifications from './pages/pagesAdmin/AdminNotifications';
@@ -124,6 +125,7 @@ function App() {
           <Route path="/admin-ouvidoria" element={<ModuleRoute surface="admin"><AdminOuvidoria /></ModuleRoute>} />
           <Route path="/admin-procuradoria" element={<ModuleRoute surface="admin"><AdminProcuradoria /></ModuleRoute>} />
           <Route path="/admin-vereadores" element={<ModuleRoute surface="admin"><AdminVereadores /></ModuleRoute>} />
+          <Route path="/admin-agenda-vereadores" element={<ModuleRoute surface="admin"><AdminAgendaVereadores /></ModuleRoute>} />
           <Route path="/admin-users" element={<ModuleRoute surface="admin"><AdminUsers /></ModuleRoute>} />
           <Route path="/admin-piel" element={<ModuleRoute surface="admin"><AdminPiel /></ModuleRoute>} />
           <Route path="/admin-balcao/agendamentos" element={<ModuleRoute surface="admin"><AdminBalcaoAgendamentos /></ModuleRoute>} />
