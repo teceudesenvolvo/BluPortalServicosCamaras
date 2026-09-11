@@ -11,7 +11,7 @@ export const isSystemRootEmail = (settings, email) => {
 };
 
 export const SYSTEM_MODULES = [
-    { id: 'agendaVereadores', name: 'Agendamentos dos vereadores', description: 'Solicitação, confirmação e horários de atendimento dos gabinetes.', adminPaths: ['/admin-agenda-vereadores'], userPaths: ['/vereadores'], app: true },
+    { id: 'agendaVereadores', name: 'Gabinete Vereador', description: 'Agenda, demandas, visitantes, equipe, tarefas, eventos e relatórios dos gabinetes.', adminPaths: ['/admin-agenda-vereadores'], userPaths: ['/vereadores'], app: true },
     { id: 'juridico', name: 'Atendimento Jurídico', description: 'Orientações e solicitações jurídicas.', adminPaths: ['/admin-juridico'], userPaths: ['/juridico'], app: true },
     { id: 'balcao', name: 'Balcão do Cidadão', description: 'Solicitações, agenda e atendimento nos guichês.', adminPaths: ['/admin-balcao'], userPaths: ['/balcao'], app: true },
     { id: 'microempreendedor', name: 'Microempreendedor', description: 'Assessoria e solicitações para empreendedores.', adminPaths: ['/admin-microempreendedor'], userPaths: ['/microempreendedor'], app: true },

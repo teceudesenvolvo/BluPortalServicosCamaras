@@ -50,7 +50,7 @@ const Sidebar = ({ onItemClick }) => {
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/ouvidoria' },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/procuradoria' },
         { title: 'TV Câmara', icon: <LiaTvSolid />, path: '/tv-camara' },
-        { title: 'Agendar com vereador', icon: <LiaUserFriendsSolid />, path: '/vereadores' },
+        { title: 'Vereadores', icon: <LiaUserFriendsSolid />, path: '/vereadores' },
         { title: 'Perfil', icon: <LiaUser />, path: '/perfil' },
     ];
     const visibleMenuItems = menuItems.filter(item => {

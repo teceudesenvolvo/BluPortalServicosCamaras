@@ -1,9 +1,10 @@
 const {
   onDocumentCreated,
+  onDocumentUpdated,
   onDocumentWritten,
 } = require("firebase-functions/v2/firestore");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
-const {onRequest} = require("firebase-functions/v2/https");
+const {onCall, onRequest, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin"); // Keep admin for database operations
 const {Logging} = require("@google-cloud/logging");
@@ -28,6 +29,207 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type,Authorization",
 };
+
+exports.buscarUsuarioParaGabinete = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Autenticação necessária.");
+  }
+  const email = String(request.data?.email || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new HttpsError("invalid-argument", "Informe um e-mail válido.");
+  }
+  const caller = await admin.firestore().collection("users")
+      .doc(request.auth.uid).get();
+  if (!["Vereador", "Admin"].includes(caller.data()?.tipo)) {
+    throw new HttpsError(
+        "permission-denied",
+        "Apenas vereador ou administrador pode buscar assessores.",
+    );
+  }
+  const users = await admin.firestore().collection("users")
+      .where("email", "==", email).limit(1).get();
+  if (users.empty) return {found: false};
+  const user = users.docs[0];
+  return {
+    found: true,
+    user: {
+      id: user.id,
+      name: user.data().name || "",
+      email: user.data().email || email,
+    },
+  };
+});
+
+const getCabinetRecipientIds = async (db, cabinetId) => {
+  if (!cabinetId) return [];
+  const members = await db.collection("gabinetes-equipe")
+      .where("gabineteId", "==", cabinetId)
+      .where("ativo", "==", true)
+      .get();
+  return [...new Set([
+    cabinetId,
+    ...members.docs.map((item) => item.data().userId).filter(Boolean),
+  ])];
+};
+
+const notifyCabinet = async ({
+  db, cabinetId, notificationKey, title, message, data = {},
+}) => {
+  const recipients = await getCabinetRecipientIds(db, cabinetId);
+  await Promise.all(recipients.map((userId) => db.collection("notifications")
+      .doc(`cabinet_${notificationKey}_${userId}`)
+      .set({
+        userId,
+        targetUserId: userId,
+        tituloNotification: title,
+        descricaoNotification: message,
+        message,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        read: false,
+        isRead: false,
+        source: "gabinete-vereador",
+        data: {screen: "GabineteVereador", cabinetId, ...data},
+      }, {merge: false})));
+  return recipients.length;
+};
+
+exports.notificarNovaDemandaGabinete = onDocumentCreated(
+    "solicitacoes-vereadores/{requestId}",
+    async (event) => {
+      const requestData = event.data?.data() || {};
+      const details = requestData.dadosSolicitacao || {};
+      const cabinetId = details.vereadorId || requestData.gabineteId;
+      const category = requestData.tipoDemanda || details.categoriaDemanda;
+      if (!cabinetId || !category || category === "Atendimento no gabinete") {
+        return;
+      }
+      await notifyCabinet({
+        db: admin.firestore(),
+        cabinetId,
+        notificationKey: `new-demand_${event.params.requestId}`,
+        title: "Nova demanda recebida",
+        message: `Uma nova demanda de ${category} chegou ao gabinete.`,
+        data: {type: "new-demand", requestId: event.params.requestId},
+      });
+    },
+);
+
+exports.notificarAtualizacaoDemandaVereador = onDocumentUpdated(
+    "solicitacoes-vereadores/{requestId}",
+    async (event) => {
+      const before = event.data?.before.data() || {};
+      const after = event.data?.after.data() || {};
+      if (!after.userId || before.status === after.status) return;
+      await admin.firestore().collection("notifications")
+          .doc(`citizen_demand_${event.params.requestId}_${after.status}`)
+          .set({
+            userId: after.userId,
+            targetUserId: after.userId,
+            tituloNotification: "Atualização da sua solicitação",
+            descricaoNotification:
+              `O status foi atualizado para ${after.status}.`,
+            message: `O status foi atualizado para ${after.status}.`,
+            protocolo: after.protocolo || event.params.requestId,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            read: false,
+            isRead: false,
+            source: "gabinete-vereador",
+          }, {merge: false});
+    },
+);
+
+const parseCabinetDate = (value) => {
+  if (!value) return null;
+  if (value.toDate) return value.toDate();
+  const text = String(value);
+  const parsed = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(text) ?
+    text : `${text}:00-03:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const cabinetMonthDay = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const match = value.match(/(?:\d{4}-)?(\d{2})-(\d{2})/);
+    if (match) return `${match[1]}-${match[2]}`;
+  }
+  const date = value.toDate?.() || new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${String(date.getMonth() + 1).padStart(2, "0")}-` +
+    String(date.getDate()).padStart(2, "0");
+};
+
+exports.notificarAgendaDosGabinetes = onSchedule(
+    {schedule: "every 30 minutes", timeZone: "America/Fortaleza"},
+    async () => {
+      const db = admin.firestore();
+      const now = new Date();
+      const windowEnd = new Date(now.getTime() + 31 * 60 * 1000);
+      const timedCollections = [
+        ["gabinetes-tarefas", "Tarefa próxima", "task"],
+        ["gabinetes-eventos", "Evento próximo", "event"],
+      ];
+      for (const [collectionName, title, type] of timedCollections) {
+        const snapshot = await db.collection(collectionName).get();
+        for (const item of snapshot.docs) {
+          const value = item.data();
+          if (!value.gabineteId || ["Concluído", "Cancelado"]
+              .includes(value.status)) continue;
+          const dueAt = parseCabinetDate(value.dataHora);
+          if (!dueAt) continue;
+          const noticeAt = new Date(dueAt.getTime() -
+            (Number(value.antecedenciaHoras) || 0) * 60 * 60 * 1000);
+          if (noticeAt < now || noticeAt >= windowEnd) continue;
+          await notifyCabinet({
+            db,
+            cabinetId: value.gabineteId,
+            notificationKey: `${type}_${item.id}_${dueAt.getTime()}`,
+            title,
+            message: `${value.titulo || title} está programado para ` +
+              dueAt.toLocaleString("pt-BR", {timeZone: "America/Fortaleza"}) +
+              ".",
+            data: {type, itemId: item.id},
+          });
+        }
+      }
+
+      const fortalezaParts = new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Fortaleza", month: "2-digit", day: "2-digit",
+        hour: "2-digit", hour12: false,
+      }).formatToParts(now);
+      const part = (name) => fortalezaParts.find((item) =>
+        item.type === name)?.value;
+      if (part("hour") !== "08") return;
+      const todayMonthDay = `${part("month")}-${part("day")}`;
+      const requests = await db.collection("solicitacoes-vereadores").get();
+      const birthdays = new Map();
+      requests.docs.forEach((item) => {
+        const value = item.data();
+        const person = value.dadosUsuario || {};
+        const cabinetId = value.dadosSolicitacao?.vereadorId ||
+          value.gabineteId;
+        const birthDate = person.birthDate || person.dataNascimento ||
+          person.nascimento;
+        if (cabinetId && cabinetMonthDay(birthDate) === todayMonthDay) {
+          const key = `${cabinetId}_${person.id || person.email || item.id}`;
+          birthdays.set(key, {cabinetId, person, requestId: item.id});
+        }
+      });
+      for (const [key, birthday] of birthdays) {
+        await notifyCabinet({
+          db,
+          cabinetId: birthday.cabinetId,
+          notificationKey: `visitor-birthday_${todayMonthDay}_${key}`,
+          title: "Aniversariante na base de visitantes",
+          message: `${birthday.person.name || "Um visitante"} faz ` +
+            "aniversário hoje.",
+          data: {type: "visitor-birthday", requestId: birthday.requestId},
+        });
+      }
+    },
+);
 
 const youtubeFunctionsBaseUrl =
     "https://southamerica-east1-blu-app-camara.cloudfunctions.net";

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-    collection, query, where, getDocs, doc, updateDoc, 
-    limit, addDoc, serverTimestamp
+    collection, query, where, getDocs, doc,
+    limit, addDoc, serverTimestamp, writeBatch
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
@@ -13,12 +13,19 @@ import { LiaTimesSolid, LiaSaveSolid, LiaUserEditSolid, LiaEnvelopeSolid, LiaSea
 // Modal para Edição de Usuário
 const UserEditModal = ({ user, onClose, onSave }) => {
     const [editedUser, setEditedUser] = useState(null);
+    const [vereadores, setVereadores] = useState([]);
 
     useEffect(() => {
         if (user) {
             setEditedUser({ ...user });
         }
     }, [user]);
+
+    useEffect(() => {
+        getDocs(collection(firestore, 'vereadores')).then(snapshot => {
+            setVereadores(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
+        });
+    }, []);
 
     if (!user || !editedUser) return null;
 
@@ -67,6 +74,7 @@ const UserEditModal = ({ user, onClose, onSave }) => {
                             <select name="tipo" value={editedUser.tipo || 'Cidadão'} onChange={handleChange}>
                                 <option value="Admin">Admin</option>
                                 <option value="Vereador">Vereador</option>
+                                <option value="Assessor">Assessor</option>
                                 <option value="Juridico">Juridico</option>
                                 <option value="Procuradoria">Procuradoria</option>
                                 <option value="Procon">Procon</option>
@@ -77,6 +85,8 @@ const UserEditModal = ({ user, onClose, onSave }) => {
                                 <option value="Cidadão">Cidadão</option>
                             </select>
                         </div>
+                        {editedUser.tipo === 'Vereador' && <div className="data-item-edit"><label>Vincular ao vereador público:</label><select name="vereadorPublicoId" required value={editedUser.vereadorPublicoId || ''} onChange={handleChange}><option value="">Selecione o cadastro público</option>{vereadores.map(item => <option key={item.id} value={item.id}>{item.name || item.nome}</option>)}</select></div>}
+                        {editedUser.tipo === 'Assessor' && <div className="data-item-edit"><label>Equipe do vereador:</label><select name="gabineteId" required value={editedUser.gabineteId || ''} onChange={handleChange}><option value="">Selecione o gabinete</option>{vereadores.map(item => <option key={item.id} value={item.userId || ''} disabled={!item.userId}>{item.name || item.nome}{!item.userId ? ' — vereador ainda não vinculado' : ''}</option>)}</select></div>}
                     </div>
                     <div className="form-actions" style={{ marginTop: '20px' }}>
                         <button onClick={handleSave} className="btn-primary">
@@ -293,7 +303,13 @@ const AdminUsersDashboard = () => {
     const handleSaveUser = async (userId, updatedData) => {
         const userRef = doc(firestore, 'users', userId);
         try {
-            await updateDoc(userRef, updatedData);
+            if (updatedData.tipo === 'Vereador' && !updatedData.vereadorPublicoId) throw new Error('VINCULO_VEREADOR');
+            if (updatedData.tipo === 'Assessor' && !updatedData.gabineteId) throw new Error('VINCULO_ASSESSOR');
+            const batch = writeBatch(firestore);
+            batch.update(userRef, updatedData);
+            if (updatedData.tipo === 'Vereador') batch.update(doc(firestore, 'vereadores', updatedData.vereadorPublicoId), { userId, emailUsuario: updatedData.email, atualizadoEm: serverTimestamp() });
+            if (updatedData.tipo === 'Assessor') batch.set(doc(firestore, 'gabinetes-equipe', `${updatedData.gabineteId}_${userId}`), { gabineteId: updatedData.gabineteId, vereadorId: updatedData.gabineteId, userId, email: updatedData.email, nome: updatedData.name || updatedData.email, nivelAcesso: updatedData.nivelAcessoGabinete || 'operacional', ativo: true, criadoEm: serverTimestamp() }, { merge: true });
+            await batch.commit();
             // A alteração de perfil não deve ser considerada falha caso a
             // coleção opcional de notificações esteja temporariamente bloqueada.
             try {
@@ -305,7 +321,7 @@ const AdminUsersDashboard = () => {
             handleCloseModal();
             fetchUsers(null, hasActiveFilters); // Atualiza a lista
         } catch (error) {
-            alert(error?.code === 'permission-denied'
+            alert(error.message === 'VINCULO_VEREADOR' ? 'Selecione o cadastro público correspondente ao vereador.' : error.message === 'VINCULO_ASSESSOR' ? 'Selecione o gabinete ao qual o assessor pertence.' : error?.code === 'permission-denied'
                 ? 'Seu perfil não tem permissão para alterar este usuário. Publique as regras atualizadas e entre novamente.'
                 : 'Falha ao atualizar o usuário.');
             console.error("Erro ao salvar usuário:", error);
@@ -408,7 +424,7 @@ const AdminUsersDashboard = () => {
     }
     );
 
-    const tiposList = ['Todos', 'Admin', 'Vereador', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Microempreendedor', 'Recepção', 'Cidadão'];
+    const tiposList = ['Todos', 'Admin', 'Vereador', 'Assessor', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Microempreendedor', 'Recepção', 'Cidadão'];
 
     if (!isAuthReady) {
         return <div className="loading-screen">Carregando...</div>;

@@ -13,7 +13,7 @@ import {
 import AdminSidebar from '../../components/AdminSidebar';
 import { auth, firestore } from '../../firebase';
 import config from '../../config';
-import { printProtocolReceipt } from '../../utils/printReport';
+import { printProtocolReceipt, printTableReport } from '../../utils/printReport';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { buildReceptionWelcomeEmail, isValidOptionalEmail } from '../../utils/receptionWelcomeEmail';
 import { openQueuePanelWindow } from '../../utils/openQueuePanelWindow';
@@ -145,6 +145,22 @@ const getAppointmentSortKey = (item) => {
     const parsed = new Date(`${normalizedDate}T${time}:00-03:00`).getTime();
     return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
 };
+
+const TodayAppointmentsModal = ({ appointments, loading, errors, onClose, onPrint }) => (
+    <div className="modal-overlay" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+        <div className="modal-content reception-today-modal">
+            <div className="modal-header">
+                <div><h3>Agendamentos de hoje</h3><p>{appointments.length} agendamento(s) encontrados para confirmação.</p></div>
+                <button type="button" className="modal-close-btn" onClick={onClose}>×</button>
+            </div>
+            {loading && <p>Carregando agendamentos...</p>}
+            {errors.length > 0 && <p className="reception-modal-warning">Não foi possível consultar: {errors.join(', ')}. Verifique as permissões da recepção.</p>}
+            {!loading && appointments.length === 0 && <p className="detail-description">Nenhum agendamento está registrado para hoje. Isso também pode significar que não há horários marcados para esta data.</p>}
+            {appointments.length > 0 && <div className="reception-today-list">{appointments.map(item => <article key={`${item.collectionName}-${item.id}`}><strong>{getCitizenName(item)}</strong><span>{item.setorAtendimento} · {getAppointmentTime(item) || 'Sem horário'} · {getAppointmentSubject(item)}</span><small>{item.protocolo || item.id}</small></article>)}</div>}
+            <div className="modal-actions"><button type="button" className="btn-secondary" onClick={onClose}>Fechar</button><button type="button" className="btn-primary" disabled={!appointments.length} onClick={onPrint}><LiaPrintSolid /> Imprimir / salvar PDF</button></div>
+        </div>
+    </div>
+);
 
 const appointmentCollections = [
     { name: 'solicitacoes-vereadores', sector: 'Vereadores' },
@@ -335,7 +351,47 @@ const RecepcaoAtendimento = () => {
     const [showSideMenu, setShowSideMenu] = useState(true);
     const [welcomeEmailStatus, setWelcomeEmailStatus] = useState('');
     const [showReceptionQueue, setShowReceptionQueue] = useState(false);
+    const [showTodayAgenda, setShowTodayAgenda] = useState(false);
+    const [allTodayAppointments, setAllTodayAppointments] = useState([]);
+    const [todayAgendaLoading, setTodayAgendaLoading] = useState(false);
+    const [todayAgendaErrors, setTodayAgendaErrors] = useState([]);
     const [queuePriority, setQueuePriority] = useState(null);
+
+    const loadAllTodayAppointments = async () => {
+        setShowTodayAgenda(true);
+        setTodayAgendaLoading(true);
+        setTodayAgendaErrors([]);
+        const settled = await Promise.allSettled(availableAppointmentCollections.map(async (item) => {
+            const snapshot = await getDocs(query(
+                collection(firestore, item.name), where('status', '==', 'Agendado'), limit(500)
+            ));
+            return snapshot.docs.map(docSnap => ({
+                id: docSnap.id, collectionName: item.name, setorAtendimento: item.sector, ...docSnap.data(),
+            })).filter(result => normalizeDate(getAppointmentDate(result)) === todayKey());
+        }));
+        const errors = [];
+        const results = [];
+        settled.forEach((result, index) => {
+            if (result.status === 'fulfilled') results.push(...result.value);
+            else errors.push(availableAppointmentCollections[index].sector);
+        });
+        setTodayAgendaErrors(errors);
+        setAllTodayAppointments(results.sort((a, b) => getAppointmentSortKey(a) - getAppointmentSortKey(b)));
+        setTodayAgendaLoading(false);
+    };
+
+    const printTodayAgenda = () => printTableReport({
+        title: 'Agendamentos do dia',
+        subtitle: `Confirmação da recepção · ${todayKey().split('-').reverse().join('/')}`,
+        columns: [
+            { label: 'Horário', key: 'appointmentTime', width: '12%' },
+            { label: 'Cidadão', render: item => getCitizenName(item), width: '26%' },
+            { label: 'Setor', key: 'setorAtendimento', width: '22%' },
+            { label: 'Assunto', render: item => getAppointmentSubject(item), width: '30%' },
+            { label: 'Protocolo', render: item => item.protocolo || item.id, width: '18%' },
+        ],
+        rows: allTodayAppointments,
+    });
 
     useEffect(() => {
         if (selectedSector && !availableSectors.includes(selectedSector)) {
@@ -1265,6 +1321,10 @@ const RecepcaoAtendimento = () => {
                                 <LiaClipboardListSolid />
                                 <span className="admin-action-label">Fila da recepção</span>
                             </button>
+                            <button type="button" onClick={loadAllTodayAppointments} className="admin-action-button action-queue">
+                                <LiaClipboardListSolid />
+                                <span className="admin-action-label">Agendamentos do dia</span>
+                            </button>
                             <button onClick={openQueuePanelWindow} className="admin-action-button action-queue">
                                 <LiaClipboardListSolid />
                                 <span className="admin-action-label">Ver Painel da Fila</span>
@@ -1276,6 +1336,7 @@ const RecepcaoAtendimento = () => {
                 {renderSettingsButton()}
 
                 {showReceptionQueue && <ReceptionQueueModal onClose={() => setShowReceptionQueue(false)} />}
+                {showTodayAgenda && <TodayAppointmentsModal appointments={allTodayAppointments} loading={todayAgendaLoading} errors={todayAgendaErrors} onClose={() => setShowTodayAgenda(false)} onPrint={printTodayAgenda} />}
 
                 <section className="reception-flow-shell">
                     <div className="reception-stepper reception-main-stepper">

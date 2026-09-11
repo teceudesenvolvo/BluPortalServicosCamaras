@@ -109,6 +109,7 @@ const NovaSolicitacaoVereador = () => {
                 address: loggedInUserData?.address || 'Não informado',
                 neighborhood: loggedInUserData?.neighborhood || 'Não informado',
                 city: loggedInUserData?.city || 'Não informado',
+                birthDate: loggedInUserData?.birthDate || loggedInUserData?.dataNascimento || loggedInUserData?.nascimento || '',
             };
 
             await addDoc(collection(firestore, 'solicitacoes-vereadores'), {
@@ -134,7 +135,7 @@ const NovaSolicitacaoVereador = () => {
     return (
         <div className="dashboard-layout">
             <Sidebar onItemClick={(path) => navigate(path)} />
-            <div className="dashboard-content">
+            <div className="dashboard-content council-request-page">
                 <header className="page-header-container">
                     <div className="header-title-section">
                         <h1>Câmara Municipal de Pacatuba</h1>

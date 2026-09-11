@@ -1,6 +1,6 @@
 import { canAccessModule } from '../../config/rolePermissions';
 import React, { useEffect, useState } from 'react';
-import { addDoc, collection, doc, getDoc, onSnapshot, query, runTransaction, serverTimestamp, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, onSnapshot, query, runTransaction, where } from 'firebase/firestore';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { useSystemControl } from '../../contexts/SystemControlContext';
 import { isSystemRootEmail } from '../../config/systemModules';
@@ -8,6 +8,7 @@ import { firestore } from '../../firebase';
 import VereadorAppointmentOffer from '../../components/VereadorAppointmentOffer';
 import AdminSidebar from '../../components/AdminSidebar';
 import { SectorAvailabilityModal } from '../../components/SectorScheduling';
+import CabinetWorkspace from '../../components/CabinetWorkspace';
 
 export default function AdminAgendaVereadores() {
     const { currentUser } = useAuth();
@@ -17,10 +18,10 @@ export default function AdminAgendaVereadores() {
     const [members, setMembers] = useState([]);
     const [selected, setSelected] = useState(null);
     const [availability, setAvailability] = useState(null);
-    const [filter, setFilter] = useState('');
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
-    const [teamEmail, setTeamEmail] = useState('');
+    const [gabineteId, setGabineteId] = useState('');
+    const [cabinetAccess, setCabinetAccess] = useState('consulta');
     const admin = (role !== 'Vereador' && canAccessModule(settings, role, currentUser?.email, 'agendaVereadores', 'admin')) || isSystemRootEmail(settings, currentUser?.email);
     const allowed = Boolean(currentUser && role && canAccessModule(settings, role, currentUser?.email, 'agendaVereadores', 'admin'));
     useEffect(() => {
@@ -32,16 +33,22 @@ export default function AdminAgendaVereadores() {
         return () => { active = false; };
     }, [currentUser]);
     useEffect(() => {
+        if (!currentUser || !role) return;
+        if (role === 'Vereador') { setGabineteId(currentUser.uid); setCabinetAccess('gestao'); return; }
+        if (role === 'Assessor') getDocs(query(collection(firestore, 'gabinetes-equipe'), where('userId', '==', currentUser.uid))).then(snap => { setGabineteId(snap.docs[0]?.data().gabineteId || ''); setCabinetAccess(snap.docs[0]?.data().nivelAcesso || 'operacional'); }).catch(() => setError('Seu usuário ainda não está vinculado a um gabinete.'));
+    }, [currentUser, role]);
+    useEffect(() => {
         if (!allowed) return undefined;
         const requests = collection(firestore, 'solicitacoes-vereadores');
-        const unsubscribe = onSnapshot(admin ? requests : query(requests, where('dadosSolicitacao.vereadorId', '==', currentUser.uid)), snap => {
+        if (!admin && !gabineteId) return undefined;
+        const unsubscribe = onSnapshot(admin ? requests : query(requests, where('dadosSolicitacao.vereadorId', '==', gabineteId)), snap => {
             setItems(snap.docs.map(item => ({ ...item.data(), id: item.id })));
         }, () => setError('Não foi possível carregar os agendamentos.'));
         const unsubscribeMembers = onSnapshot(query(collection(firestore, 'users'), where('tipo', '==', 'Vereador')), snap => {
             setMembers(snap.docs.map(item => ({ ...item.data(), id: item.id })).filter(item => admin || item.id === currentUser.uid));
         }, () => setError('Não foi possível carregar os vereadores.'));
         return () => { unsubscribe(); unsubscribeMembers(); };
-    }, [allowed, admin, currentUser]);
+    }, [allowed, admin, currentUser, gabineteId]);
     const changeStatus = async (item, status) => {
         setBusy(true); setError('');
         try {
@@ -57,20 +64,11 @@ export default function AdminAgendaVereadores() {
             });
         } catch (err) { setError(err.message); } finally { setBusy(false); }
     };
-    const addTeamMember = async event => {
-        event.preventDefault();
-        if (!teamEmail.trim()) return;
-        try { await addDoc(collection(firestore, 'gabinetes-equipe'), { gabineteId: currentUser.uid, vereadorId: currentUser.uid, email: teamEmail.trim().toLowerCase(), papel: 'Equipe do gabinete', ativo: true, criadoPor: currentUser.uid, criadoEm: serverTimestamp() }); setTeamEmail(''); }
-        catch (err) { setError('Não foi possível adicionar o membro da equipe.'); }
-    };
     if (!allowed) return <main className="dashboard-content"><p>{error || (role ? 'Acesso disponível para administradores e vereadores.' : 'Verificando acesso…')}</p></main>;
-    return <div className="dashboard-layout"><AdminSidebar /><main className="dashboard-content">
-        <header className="page-header-container"><div><h1>Agendamentos dos vereadores</h1><p>Confirme horários e acompanhe os atendimentos dos gabinetes.</p></div></header>
+    return <div className="dashboard-layout"><AdminSidebar /><main className="dashboard-content cabinet-page-content">
+        <header className="page-header-container"><div><h1>Gabinete Vereador</h1><p>Agenda, demandas, visitantes, equipe e atividades do gabinete.</p></div></header>
         {error && <p role="alert">{error}</p>}
-        <section className="data-card"><h2>Horários dos gabinetes</h2><div className="form-row">{members.map(member => <button className="btn-secondary" key={member.id} onClick={() => setAvailability(member)}>Horários de {member.name || member.nome}</button>)}</div></section>
-        {role === 'Vereador' && <section className="data-card"><h2>Equipe do gabinete</h2><p>Adicione colaboradores pelo e-mail para apoiar o tratamento das demandas.</p><form className="form-row" onSubmit={addTeamMember}><input className="form-input" type="email" required placeholder="colaborador@camara.gov.br" value={teamEmail} onChange={event => setTeamEmail(event.target.value)} /><button className="btn-primary">Adicionar membro</button></form></section>}
-        <section className="data-card"><label>Status <select className="form-input" value={filter} onChange={event => setFilter(event.target.value)}><option value="">Todos</option>{['Aguardando Análise', 'Aguardando Confirmação', 'Datas Liberadas', 'Recusado', 'Agendado', 'Realizado', 'Cancelado'].map(status => <option key={status}>{status}</option>)}</select></label>
-            <ul className="data-list">{items.filter(item => !filter || item.status === filter).sort((a,b) => String(a.appointmentDate || a.dadosSolicitacao?.dataPreferencial || '').localeCompare(String(b.appointmentDate || b.dadosSolicitacao?.dataPreferencial || ''))).map(item => <li className="data-list-item" key={item.id}><div className="item-main-info"><strong>{item.dadosUsuario?.name || 'Cidadão'}</strong><span>{item.dadosSolicitacao?.vereadorNome} · {item.dadosSolicitacao?.assunto}</span><span>{item.appointmentDate || item.dadosSolicitacao?.dataPreferencial} · {item.appointmentTime || item.dadosSolicitacao?.horarioPreferencial}</span><span>{item.status}</span><p>{item.dadosSolicitacao?.descricao}</p><div className="form-row">{['Aguardando Análise', 'Aguardando Confirmação', 'Datas Liberadas'].includes(item.status) && item.dadosSolicitacao?.vereadorId === currentUser.uid && <button className="btn-primary" onClick={() => setSelected(item)}>Analisar motivo / liberar horários</button>}{item.status === 'Agendado' && <button className="btn-primary" disabled={busy} onClick={() => changeStatus(item, 'Realizado')}>Concluir</button>}{['Agendado','Aguardando Confirmação','Aguardando Análise','Datas Liberadas'].includes(item.status) && <button className="btn-secondary" disabled={busy} onClick={() => changeStatus(item, 'Cancelado')}>Cancelar</button>}</div></div></li>)}</ul>{!items.length && <p>Nenhum atendimento solicitado.</p>}</section>
+        <CabinetWorkspace gabineteId={gabineteId || members[0]?.id || ''} items={items} canManageTeam={role === 'Vereador' || admin} canApprove={role === 'Vereador' || admin} canOperate={role === 'Vereador' || admin || ['operacional','gestao'].includes(cabinetAccess)} onOpenAvailability={() => setAvailability({ id: gabineteId || members[0]?.id, name: 'gabinete' })} onAnalyze={setSelected} onChangeStatus={changeStatus} busy={busy} />
         {selected && <div className="modal-overlay"><div className="modal-content"><button className="btn-secondary" onClick={() => setSelected(null)}>Fechar</button><VereadorAppointmentOffer key={selected.id} request={selected} review onSaved={() => setSelected(null)} /></div></div>}
         {availability && <SectorAvailabilityModal configCollection={`vereadores-agenda-config/${availability.id}/agenda`} sectorLabel={availability.name || availability.nome} onClose={() => setAvailability(null)} />}
     </main></div>;

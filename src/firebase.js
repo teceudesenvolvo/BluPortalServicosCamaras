@@ -5,6 +5,7 @@ import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 import { initializeFirestore } from "firebase/firestore";
 import { getDatabase } from "firebase/database";
+import { getFunctions } from "firebase/functions";
 
 // As chaves são lidas das variáveis de ambiente (arquivo .env.local) para segurança e para garantir que a configuração esteja completa.
 const firebaseConfig = {
@@ -39,6 +40,7 @@ export const storage = getStorage(app);
 
 // Exporta a instância do Realtime Database
 export const db = getDatabase(app);
+export const functions = getFunctions(app, 'us-central1');
 
 // Exporta o app para uso futuro, se necessário
 export default app;

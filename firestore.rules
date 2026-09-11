@@ -33,6 +33,7 @@ service cloud.firestore {
     }
     match /vereadores/{documentId} {
       allow read: if true;
+      allow write: if isConfiguredRoot() || isAdminProfile();
     }
     match /piel/{documentId} {
       allow read: if true;
@@ -121,6 +122,13 @@ service cloud.firestore {
     function isReceptionStaff() {
       return request.auth != null && hasModuleAdminAccess('recepcao', ['Admin', 'Recepção', 'Recepcao', 'Balcão', 'Microempreendedor']);
     }
+    function isCabinetMember(cabinetId) {
+      return request.auth != null && exists(/databases/$(database)/documents/gabinetes-equipe/$(cabinetId + '_' + request.auth.uid));
+    }
+    function canOperateCabinet(cabinetId) {
+      return isCabinetMember(cabinetId)
+        && get(/databases/$(database)/documents/gabinetes-equipe/$(cabinetId + '_' + request.auth.uid)).data.get('nivelAcesso', 'operacional') in ['operacional', 'gestao'];
+    }
 
     match /solicitacoes-vereadores/{requestId} {
       allow read: if request.auth != null && (
@@ -128,11 +136,15 @@ service cloud.firestore {
         || hasModuleAdminAccess('agendaVereadores', ['Admin'])
         || resource.data.get('userId', '') == request.auth.uid
         || resource.data.dadosSolicitacao.vereadorId == request.auth.uid
+        || isCabinetMember(resource.data.dadosSolicitacao.vereadorId)
       );
       allow create: if request.auth != null
-        && request.resource.data.status == 'Aguardando Análise'
+        && request.resource.data.status in ['Aguardando Análise', 'RECEBIDA']
         && !request.resource.data.keys().hasAny(['aprovadoPor', 'appointmentDate', 'appointmentTime', 'horariosOferecidos'])
-        && (request.resource.data.userId == request.auth.uid || isReceptionStaff());
+        && (request.resource.data.userId == request.auth.uid || isReceptionStaff())
+        && (request.resource.data.tipoDemanda != 'Atendimento no gabinete'
+          || isReceptionStaff()
+          || exists(/databases/$(database)/documents/gabinetes-visitantes/$(request.resource.data.gabineteId + '_' + request.auth.uid)));
       allow update: if request.auth != null && (
         // Somente o parlamentar destinatário aceita o motivo e oferece horários.
         (resource.data.dadosSolicitacao.vereadorId == request.auth.uid
@@ -152,19 +164,89 @@ service cloud.firestore {
         || (isReceptionStaff() && resource.data.status == 'Agendado'
           && resource.data.aprovadoPor == resource.data.dadosSolicitacao.vereadorId
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statusFila', 'tipoEntradaFila', 'confirmadoComAtraso', 'chegadaRecepcaoEm', 'ultimaAtualizacao', 'senhaAtendimento']))
+        || ((resource.data.dadosSolicitacao.vereadorId == request.auth.uid || canOperateCabinet(resource.data.dadosSolicitacao.vereadorId))
+          && resource.data.status == 'Agendado'
+          && request.resource.data.status == 'Remarcação necessária'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'imprevistoEm']))
+        || (canOperateCabinet(resource.data.gabineteId)
+          && resource.data.tipoDemanda != 'Atendimento no gabinete'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'prioridade', 'responsavelId', 'tags', 'mensagemPublica', 'observacaoInterna', 'ultimaAtualizacao', 'atualizadoPor']))
       );
     }
+    match /vereadores-agenda-config/{cabinetId}/agenda/{configId} {
+      allow read: if request.auth != null && (cabinetId == request.auth.uid || isCabinetMember(cabinetId) || isConfiguredRoot());
+      allow write: if request.auth != null && (cabinetId == request.auth.uid || canOperateCabinet(cabinetId) || isConfiguredRoot());
+    }
     match /gabinetes-equipe/{memberId} {
-      allow read, write: if request.auth != null && (
+      allow read: if request.auth != null && (
         resource.data.get('vereadorId', '') == request.auth.uid
-        || request.resource.data.get('vereadorId', '') == request.auth.uid
+        || resource.data.get('userId', '') == request.auth.uid
         || isConfiguredRoot()
       );
+      allow create: if request.auth != null && (
+        request.resource.data.vereadorId == request.auth.uid
+        || isConfiguredRoot()
+        || isAdminProfile()
+      );
+      allow update, delete: if request.auth != null && (
+        resource.data.vereadorId == request.auth.uid
+        || isConfiguredRoot()
+        || isAdminProfile()
+      );
+    }
+    match /gabinetes-tarefas/{itemId} {
+      allow read: if request.auth != null && (resource.data.get('gabineteId', '') == request.auth.uid || isCabinetMember(resource.data.get('gabineteId', '')) || isConfiguredRoot());
+      allow create: if request.auth != null && (request.resource.data.gabineteId == request.auth.uid || canOperateCabinet(request.resource.data.gabineteId) || isConfiguredRoot());
+      allow update, delete: if request.auth != null && (resource.data.gabineteId == request.auth.uid || canOperateCabinet(resource.data.gabineteId) || isConfiguredRoot());
+    }
+    match /gabinetes-eventos/{itemId} {
+      allow read: if request.auth != null && (resource.data.get('gabineteId', '') == request.auth.uid || isCabinetMember(resource.data.get('gabineteId', '')) || isConfiguredRoot());
+      allow create: if request.auth != null && (request.resource.data.gabineteId == request.auth.uid || canOperateCabinet(request.resource.data.gabineteId) || isConfiguredRoot());
+      allow update, delete: if request.auth != null && (resource.data.gabineteId == request.auth.uid || canOperateCabinet(resource.data.gabineteId) || isConfiguredRoot());
+    }
+    match /gabinetes-listas/{itemId} {
+      allow read: if request.auth != null && (resource.data.get('gabineteId', '') == request.auth.uid || isCabinetMember(resource.data.get('gabineteId', '')) || isConfiguredRoot());
+      allow create: if request.auth != null && (request.resource.data.gabineteId == request.auth.uid || canOperateCabinet(request.resource.data.gabineteId) || isConfiguredRoot());
+      allow update, delete: if request.auth != null && (resource.data.gabineteId == request.auth.uid || canOperateCabinet(resource.data.gabineteId) || isConfiguredRoot());
+    }
+    match /gabinetes-visitantes/{itemId} {
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || resource.data.gabineteId == request.auth.uid
+        || isCabinetMember(resource.data.gabineteId)
+        || isConfiguredRoot()
+      );
+      allow update, delete: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || canOperateCabinet(resource.data.gabineteId)
+        || isConfiguredRoot()
+      );
+    }
+    match /gabinetes-mensagens/{messageId} {
+      allow create: if request.auth != null && (
+        request.resource.data.userId == request.auth.uid
+        || request.resource.data.gabineteId == request.auth.uid
+        || canOperateCabinet(request.resource.data.gabineteId)
+        || isConfiguredRoot()
+      );
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || resource.data.gabineteId == request.auth.uid
+        || isCabinetMember(resource.data.gabineteId)
+        || isConfiguredRoot()
+      );
+    }
+    match /gabinetes-demandas-historico/{historyId} {
+      allow read: if request.auth != null && (resource.data.gabineteId == request.auth.uid || isCabinetMember(resource.data.gabineteId) || isConfiguredRoot());
+      allow create: if request.auth != null && (request.resource.data.gabineteId == request.auth.uid || canOperateCabinet(request.resource.data.gabineteId) || isConfiguredRoot());
+      allow update, delete: if isConfiguredRoot();
     }
 
     // Regras básicas para permitir operações autenticadas
     match /{document=**} {
-      allow read, write: if request.auth != null && !document.matches('system-control/.*') && !document.matches('solicitacoes-vereadores/.*') && !document.matches('balcao-config/.*') && !document.matches('balcao-monthly-configs/.*');
+      allow read, write: if request.auth != null && !document.matches('system-control/.*') && !document.matches('vereadores/.*') && !document.matches('solicitacoes-vereadores/.*') && !document.matches('balcao-config/.*') && !document.matches('balcao-monthly-configs/.*') && !document.matches('vereadores-agenda-config/.*') && !document.matches('gabinetes-equipe/.*') && !document.matches('gabinetes-tarefas/.*') && !document.matches('gabinetes-eventos/.*') && !document.matches('gabinetes-listas/.*') && !document.matches('gabinetes-visitantes/.*') && !document.matches('gabinetes-mensagens/.*');
     }
   }
 }

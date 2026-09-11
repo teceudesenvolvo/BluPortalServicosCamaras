@@ -1,182 +1,35 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { firestore } from '../../firebase';
-import VereadorAppointmentOffer from '../../components/VereadorAppointmentOffer';
+import { addDoc, collection, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { LiaBullhornSolid, LiaCalendarSolid, LiaCommentsSolid, LiaIdCardSolid } from 'react-icons/lia';
 import Sidebar from '../../components/Sidebar';
-import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import VereadorAppointmentOffer from '../../components/VereadorAppointmentOffer';
+import { useAuth } from '../../contexts/FirebaseAuthContext';
+import { firestore, storage } from '../../firebase';
+import { DEMAND_STATUSES, statusLabel } from '../../config/cabinetMandate';
 
-// Ícones
-import { LiaPlusSolid, LiaTimesSolid } from "react-icons/lia";
+const TABS = ['Visão geral', 'Solicitar reunião', 'Enviar demanda', 'Visitante', 'Mensagens'];
+const emptyRequest = { vereadorId:'', vereadorNome:'', assunto:'', descricao:'', alcance:'Individual', categoria:'Outra demanda' };
+const compressWebp = file => new Promise((resolve, reject) => { const image=new Image(), url=URL.createObjectURL(file); image.onload=()=>{const scale=Math.min(1,1280/Math.max(image.width,image.height)),canvas=document.createElement('canvas');canvas.width=Math.round(image.width*scale);canvas.height=Math.round(image.height*scale);canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);canvas.toBlob(blob=>{URL.revokeObjectURL(url);blob?resolve(blob):reject(new Error('Não foi possível processar a imagem.'))},'image/webp',.72)};image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Imagem inválida.'))};image.src=url; });
 
-// Componente Modal para exibir detalhes
-const SolicitacaoModal = ({ solicitacao, onClose }) => {
-    if (!solicitacao) return null;
-
-    const { dadosSolicitacao, status, dataSolicitacao } = solicitacao;
-
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header">
-                    <h3>Detalhes da Solicitação</h3>
-                    <button onClick={onClose} className="modal-close-btn">
-                        <LiaTimesSolid />
-                    </button>
-                </div>
-                <div className="modal-body">
-                    <div className="detail-item"><strong>Status:</strong> <span className={`status-badge ${getStatusClass(status)}`}>{status}</span></div>
-                    <div className="detail-item"><strong>Data da Solicitação:</strong> {new Date(dataSolicitacao?.toDate?.() || dataSolicitacao).toLocaleDateString('pt-BR')}</div>
-                    {status === 'Datas Liberadas' && <VereadorAppointmentOffer key={solicitacao.id} request={solicitacao} onSaved={onClose} />}
-                    {solicitacao.parecerVereador && <p>Parecer: {solicitacao.parecerVereador}</p>}
-                    <hr />
-                    <h4>Detalhes</h4>
-                    <div className="detail-item"><strong>Vereador(a):</strong> {dadosSolicitacao?.vereadorNome || 'N/A'}</div>
-                    <div className="detail-item"><strong>Assunto:</strong> {dadosSolicitacao?.assunto || 'N/A'}</div>
-                    <div className="detail-item"><strong>{solicitacao.appointmentDate ? 'Data confirmada:' : 'Data preferencial:'}</strong> {(solicitacao.appointmentDate || dadosSolicitacao?.dataPreferencial || '').split('-').reverse().join('/') || 'N/A'}</div>
-                    <div className="detail-item"><strong>Horário:</strong> {solicitacao.appointmentTime || dadosSolicitacao?.horarioPreferencial || 'N/A'}</div>
-                    <div className="detail-item"><strong>Descrição:</strong></div>
-                    <p className="detail-description">{dadosSolicitacao?.descricao || 'N/A'}</p>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const getStatusClass = (status) => {
-    switch (status) {
-        case 'Aguardando Confirmação': return 'status-pending';
-        case 'Agendado': return 'status-in-progress';
-        case 'Realizado': return 'status-completed';
-        case 'Cancelado': return 'status-danger';
-        default: return '';
-    }
-};
-
-const SolicitacoesVereadores = () => {
-    const navigate = useNavigate();
-    const { currentUser } = useAuth();
-    const [solicitacoes, setSolicitacoes] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [loggedInUserData, setLoggedInUserData] = useState(null);
-    const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
-
-    useEffect(() => {
-        const fetchSolicitacoes = () => {
-            if (!currentUser) {
-                navigate('/login');
-                return;
-            }
-
-            setLoading(true);
-            const solicitacoesRef = collection(firestore, 'solicitacoes-vereadores');
-            const q = query(solicitacoesRef, where('userId', '==', currentUser.uid));
-
-            const unsubscribe = onSnapshot(q, (snapshot) => {
-                const list = snapshot.docs.map(docSnap => ({
-                    id: docSnap.id,
-                    ...docSnap.data(),
-                    timestamp: docSnap.data().dataSolicitacao?.toMillis 
-                        ? docSnap.data().dataSolicitacao.toMillis() 
-                        : (docSnap.data().dataSolicitacao || 0)
-                })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
-                setSolicitacoes(list);
-                setLoading(false);
-            }, (err) => {
-                console.error("Erro ao buscar solicitações:", err);
-                setError("Não foi possível carregar suas solicitações.");
-                setLoading(false);
-            });
-
-            return unsubscribe;
-        };
-
-        const unsubscribe = fetchSolicitacoes();
-        return () => unsubscribe && unsubscribe();
-    }, [currentUser, navigate]);
-
-
-    const fetchUserProfile = useCallback(async () => {
-        if (!currentUser) return;
-        const userRef = doc(firestore, 'users', currentUser.uid);
-        try {
-            const snapshot = await getDoc(userRef);
-            if (snapshot.exists()) {
-                const userData = snapshot.data();
-                setLoggedInUserData({
-                    nome: userData.name || currentUser.email,
-                    tipo: userData.tipo || 'Cidadão',
-                });
-            } else {
-                setLoggedInUserData({ nome: currentUser.displayName || 'Usuário', tipo: 'Cidadão' });
-            }
-        } catch (error) {
-            console.error("Erro ao buscar perfil do usuário:", error);
-        }
-    }, [currentUser]);
-
-    useEffect(() => { fetchUserProfile(); }, [fetchUserProfile]);
-
-    const handleNavigation = (path) => navigate(path);
-    const handleOpenModal = (solicitacao) => setSelectedSolicitacao(solicitacao);
-
-    return (
-        <div className="dashboard-layout">
-            <Sidebar onItemClick={handleNavigation} />
-            <div className="dashboard-content">
-                <header className="page-header-container">
-                    <div className="header-title-section">
-                        <h1>Câmara Municipal de Pacatuba</h1>
-                        <p>Meus Atendimentos com Vereadores</p>
-                    </div>
-                    <div className="user-profile">
-                        <div className="user-text">
-                            <p className="user-name-display">{loggedInUserData?.nome || currentUser?.email}</p>
-                            <p className="user-type-display">{loggedInUserData?.tipo || 'Cidadão'}</p>
-                        </div>
-                        <div className="user-avatar"></div>
-                    </div>
-                </header>
-
-                <div className="page-actions-bar">
-                    
-                    <button className="btn-send-solicita" onClick={() => navigate('/vereadores/nova')}>
-                        <LiaPlusSolid size={18} style={{ marginRight: '8px' }} />
-                        Nova Solicitação
-                    </button>
-                </div>
-
-                <div className="data-list-container">
-                    {loading && <p>Carregando solicitações...</p>}
-                    {error && <p className="error-message">{error}</p>}
-                    {!loading && solicitacoes.length === 0 && !error && (
-                        <p>Você ainda não possui nenhuma solicitação de atendimento.</p>
-                    )}
-                    {!loading && solicitacoes.length > 0 && (
-                        <ul className="data-list">
-                            {solicitacoes.map(item => (
-                                <li key={item.id} className="data-list-item" onClick={() => handleOpenModal(item)}>
-                                    <div className="item-main-info">
-                                        <strong>Vereador(a): {item.dadosSolicitacao?.vereadorNome || 'Não especificado'}</strong>
-                                        <span>Data: {new Date(item.dataSolicitacao?.toDate?.() || item.dataSolicitacao).toLocaleDateString('pt-BR')}</span>
-                                    </div>
-                                    <div className="item-status">
-                                        <span className={`status-badge ${getStatusClass(item.status)}`}>
-                                            {item.status}
-                                        </span>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
-
-                <SolicitacaoModal solicitacao={solicitacoes.find(item => item.id === selectedSolicitacao?.id)} onClose={() => setSelectedSolicitacao(null)} />
-            </div>
-        </div>
-    );
-};
-
-export default SolicitacoesVereadores;
+export default function SolicitacoesVereadores() {
+  const navigate=useNavigate(), {currentUser}=useAuth();
+  const [tab,setTab]=useState(TABS[0]), [items,setItems]=useState([]), [members,setMembers]=useState([]), [messages,setMessages]=useState([]), [registrations,setRegistrations]=useState([]), [profile,setProfile]=useState({});
+  const [form,setForm]=useState(emptyRequest), [visitor,setVisitor]=useState({vereadorId:''}), [text,setText]=useState(''), [files,setFiles]=useState([]), [selfie,setSelfie]=useState(null), [saving,setSaving]=useState(false), [feedback,setFeedback]=useState('');
+  useEffect(()=>{if(!currentUser){navigate('/login');return undefined}getDoc(doc(firestore,'users',currentUser.uid)).then(s=>setProfile(s.data()||{}));const stops=[onSnapshot(collection(firestore,'vereadores'),s=>setMembers(s.docs.map(d=>({id:d.id,...d.data()})))),onSnapshot(query(collection(firestore,'solicitacoes-vereadores'),where('userId','==',currentUser.uid)),s=>setItems(s.docs.map(d=>({id:d.id,...d.data()})))),onSnapshot(query(collection(firestore,'gabinetes-mensagens'),where('userId','==',currentUser.uid)),s=>setMessages(s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.criadoEm?.toMillis?.()||0)-(b.criadoEm?.toMillis?.()||0)))),onSnapshot(query(collection(firestore,'gabinetes-visitantes'),where('userId','==',currentUser.uid)),s=>setRegistrations(s.docs.map(d=>({id:d.id,...d.data()}))))];return()=>stops.forEach(stop=>stop())},[currentUser,navigate]);
+  const selected=id=>{const v=members.find(item=>(item.userId||item.id)===id);return {vereadorId:id,vereadorNome:v?.name||v?.nome||'Vereador(a)'}};
+  const upload=async(source,prefix,cabinetId)=>Promise.all([...source].map(async(file,index)=>{const image=file.type.startsWith('image/'),blob=image?await compressWebp(file):file,extension=image?'webp':(file.name.split('.').pop()||'bin'),target=ref(storage,`gabinetes/${cabinetId}/${currentUser.uid}/${prefix}-${Date.now()}-${index}.${extension}`);await uploadBytes(target,blob,{contentType:image?'image/webp':file.type});return getDownloadURL(target)}));
+  const userData=()=>({id:currentUser.uid,email:profile.email||currentUser.email,name:profile.name||currentUser.displayName||'Cidadão',phone:profile.phone||'',address:profile.address||'',birthDate:profile.birthDate||profile.dataNascimento||''});
+  const submitRequest=async(event,isMeeting)=>{event.preventDefault();if(isMeeting&&!registrations.some(item=>item.gabineteId===form.vereadorId)){setFeedback('Finalize seu cadastro de visitante neste gabinete antes de solicitar uma reunião.');return}setSaving(true);setFeedback('');try{const photos=files.length?await upload(files,'demanda',form.vereadorId):[],protocol=`GAB-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;await addDoc(collection(firestore,'solicitacoes-vereadores'),{protocolo:protocol,userId:currentUser.uid,gabineteId:form.vereadorId,tipoDemanda:isMeeting?'Atendimento no gabinete':form.categoria,dadosUsuario:userData(),dadosSolicitacao:{...form,categoriaDemanda:isMeeting?'Atendimento no gabinete':form.categoria,tipoAtendimento:'Presencial'},fotos:photos,status:isMeeting?'Aguardando Análise':'RECEBIDA',prioridade:'Normal',dataSolicitacao:serverTimestamp()});setForm(emptyRequest);setFiles([]);setFeedback(`${isMeeting?'Pedido de reunião':'Solicitação'} recebida pelo gabinete. Protocolo ${protocol}.`);setTab(TABS[0])}catch(error){setFeedback(error.message)}finally{setSaving(false)}};
+  const registerVisitor=async event=>{event.preventDefault();if(!selfie){setFeedback('A selfie é obrigatória.');return}setSaving(true);try{const [selfieUrl]=await upload([selfie],'selfie',visitor.vereadorId);await setDoc(doc(firestore,'gabinetes-visitantes',`${visitor.vereadorId}_${currentUser.uid}`),{...userData(),userId:currentUser.uid,selfieUrl,gabineteId:visitor.vereadorId,criadoEm:serverTimestamp(),cadastroCompleto:true});setFeedback('Cadastro finalizado. Você já pode solicitar uma reunião neste gabinete.');setSelfie(null);setTab(TABS[1]);setForm({...form,...selected(visitor.vereadorId)})}catch(error){setFeedback(error.message)}finally{setSaving(false)}};
+  const sendMessage=async event=>{event.preventDefault();if(!form.vereadorId||!text.trim())return;await addDoc(collection(firestore,'gabinetes-mensagens'),{gabineteId:form.vereadorId,userId:currentUser.uid,nomeUsuario:profile.name||currentUser.email,texto:text.trim(),autorId:currentUser.uid,autorTipo:'cidadao',criadoEm:serverTimestamp()});setText('')};
+  const cards=useMemo(()=>[...items].sort((a,b)=>(b.dataSolicitacao?.toMillis?.()||0)-(a.dataSolicitacao?.toMillis?.()||0)),[items]);
+  const memberSelect=(value,onChange)=><select required value={value} onChange={event=>onChange(event.target.value)}><option value="">Selecione o vereador</option>{members.map(v=><option key={v.id} value={v.userId||''} disabled={!v.userId}>{v.name||v.nome}{!v.userId?' — indisponível para atendimento':''}</option>)}</select>;
+  const requestForm=isMeeting=><section className="data-card council-form-card"><h2>{isMeeting?'Solicitar reunião':'Enviar demanda ou denúncia'}</h2><form onSubmit={event=>submitRequest(event,isMeeting)}>{memberSelect(form.vereadorId,id=>setForm({...form,...selected(id)}))}{isMeeting?<select value={form.alcance} onChange={e=>setForm({...form,alcance:e.target.value})}><option>Individual</option><option>Comunitária</option></select>:<select value={form.categoria} onChange={e=>setForm({...form,categoria:e.target.value})}><option>Poda de árvores</option><option>Tapa-buracos</option><option>Iluminação pública</option><option>Limpeza urbana</option><option>Denúncia</option><option>Outra demanda</option></select>}<input required placeholder="Assunto" value={form.assunto} onChange={e=>setForm({...form,assunto:e.target.value})}/><textarea required minLength="20" rows="10" placeholder="Descreva detalhadamente a situação" value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})}/>{!isMeeting&&<label>Fotografias<input type="file" accept="image/*,video/*,.pdf,.doc,.docx" multiple onChange={e=>setFiles(e.target.files)}/></label>}<button className="btn-primary" disabled={saving}>{saving?'Enviando...':'Enviar'}</button></form></section>;
+  return <div className="dashboard-layout"><Sidebar onItemClick={navigate}/><main className="dashboard-content council-citizen-page"><header className="page-header-container"><div><h1>Vereadores</h1><p>Reuniões, demandas, visitas e conversas com os gabinetes.</p></div></header><nav className="council-citizen-nav">{TABS.map(name=><button className={tab===name?'active':''} onClick={()=>{setTab(name);setFeedback('')}} key={name}>{name}</button>)}</nav>{feedback&&<p className="council-feedback">{feedback}</p>}
+  {tab==='Visão geral'&&<section><div className="council-action-grid"><button onClick={()=>setTab(TABS[1])}><LiaCalendarSolid/><strong>Solicitar reunião</strong><span>Demanda individual ou comunitária</span></button><button onClick={()=>setTab(TABS[2])}><LiaBullhornSolid/><strong>Enviar demanda</strong><span>Relato detalhado com fotografias</span></button><button onClick={()=>setTab(TABS[3])}><LiaIdCardSolid/><strong>Cadastro de visitante</strong><span>Identificação para o gabinete</span></button><button onClick={()=>setTab(TABS[4])}><LiaCommentsSolid/><strong>Mensagens</strong><span>Converse com o gabinete</span></button></div><div className="cabinet-list">{cards.map(item=><article className="data-card" key={item.id}><strong>{item.protocolo||item.id}</strong><span>{item.dadosSolicitacao?.assunto} · {item.dadosSolicitacao?.vereadorNome}</span><p>{item.dadosSolicitacao?.descricao}</p><small>{statusLabel(item.status)}</small><div className="citizen-demand-timeline">{['RECEBIDA','EM ANÁLISE','ENCAMINHADA','RESOLVIDA'].map(step=><span className={step===item.status?'current':DEMAND_STATUSES.indexOf(step)<DEMAND_STATUSES.indexOf(item.status)?'done':''} key={step}>{statusLabel(step)}</span>)}</div>{item.status==='Datas Liberadas'&&<VereadorAppointmentOffer request={item}/>}</article>)}</div></section>}
+  {tab===TABS[1]&&requestForm(true)}{tab===TABS[2]&&requestForm(false)}
+  {tab===TABS[3]&&<section className="data-card council-form-card"><h2>Cadastro de visitante</h2><p>Usaremos nome, contato, endereço e nascimento da sua conta. O cadastro é pessoal e não pode ser realizado para terceiros.</p><p>A selfie deve mostrar o rosto de frente, em local iluminado e sem acessórios que dificultem a identificação.</p><form onSubmit={registerVisitor}>{memberSelect(visitor.vereadorId,id=>setVisitor({vereadorId:id}))}<label>Selfie obrigatória<input type="file" required accept="image/*" capture="user" onChange={e=>setSelfie(e.target.files[0])}/></label><button className="btn-primary" disabled={saving}>{saving?'Processando...':'Finalizar cadastro'}</button></form></section>}
+  {tab===TABS[4]&&<section className="data-card council-chat"><h2>Mensagens ao gabinete</h2>{memberSelect(form.vereadorId,id=>setForm({...form,...selected(id)}))}<div className="council-chat-history">{messages.filter(m=>!form.vereadorId||m.gabineteId===form.vereadorId).map(message=><p className={message.autorTipo==='cidadao'?'mine':''} key={message.id}><strong>{message.autorTipo==='cidadao'?'Você':'Gabinete'}</strong>{message.texto}</p>)}</div><form onSubmit={sendMessage}><textarea required rows="4" placeholder="Escreva sua mensagem" value={text} onChange={e=>setText(e.target.value)}/><button className="btn-primary">Enviar mensagem</button></form></section>}</main></div>;
+}
