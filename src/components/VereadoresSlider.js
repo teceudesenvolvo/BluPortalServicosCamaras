@@ -3,6 +3,8 @@ import { Splide, SplideSlide } from '@splidejs/react-splide';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { LiaArrowRightSolid, LiaUser, LiaUsersSolid } from 'react-icons/lia';
+import { useSystemControl } from '../contexts/SystemControlContext';
+import { fetchLegislativeCouncilors } from '../utils/legislativeCouncilors';
 
 // Componente: Card do Vereador (agora parte deste módulo)
 const VereadorCard = ({ nome, nomeParlamentar, foto }) => (
@@ -36,6 +38,7 @@ const getAvatarSrc = (src) => {
 
 // Componente: Slider dos Vereadores
 const VereadoresSlider = () => {
+    const { settings } = useSystemControl();
     const [vereadores, setVereadores] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -46,6 +49,11 @@ const VereadoresSlider = () => {
             setError(null);
 
             try {
+                const externalCouncilors = await fetchLegislativeCouncilors(settings);
+                if (externalCouncilors) {
+                    setVereadores(externalCouncilors);
+                    return;
+                }
                 const vereadoresRef = collection(firestore, 'vereadores');
                 const q = query(vereadoresRef, orderBy('name', 'asc'));
                 const snapshot = await getDocs(q);
@@ -60,15 +68,21 @@ const VereadoresSlider = () => {
                     setVereadores([]); // Nenhum vereador encontrado
                 }
             } catch (err) {
-                setError('Falha ao carregar os dados dos vereadores.');
-                console.error("Erro ao buscar vereadores no Firebase:", err);
+                console.warn('Falha ao ler a API legislativa; usando o cadastro interno.', err);
+                try {
+                    const snapshot = await getDocs(query(collection(firestore, 'vereadores'), orderBy('name', 'asc')));
+                    setVereadores(snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })));
+                } catch (fallbackError) {
+                    setError('Falha ao carregar os dados dos vereadores.');
+                    console.error('Erro ao buscar vereadores:', fallbackError);
+                }
             } finally {
                 setLoading(false);
             }
         };
 
         fetchVereadores();
-    }, []); // O array vazio garante que a busca ocorra apenas uma vez
+    }, [settings]);
 
     if (loading) {
         return <div className="loading-text">Carregando vereadores...</div>;

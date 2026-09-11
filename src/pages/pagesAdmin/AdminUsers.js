@@ -7,6 +7,8 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
 import config from '../../config';
+import { useSystemControl } from '../../contexts/SystemControlContext';
+import { fetchLegislativeCouncilors } from '../../utils/legislativeCouncilors';
 import AdminSidebar from '../../components/AdminSidebar';
 import { LiaTimesSolid, LiaSaveSolid, LiaUserEditSolid, LiaEnvelopeSolid, LiaSearchSolid, LiaFilterSolid } from "react-icons/lia";
 
@@ -14,6 +16,8 @@ import { LiaTimesSolid, LiaSaveSolid, LiaUserEditSolid, LiaEnvelopeSolid, LiaSea
 const UserEditModal = ({ user, onClose, onSave }) => {
     const [editedUser, setEditedUser] = useState(null);
     const [vereadores, setVereadores] = useState([]);
+    const [loadingVereadores, setLoadingVereadores] = useState(false);
+    const { settings } = useSystemControl();
 
     useEffect(() => {
         if (user) {
@@ -22,20 +26,53 @@ const UserEditModal = ({ user, onClose, onSave }) => {
     }, [user]);
 
     useEffect(() => {
-        getDocs(collection(firestore, 'vereadores')).then(snapshot => {
-            setVereadores(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
-        });
-    }, []);
+        let active = true;
+        const loadVereadores = async () => {
+            setLoadingVereadores(true);
+            try {
+                const externos = await fetchLegislativeCouncilors(settings);
+                if (externos) {
+                    if (active) setVereadores(externos.map(item => ({ ...item, source: 'legislativeApi' })));
+                    return;
+                }
+                const snapshot = await getDocs(collection(firestore, 'vereadores'));
+                if (active) setVereadores(snapshot.docs.map(item => ({ id: item.id, ...item.data(), source: 'firebase' })));
+            } catch (error) {
+                console.warn('Não foi possível consultar a API legislativa; usando os vereadores cadastrados no portal.', error);
+                try {
+                    const snapshot = await getDocs(collection(firestore, 'vereadores'));
+                    if (active) setVereadores(snapshot.docs.map(item => ({ id: item.id, ...item.data(), source: 'firebase' })));
+                } catch (fallbackError) {
+                    console.error('Não foi possível carregar os vereadores.', fallbackError);
+                    if (active) setVereadores([]);
+                }
+            } finally {
+                if (active) setLoadingVereadores(false);
+            }
+        };
+        loadVereadores();
+        return () => { active = false; };
+    }, [settings]);
 
     if (!user || !editedUser) return null;
 
     const handleChange = (e) => {
         const { name, value } = e.target;
+        if (name === 'vereadorPublicoId') {
+            const vereador = vereadores.find(item => item.id === value);
+            setEditedUser(prev => ({
+                ...prev,
+                vereadorPublicoId: value,
+                vereadorSource: vereador?.source || 'firebase',
+                vereadorNome: vereador?.name || vereador?.nome || '',
+            }));
+            return;
+        }
         setEditedUser(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSave = () => {
-        onSave(user.uid, editedUser);
+        onSave(user.uid, editedUser, vereadores.find(item => item.id === editedUser.vereadorPublicoId));
     };
 
     return (
@@ -85,8 +122,8 @@ const UserEditModal = ({ user, onClose, onSave }) => {
                                 <option value="Cidadão">Cidadão</option>
                             </select>
                         </div>
-                        {editedUser.tipo === 'Vereador' && <div className="data-item-edit"><label>Vincular ao vereador público:</label><select name="vereadorPublicoId" required value={editedUser.vereadorPublicoId || ''} onChange={handleChange}><option value="">Selecione o cadastro público</option>{vereadores.map(item => <option key={item.id} value={item.id}>{item.name || item.nome}</option>)}</select></div>}
-                        {editedUser.tipo === 'Assessor' && <div className="data-item-edit"><label>Equipe do vereador:</label><select name="gabineteId" required value={editedUser.gabineteId || ''} onChange={handleChange}><option value="">Selecione o gabinete</option>{vereadores.map(item => <option key={item.id} value={item.userId || ''} disabled={!item.userId}>{item.name || item.nome}{!item.userId ? ' — vereador ainda não vinculado' : ''}</option>)}</select></div>}
+                        {editedUser.tipo === 'Vereador' && <div className="data-item-edit"><label>Vincular ao vereador público:</label><select name="vereadorPublicoId" required value={editedUser.vereadorPublicoId || ''} onChange={handleChange} disabled={loadingVereadores}><option value="">{loadingVereadores ? 'Carregando vereadores...' : 'Selecione o vereador'}</option>{vereadores.map(item => <option key={item.id} value={item.id}>{item.name || item.nome}{item.external ? ' — API legislativa' : ''}</option>)}</select><small>{settings?.integrations?.legislativeApi?.enabled ? 'A lista é fornecida pela API legislativa configurada no Controle do Sistema.' : 'A lista usa os vereadores públicos cadastrados no portal.'}</small></div>}
+                        {editedUser.tipo === 'Assessor' && <div className="data-item-edit"><label>Equipe do vereador:</label><select name="gabineteId" required value={editedUser.gabineteId || ''} onChange={handleChange} disabled={loadingVereadores}><option value="">{loadingVereadores ? 'Carregando gabinetes...' : 'Selecione o gabinete'}</option>{vereadores.map(item => <option key={item.id} value={item.userId || ''} disabled={!item.userId}>{item.name || item.nome}{!item.userId ? ' — vereador ainda não vinculado ao portal' : ''}</option>)}</select><small>O assessor só pode ser incluído após o vereador correspondente estar vinculado a um usuário do portal.</small></div>}
                     </div>
                     <div className="form-actions" style={{ marginTop: '20px' }}>
                         <button onClick={handleSave} className="btn-primary">
@@ -204,11 +241,11 @@ const AdminUsersDashboard = () => {
         return () => unsubscribe();
     }, [navigate]);
 
-    // Busca pontual por e-mail: a coleção inteira nunca é baixada para a tela.
+    // Busca pontual: a coleção inteira nunca é baixada para a tela.
     const fetchUsers = useCallback(async () => {
-        const email = searchTerm.trim().toLowerCase();
-        if (!email || !email.includes('@')) {
-            setSearchError('Informe um e-mail válido para pesquisar.');
+        const term = searchTerm.trim();
+        if (!term) {
+            setSearchError('Informe o e-mail, nome completo ou CPF do usuário para pesquisar.');
             setUsers([]);
             return;
         }
@@ -216,11 +253,27 @@ const AdminUsersDashboard = () => {
         setSearchError('');
         try {
             const usersRef = collection(firestore, 'users');
-            const snapshot = await getDocs(query(usersRef, where('email', '==', email), limit(10)));
-            const fetchedData = snapshot.docs.map(doc => ({
-                uid: doc.id,
-                ...doc.data()
-            })).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            const email = term.toLowerCase();
+            const cpfDigits = term.replace(/\D/g, '');
+            const formattedCpf = cpfDigits.length === 11
+                ? cpfDigits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+                : '';
+            const searches = [
+                getDocs(query(usersRef, where('email', '==', email), limit(10))),
+                getDocs(query(usersRef, where('name', '==', term), limit(10))),
+                getDocs(query(usersRef, where('nome', '==', term), limit(10))),
+                getDocs(query(usersRef, where('cpf', '==', term), limit(10))),
+            ];
+            if (formattedCpf && formattedCpf !== term) searches.push(getDocs(query(usersRef, where('cpf', '==', formattedCpf), limit(10))));
+            if (cpfDigits && cpfDigits !== term && cpfDigits !== formattedCpf) searches.push(getDocs(query(usersRef, where('cpf', '==', cpfDigits), limit(10))));
+
+            const snapshots = await Promise.all(searches);
+            const usersById = new Map();
+            snapshots.forEach(snapshot => snapshot.docs.forEach(item => {
+                usersById.set(item.id, { uid: item.id, ...item.data() });
+            }));
+            const fetchedData = Array.from(usersById.values())
+                .sort((a, b) => (a.name || a.nome || '').localeCompare(b.name || b.nome || ''));
 
             setUsers(fetchedData);
             setLastDoc(null);
@@ -228,7 +281,7 @@ const AdminUsersDashboard = () => {
         } catch (error) {
             setSearchError(error?.code === 'permission-denied'
                 ? 'Seu usuário não tem permissão para consultar usuários.'
-                : 'Não foi possível buscar este e-mail.');
+                : 'Não foi possível buscar este usuário.');
             setUsers([]);
         } finally {
             setLoading(false);
@@ -300,14 +353,20 @@ const AdminUsersDashboard = () => {
         });
     }, []);
 
-    const handleSaveUser = async (userId, updatedData) => {
+    const handleSaveUser = async (userId, updatedData, selectedVereador) => {
         const userRef = doc(firestore, 'users', userId);
         try {
             if (updatedData.tipo === 'Vereador' && !updatedData.vereadorPublicoId) throw new Error('VINCULO_VEREADOR');
             if (updatedData.tipo === 'Assessor' && !updatedData.gabineteId) throw new Error('VINCULO_ASSESSOR');
+            const isExternalVereador = updatedData.tipo === 'Vereador' && (selectedVereador?.source === 'legislativeApi' || updatedData.vereadorSource === 'legislativeApi');
+            const profileData = updatedData.tipo === 'Vereador' ? {
+                ...updatedData,
+                vereadorSource: isExternalVereador ? 'legislativeApi' : 'firebase',
+                vereadorExternoId: isExternalVereador ? updatedData.vereadorPublicoId : '',
+            } : updatedData;
             const batch = writeBatch(firestore);
-            batch.update(userRef, updatedData);
-            if (updatedData.tipo === 'Vereador') batch.update(doc(firestore, 'vereadores', updatedData.vereadorPublicoId), { userId, emailUsuario: updatedData.email, atualizadoEm: serverTimestamp() });
+            batch.update(userRef, profileData);
+            if (updatedData.tipo === 'Vereador' && !isExternalVereador) batch.update(doc(firestore, 'vereadores', updatedData.vereadorPublicoId), { userId, emailUsuario: updatedData.email, atualizadoEm: serverTimestamp() });
             if (updatedData.tipo === 'Assessor') batch.set(doc(firestore, 'gabinetes-equipe', `${updatedData.gabineteId}_${userId}`), { gabineteId: updatedData.gabineteId, vereadorId: updatedData.gabineteId, userId, email: updatedData.email, nome: updatedData.name || updatedData.email, nivelAcesso: updatedData.nivelAcessoGabinete || 'operacional', ativo: true, criadoEm: serverTimestamp() }, { merge: true });
             await batch.commit();
             // A alteração de perfil não deve ser considerada falha caso a
@@ -437,7 +496,7 @@ const AdminUsersDashboard = () => {
                 <header className="page-header-container">
                     <div className="header-title-section">
                         <h1>Gerenciamento de Usuários</h1>
-                        <p>Pesquise um usuário pelo e-mail para visualizar e editar seu perfil.</p>
+                        <p>Para localizar e editar um usuário, pesquise pelo e-mail, nome completo ou CPF.</p>
                         <button onClick={handleSearch} className="btn-secondary" disabled={loading || !searchTerm.trim()} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
                             ↻ Atualizar busca
                         </button>
@@ -463,7 +522,7 @@ const AdminUsersDashboard = () => {
                                 <LiaSearchSolid style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888' }} size={20} />
                                 <form onSubmit={handleSearch} className="users-search-form"><input
                                     type="text"
-                                    placeholder="Informe o e-mail exato do usuário"
+                                    placeholder="Informe e-mail, nome completo ou CPF"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="form-input"
@@ -561,7 +620,8 @@ const AdminUsersDashboard = () => {
 
                     {searchError && <p role="alert" style={{ color: '#b42318' }}>{searchError}</p>}
                     {loading && <p>Buscando usuário...</p>}
-                    {!loading && filteredUsers.length === 0 && <p>Nenhum usuário encontrado.</p>}
+                    {!loading && !searchTerm.trim() && <p>Informe o e-mail, nome completo ou CPF do usuário e toque em Buscar.</p>}
+                    {!loading && searchTerm.trim() && filteredUsers.length === 0 && <p>Nenhum usuário encontrado.</p>}
 
                     <ul className="data-list">
                         {filteredUsers.map(user => (
