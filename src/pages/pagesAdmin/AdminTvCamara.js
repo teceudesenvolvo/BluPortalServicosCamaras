@@ -332,11 +332,13 @@ const AdminTvCamara = () => {
         setLoading(true);
         setError('');
         try {
-            await Promise.all([
+            const results = await Promise.allSettled([
                 fetchManualVideos(),
                 monitorEndpoint({ silent: true }),
                 refreshYoutubeLogs(),
             ]);
+            const failed = results.find(result => result.status === 'rejected');
+            if (failed) console.warn('Parte dos dados da TV Câmara não pôde ser carregada:', failed.reason);
         } catch (loadError) {
             console.error('Erro ao carregar admin TV Câmara:', loadError);
             setError('Não foi possível carregar a administração da TV Câmara.');

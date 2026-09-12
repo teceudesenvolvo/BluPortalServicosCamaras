@@ -49,6 +49,10 @@ service cloud.firestore {
     }
     match /tv-camara-playlist/{documentId} {
       allow read: if true;
+      allow write: if isConfiguredRoot() || isAdminProfile();
+    }
+    match /tv-camara-logs/{documentId} {
+      allow read, write: if request.auth != null && (isConfiguredRoot() || isAdminProfile());
     }
 
     // O cidadão pode consultar somente suas próprias solicitações do Balcão,
