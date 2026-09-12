@@ -13,6 +13,15 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', '') == 'Admin';
     }
 
+    function isOuvidoriaManager() {
+      return request.auth != null && (
+        isConfiguredRoot()
+        || isAdminProfile()
+        || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', '') == 'Ouvidoria')
+      );
+    }
+
     match /system-control/{documentId} {
       allow read: if documentId == 'portal';
       allow create: if documentId == 'portal'
@@ -89,7 +98,19 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     match /ouvidoria/{documentId} {
-      allow read, write: if request.auth != null;
+      // O registro público só pode criar manifestações novas. A leitura e o
+      // tratamento ficam restritos ao manifestante identificado e à equipe.
+      allow create: if isOuvidoriaManager()
+        || (request.auth != null
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', '') in ['Recepção', 'Recepcao', 'Balcão'] )
+        || (request.resource.data.status == 'Recebida'
+          && request.resource.data.keys().hasOnly(['protocolo', 'userId', 'dadosUsuario', 'dadosManifestacao', 'status', 'etapaAtual', 'origem', 'dataManifestacao', 'ultimaAtualizacao'])
+          && ((request.auth == null && request.resource.data.userId == 'anonimo'
+              && request.resource.data.dadosManifestacao.tipoManifestacao == 'Denúncia')
+            || (request.auth != null && (request.resource.data.userId == request.auth.uid || request.resource.data.userId == 'anonimo'))));
+      allow get, list: if isOuvidoriaManager()
+        || (request.auth != null && resource.data.userId == request.auth.uid);
+      allow update, delete: if isOuvidoriaManager();
     }
     match /procuradoria-mulher/{documentId} {
       allow read, write: if request.auth != null;
@@ -109,6 +130,31 @@ service cloud.firestore {
     match /mail/{documentId} {
       allow read, write: if request.auth != null;
     }
+    // Configurações operacionais usadas pelos módulos de recepção e atendimento.
+    // O acesso continua condicionado à autenticação; o controle fino de edição
+    // é feito pela interface e pelas funções de perfil dos módulos.
+    match /ouvidoria-config/{documentId} {
+      allow read, write: if request.auth != null;
+    }
+    match /procon-config/{documentId} {
+      allow read, write: if request.auth != null;
+    }
+    match /microempreendedor-config/{documentId} {
+      allow read, write: if request.auth != null;
+    }
+    match /microempreendedor-monthly-configs/{documentId} {
+      allow read, write: if request.auth != null;
+    }
+    match /procuradoria-mulher-btn-panico/{documentId} {
+      allow read, write: if request.auth != null;
+    }
+    // Coleções operacionais legadas ainda utilizadas por telas administrativas.
+    match /procon-consumidores/{documentId} { allow read, write: if request.auth != null; }
+    match /procon-fornecedores/{documentId} { allow read, write: if request.auth != null; }
+    match /procon-pareceres/{documentId} { allow read, write: if request.auth != null; }
+    match /procon-audiencias/{documentId} { allow read, write: if request.auth != null; }
+    match /atendimento-juridico/{documentId} { allow read, write: if request.auth != null; }
+    match /denuncias-procon/{documentId} { allow read, write: if request.auth != null; }
 
     function hasModuleAdminAccess(moduleId, defaults) {
       let role = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', '');
@@ -265,7 +311,10 @@ service cloud.firestore {
 
     // Regras básicas para permitir operações autenticadas
     match /{document=**} {
-      allow read, write: if request.auth != null && !document.matches('system-control/.*') && !document.matches('vereadores/.*') && !document.matches('solicitacoes-vereadores/.*') && !document.matches('balcao-config/.*') && !document.matches('balcao-monthly-configs/.*') && !document.matches('vereadores-agenda-config/.*') && !document.matches('gabinetes-equipe/.*') && !document.matches('gabinetes-tarefas/.*') && !document.matches('gabinetes-eventos/.*') && !document.matches('gabinetes-listas/.*') && !document.matches('gabinetes-visitantes/.*') && !document.matches('gabinetes-mensagens/.*') && !document.matches('gabinetes-demandas-historico/.*') && !document.matches('gabinetes-encaminhamentos/.*') && !document.matches('gabinetes-documentos/.*') && !document.matches('gabinetes-pastas/.*');
+      allow read, write: if request.auth != null
+        && !document.matches('esic-pedidos/.*')
+        && !document.matches('esic-contadores/.*')
+        && !document.matches('system-control/.*') && !document.matches('vereadores/.*') && !document.matches('solicitacoes-vereadores/.*') && !document.matches('balcao-config/.*') && !document.matches('balcao-monthly-configs/.*') && !document.matches('vereadores-agenda-config/.*') && !document.matches('gabinetes-equipe/.*') && !document.matches('gabinetes-tarefas/.*') && !document.matches('gabinetes-eventos/.*') && !document.matches('gabinetes-listas/.*') && !document.matches('gabinetes-visitantes/.*') && !document.matches('gabinetes-mensagens/.*') && !document.matches('gabinetes-demandas-historico/.*') && !document.matches('gabinetes-encaminhamentos/.*') && !document.matches('gabinetes-documentos/.*') && !document.matches('gabinetes-pastas/.*');
     }
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 
 // Importa o hook de autenticação e a instância do auth
@@ -14,6 +14,7 @@ import { useSystemControl } from '../contexts/SystemControlContext';
 const LoginPage = () => {
     const { settings } = useSystemControl();
     const navigate = useNavigate();
+    const location = useLocation();
     const { currentUser } = useAuth(); // Monitora o estado atual do usuário
 
     const [email, setEmail] = useState('');
@@ -23,6 +24,11 @@ const LoginPage = () => {
 
     // Função centralizada para redirecionar o usuário com base no seu tipo/role.
     const redirectUser = useCallback((userType) => {
+        const returnTo = location.state?.returnTo;
+        if (typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+            navigate(returnTo, { replace: true });
+            return;
+        }
         switch (userType) {
             case 'Admin':
                 navigate('/perfil', { replace: true });
@@ -54,7 +60,7 @@ const LoginPage = () => {
             default: // Cidadão ou tipo não definido
                 navigate('/dashboard', { replace: true });
         }
-    }, [navigate]);
+    }, [location.state, navigate]);
 
     // Efeito para redirecionar se o usuário já estiver logado.
     useEffect(() => {

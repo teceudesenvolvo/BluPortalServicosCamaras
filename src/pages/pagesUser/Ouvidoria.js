@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { firestore } from '../../firebase';
 import Sidebar from '../../components/Sidebar';
+import CabinetOverlay from '../../components/CabinetOverlay';
 import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { SectorAppointment } from '../../components/SectorScheduling';
 
@@ -16,7 +17,7 @@ const ManifestacaoModal = ({ manifestacao, onClose }) => {
     const { dadosManifestacao, status, dataManifestacao } = manifestacao;
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <CabinetOverlay onClick={onClose}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                     <h3>Detalhes da Manifestação</h3>
@@ -26,18 +27,22 @@ const ManifestacaoModal = ({ manifestacao, onClose }) => {
                 </div>
                 <div className="modal-body">
                     <div className="detail-item"><strong>Status:</strong> <span className={`status-badge ${getStatusClass(status)}`}>{status}</span></div>
-                    <div className="detail-item"><strong>Data da Manifestação:</strong> {new Date(dataManifestacao).toLocaleDateString('pt-BR')}</div>
+                    <div className="detail-item"><strong>Protocolo:</strong> {manifestacao.protocolo || manifestacao.id}</div>
+                    <div className="detail-item"><strong>Data da Manifestação:</strong> {new Date(manifestacao.timestamp || dataManifestacao?.toMillis?.() || dataManifestacao).toLocaleDateString('pt-BR')}</div>
                     <hr />
                     <h4>Detalhes</h4>
                     <div className="detail-item"><strong>Tipo:</strong> {dadosManifestacao?.tipoManifestacao || 'N/A'}</div>
                     <div className="detail-item"><strong>Assunto:</strong> {dadosManifestacao?.assunto || 'N/A'}</div>
                     <div className="detail-item"><strong>Descrição:</strong></div>
                     <p className="detail-description">{dadosManifestacao?.descricao || 'N/A'}</p>
+                    <h4>Respostas da Ouvidoria</h4>
+                    {Object.values(manifestacao.messages || {}).map((message, index) => <article key={index}><p>{message.text}</p><small>{new Date(message.timestamp).toLocaleString('pt-BR')}</small></article>)}
+                    {!Object.keys(manifestacao.messages || {}).length && <p>Aguarde o retorno da equipe responsável.</p>}
                     {status === 'Agendado' && <div className="appointment-confirmed"><strong>Agendamento:</strong> {manifestacao.appointmentDate} às {manifestacao.appointmentTime}</div>}
                     {status === 'Agendamento Liberado' && <SectorAppointment collectionName="ouvidoria" configCollection="ouvidoria-config" request={manifestacao} sectorLabel="Ouvidoria" />}
                 </div>
             </div>
-        </div>
+        </CabinetOverlay>
     );
 };
 
@@ -65,7 +70,7 @@ const Ouvidoria = () => {
     useEffect(() => {
         const fetchManifestacoes = () => {
             if (!currentUser) {
-                navigate('/login');
+                navigate('/login', { replace: true, state: { returnTo: '/ouvidoria' } });
                 return;
             }
 
@@ -125,11 +130,11 @@ const Ouvidoria = () => {
     return (
         <div className="dashboard-layout">
             <Sidebar onItemClick={handleNavigation} />
-            <div className="dashboard-content">
+            <div className="dashboard-content ouvidoria-internal-page">
                 <header className="page-header-container">
                     <div className="header-title-section">
-                        <h1>Câmara Municipal de Paraipaba</h1>
-                        <p>Ouvidoria - Minhas Manifestações</p>
+                        <h1>Minha Ouvidoria</h1>
+                        <p>Acompanhe seus protocolos e as respostas da Câmara.</p>
                     </div>
                     <div className="user-profile">
                         <div className="user-text">
@@ -139,6 +144,11 @@ const Ouvidoria = () => {
                         <div className="user-avatar"></div>
                     </div>
                 </header>
+                <section className="ouv-summary" aria-label="Resumo das manifestações">
+                    <article><span>Meus protocolos</span><strong>{manifestacoes.length}</strong></article>
+                    <article><span>Em acompanhamento</span><strong>{manifestacoes.filter(item => !['Respondida','Concluída','Arquivada','Cancelada'].includes(item.status)).length}</strong></article>
+                    <article><span>Respondidas ou concluídas</span><strong>{manifestacoes.filter(item => ['Respondida','Concluída'].includes(item.status)).length}</strong></article>
+                </section>
 
                 <div className="page-actions-bar">
                     <button className="btn-send-solicita" onClick={() => navigate('/ouvidoria/nova')}>
@@ -159,7 +169,7 @@ const Ouvidoria = () => {
                                 <li key={item.id} className="data-list-item" onClick={() => handleOpenModal(item)}>
                                     <div className="item-main-info">
                                         <strong>Assunto: {item.dadosManifestacao?.assunto || 'Não especificado'}</strong>
-                                        <span>Data: {new Date(item.dataManifestacao).toLocaleDateString('pt-BR')}</span>
+                                        <span>{item.protocolo || item.id} · {new Date(item.timestamp).toLocaleDateString('pt-BR')}</span>
                                     </div>
                                     <div className="item-status">
                                         <span className={`status-badge ${getStatusClass(item.status)}`}>

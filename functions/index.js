@@ -2275,3 +2275,5 @@ exports.cleanupExpiredRequests = onSchedule(
         return null;
       }
     });
+
+exports.esic = require("./esic").esic;

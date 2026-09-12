@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     collection, query, getDocs, getDoc, 
-    doc, updateDoc, addDoc, serverTimestamp 
+    doc, updateDoc, addDoc, serverTimestamp, limit
 } from 'firebase/firestore';
 import Chart from 'chart.js/auto';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -13,6 +13,7 @@ import QueueManagerModal from '../../components/QueueManagerModal';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane, LiaSearchSolid, LiaUsersCogSolid, LiaCogSolid } from "react-icons/lia";
 import { SectorAvailabilityModal } from '../../components/SectorScheduling';
+import ServiceOperationsNav from '../../components/ServiceOperationsNav';
 
 // Modal Component
 const SolicitacaoModal = ({ solicitacao, onClose, onStatusChange, onSendMessage, onFileUpload }) => {
@@ -158,6 +159,7 @@ const AdminProcuradoriaDashboard = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showQueueManager, setShowQueueManager] = useState(false);
     const [showAvailability, setShowAvailability] = useState(false);
+    const [operationView, setOperationView] = useState('dashboard');
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -173,7 +175,7 @@ const AdminProcuradoriaDashboard = () => {
         setLoading(true);
         try {
             const solicitacoesRef = collection(firestore, 'procuradoria-mulher');
-            const q = query(solicitacoesRef);
+            const q = query(solicitacoesRef, limit(50));
             const snapshot = await getDocs(q);
             
             const fetchedData = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
@@ -370,8 +372,9 @@ const AdminProcuradoriaDashboard = () => {
                 {showQueueManager && <QueueManagerModal lockedService="Procuradoria da Mulher" onClose={() => setShowQueueManager(false)} />}
                 {showAvailability && <SectorAvailabilityModal configCollection="procuradoria-config" sectorLabel="Procuradoria da Mulher" onClose={() => setShowAvailability(false)} />}
 
-                <div className="data-sections-grid">
-                    <div className="data-card">
+                <ServiceOperationsNav active={operationView} onChange={setOperationView} serviceName="Procuradoria da Mulher" />
+
+                {operationView === 'dashboard' && <section className="data-card service-dashboard-chart">
                         <div className="card-header"><h3>Atividades Recentes</h3></div>
                         <div className="tabs-header" style={{ marginBottom: '20px' }}>
                             {statusTabs.map(tab => (
@@ -385,37 +388,13 @@ const AdminProcuradoriaDashboard = () => {
                                 {loading ? <p>Carregando...</p> : <canvas ref={chartRef}></canvas>}
                             </div>
                         </div>
-                    </div>
+                </section>}
 
-                    <div className="data-card">
-                        <div className="card-header"><h3>Últimos Atendimentos ({currentTab})</h3></div>
-                        <div style={{ marginBottom: '15px', position: 'relative' }}>
-                            <LiaSearchSolid style={{ position: 'absolute', left: '10px', top: '10px', color: '#888' }} size={20} />
-                            <input 
-                                type="text" 
-                                placeholder="Buscar por assunto, nome ou protocolo..." 
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)} 
-                                className="form-input"
-                                style={{ paddingLeft: '40px' }}
-                            />
-                        </div>
-                        {loading && <p>Carregando...</p>}
-                        {!loading && filteredSolicitacoes.length === 0 && <p>Nenhum atendimento com o status "{currentTab}".</p>}
-                        <ul className="data-list">
-                            {filteredSolicitacoes.slice(0, 5).map(item => (
-                                <li key={item.id} className="data-list-item" onClick={() => handleOpenModal(item)}>
-                                    <div className="item-main-info">
-                                        <strong>{item.dadosSolicitacao?.assunto || 'Sem assunto'}</strong>
-                                        <span>Solicitante: {item.dadosUsuario?.name || 'Anônimo'}</span>
-                                    </div>
-                                    <div className="item-status"><span className={`status-badge status-${item.status?.toLowerCase().replace(/\s/g, '-') || 'pending'}`}>{item.status || 'Pendente'}</span></div>
-                                </li>
-                            ))}
-                        </ul>
-                        {filteredSolicitacoes.length > 5 && <p style={{ marginTop: '15px', fontSize: '0.9rem', color: '#6b7280', textAlign: 'center' }}>e mais {filteredSolicitacoes.length - 5} atendimentos...</p>}
-                    </div>
-                </div>
+                {operationView === 'requests' && <section className="data-card service-operations-panel"><div className="card-header"><div><h2>Solicitações e acolhimentos</h2><p>Abra o registro para acolher, encaminhar, responder ou registrar documentos.</p></div></div><ul className="data-list">{filteredSolicitacoes.map(item => <li key={item.id} className="data-list-item" onClick={() => handleOpenModal(item)}><div className="item-main-info"><strong>{item.dadosSolicitacao?.assunto || 'Atendimento reservado'}</strong><span>{item.protocolo || item.id} · {item.dadosSolicitacao?.tipoAtendimento || 'Acolhimento'}</span></div><div className="item-status"><span className={`status-badge status-${item.status?.toLowerCase().replace(/\s/g, '-') || 'pending'}`}>{item.status || 'Pendente'}</span></div></li>)}</ul>{!filteredSolicitacoes.length && <p>Nenhum atendimento encontrado.</p>}</section>}
+                {operationView === 'appointments' && <section className="data-card service-operations-panel"><div className="card-header"><div><h2>Agendamentos protegidos</h2><p>Controle os horários de acolhimento e confirme somente atendimentos autorizados.</p></div><button className="btn-primary" onClick={() => setShowAvailability(true)}>Configurar horários</button></div><ul className="data-list">{solicitacoes.filter(item => ['Agendamento Liberado', 'Agendado'].includes(item.status)).map(item => <li key={item.id} className="data-list-item" onClick={() => handleOpenModal(item)}><div className="item-main-info"><strong>{item.dadosSolicitacao?.assunto || 'Atendimento reservado'}</strong><span>{item.appointmentDate || 'Data pendente'} {item.appointmentTime || ''}</span></div><div className="item-status"><span className="status-badge status-in-progress">{item.status}</span></div></li>)}</ul></section>}
+                {operationView === 'queue' && <section className="data-card service-operations-panel"><div className="card-header"><div><h2>Fila e guichês</h2><p>Atendimentos sensíveis devem ser chamados de forma discreta e por equipe autorizada.</p></div><button className="btn-primary" onClick={() => setShowQueueManager(true)}>Abrir fila protegida</button></div></section>}
+                {operationView === 'reports' && <section className="data-card service-operations-panel"><div className="card-header"><div><h2>Indicadores protegidos</h2><p>Use somente dados agregados; não exponha a identidade de solicitantes em relatórios.</p></div></div><div className="ouv-summary">{Object.entries(statusCounts).filter(([, total]) => total > 0).map(([status, total]) => <article key={status}><span>{status}</span><strong>{total}</strong></article>)}</div></section>}
+                {operationView === 'settings' && <section className="data-card service-operations-panel"><div className="card-header"><div><h2>Configurações</h2><p>Publique horários e organize o fluxo de acolhimento.</p></div></div><div className="form-actions"><button className="btn-primary" onClick={() => setShowAvailability(true)}>Horários de atendimento</button><button className="btn-secondary" onClick={() => setShowQueueManager(true)}>Guichês e fila</button></div></section>}
 
                 <SolicitacaoModal
                     solicitacao={selectedSolicitacao}

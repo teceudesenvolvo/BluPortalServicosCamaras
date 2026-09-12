@@ -14,7 +14,7 @@ service firebase.storage {
     }
 
     match /{topLevel}/{allPaths=**} {
-      allow read, write: if topLevel != 'system-control' && request.auth != null;
+      allow read, write: if topLevel != 'system-control' && topLevel != 'esic' && request.auth != null;
     }
 
     match /{fileName} {

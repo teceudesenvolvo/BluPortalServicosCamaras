@@ -1,0 +1,58 @@
+/* Isolated component styles loaded after the legacy portal stylesheet. */
+.ouvidoria-public-shell, .ouvidoria-internal-page { --ouv-ink:#163451; --ouv-muted:#546d85; }
+.ouvidoria-internal-page .ouvidoria-internal-layout { width:100%; max-width:1280px; gap:24px; }
+.ouvidoria-internal-page .page-header-container { margin-bottom:24px; }
+.ouvidoria-internal-card, .ouvidoria-form-card, .ouvidoria-internal-help, .ouvidoria-institutional-card { min-width:0; box-sizing:border-box; backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); }
+.ouvidoria-internal-card .form-group, .ouvidoria-form-card .form-group { display:flex; flex-direction:column; gap:8px; min-width:0; margin:0 0 20px; }
+.ouvidoria-internal-card .form-group > label, .ouvidoria-form-card .form-group > label { color:var(--ouv-ink); font-size:14px; font-weight:700; margin:0; }
+.ouvidoria-internal-card .form-group input, .ouvidoria-internal-card .form-group select, .ouvidoria-internal-card .form-group textarea,
+.ouvidoria-form-card .form-group input, .ouvidoria-form-card .form-group select, .ouvidoria-form-card .form-group textarea { display:block; width:100%; max-width:100%; min-width:0; min-height:48px; height:auto; box-sizing:border-box; margin:0; padding:12px 14px; font:inherit; font-size:16px; color:#163451; background:rgba(255,255,255,.92); border:1px solid #b9cddd; border-radius:12px; box-shadow:none; }
+.ouvidoria-internal-card .form-group textarea, .ouvidoria-form-card .form-group textarea { min-height:180px; resize:vertical; line-height:1.6; }
+.ouvidoria-internal-card :is(input,select,textarea):focus-visible, .ouvidoria-form-card :is(input,select,textarea):focus-visible { outline:3px solid #85caef; outline-offset:2px; }
+.ouvidoria-internal-card .ouvidoria-identification-choice { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.ouvidoria-internal-card .ouvidoria-identification-choice label { display:grid; grid-template-columns:18px 22px minmax(0,1fr); gap:10px; align-items:start; min-width:0; padding:18px; margin:0; color:#163451; }
+.ouvidoria-internal-card .ouvidoria-identification-choice input[type=radio] { appearance:auto; -webkit-appearance:radio; width:18px!important; height:18px!important; min-width:18px!important; min-height:18px!important; max-width:18px; flex:none; padding:0!important; margin:3px 0 0!important; box-shadow:none; }
+.ouvidoria-identification-choice label span { min-width:0; overflow-wrap:anywhere; }
+.ouvidoria-identification-choice label small { font-size:13px; font-weight:400; line-height:1.5; }
+.ouvidoria-internal-card .form-actions { display:flex; gap:12px; justify-content:flex-end; flex-wrap:wrap; border-top:1px solid #cfdeeb; padding-top:20px; }
+.ouvidoria-internal-card .form-actions button { width:auto; min-height:48px; display:inline-flex; align-items:center; justify-content:center; gap:8px; margin:0; }
+.ouvidoria-internal-help { background:linear-gradient(145deg,rgba(225,244,255,.9),rgba(255,255,255,.8)); }
+.ouvidoria-public-shell .ouvidoria-channel { min-width:0; width:100%; white-space:normal; }
+.ouvidoria-public-shell .ouvidoria-public-header a:focus-visible { outline:3px solid #1685c4; outline-offset:5px; }
+.ouv-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-bottom:24px; }
+.ouv-summary article { display:grid; gap:12px; padding:24px; border:1px solid #d3e2ef; border-radius:20px; background:rgba(255,255,255,.8); }
+.ouv-summary span { color:#546d85; }.ouv-summary strong { font-size:32px; color:#056aa8; }
+.ouvidoria-internal-page .data-list-item { gap:16px; border-radius:16px; margin-bottom:12px; }
+.ouvidoria-internal-page .item-main-info { min-width:0; overflow-wrap:anywhere; }
+@media(max-width:820px) { .ouvidoria-internal-page .ouvidoria-internal-layout { grid-template-columns:1fr; } .ouvidoria-internal-help { position:static; } .ouvidoria-internal-card .ouvidoria-identification-choice, .ouv-summary { grid-template-columns:1fr; } .ouvidoria-internal-card .form-actions button { flex:1; } .ouvidoria-public-header { align-items:flex-start; } }
+
+/* One shared content boundary, including the header, on every internal page. */
+.dashboard-layout .ouvidoria-internal-page > :is(.page-header-container,.ouv-summary,.page-actions-bar,.data-list-container,.ouvidoria-internal-layout) { width:calc(100% - 48px); max-width:1600px; margin-left:auto; margin-right:auto; box-sizing:border-box; }
+@media(max-width:640px) { .dashboard-layout .ouvidoria-internal-page > :is(.page-header-container,.ouv-summary,.page-actions-bar,.data-list-container,.ouvidoria-internal-layout) { width:calc(100% - 24px); } }
+.dashboard-layout .dashboard-content.ouvidoria-internal-page { min-width:0; max-width:100%; box-sizing:border-box; overflow-x:clip; padding:clamp(16px,2.5vw,40px)!important; }
+.dashboard-layout .ouvidoria-internal-page > .service-operations-nav,
+.dashboard-layout .ouvidoria-internal-page > .service-dashboard-chart,
+.dashboard-layout .ouvidoria-internal-page > .service-operations-panel { width:calc(100% - 48px); max-width:1600px; margin-left:auto; margin-right:auto; min-width:0; box-sizing:border-box; }
+@media(max-width:640px) { .dashboard-layout .ouvidoria-internal-page > .service-operations-nav, .dashboard-layout .ouvidoria-internal-page > .service-dashboard-chart, .dashboard-layout .ouvidoria-internal-page > .service-operations-panel { width:calc(100% - 24px); } }
+.ouvidoria-internal-page .page-header-container { min-width:0; flex-wrap:wrap; }
+.ouvidoria-internal-page .page-header-container .header-title-section { min-width:0; flex:1 1 360px; }
+.ouvidoria-internal-page .page-header-container,
+.micro-admin-content > .page-header-container { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; column-gap:24px; row-gap:16px; }
+.ouvidoria-internal-page .page-header-container .admin-balcao-header-actions,
+.micro-admin-content > .page-header-container .admin-balcao-header-actions { display:flex; align-items:center; justify-content:flex-end; gap:12px; flex-wrap:wrap; min-width:0; }
+.ouvidoria-internal-page .page-header-container .user-profile,
+.micro-admin-content > .page-header-container .user-profile { min-width:150px; justify-self:end; }
+.ouvidoria-internal-page .page-header-container .user-text,
+.micro-admin-content > .page-header-container .user-text { min-width:0; text-align:right; overflow-wrap:anywhere; }
+.ouvidoria-internal-page .data-card, .ouvidoria-internal-page .chart-container { min-width:0; max-width:100%; box-sizing:border-box; }
+.ouvidoria-internal-page .service-dashboard-chart .chart-container > div { max-width:100%; }
+.service-pagination { display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-top:24px; padding-top:20px; border-top:1px solid #e5e7eb; }
+.micro-admin-content { min-width:0; overflow-x:clip; }
+.micro-admin-content > .service-operations-nav, .micro-admin-content > .service-dashboard-chart, .micro-admin-content > .service-operations-panel { width:calc(100% - 48px); max-width:1600px; margin-left:auto; margin-right:auto; min-width:0; box-sizing:border-box; }
+.micro-status-chart { display:grid; gap:14px; padding:8px 0; }
+.micro-status-bar { display:grid; grid-template-columns:minmax(130px,190px) minmax(0,1fr) 40px; align-items:center; gap:12px; color:#163451; }
+.micro-status-bar > div { height:14px; overflow:hidden; border-radius:999px; background:#e4edf5; }
+.micro-status-bar i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#056aa8,#08a0d4); }
+.micro-status-bar strong { color:#056aa8; text-align:right; }
+@media(max-width:640px) { .micro-admin-content > .service-operations-nav, .micro-admin-content > .service-dashboard-chart, .micro-admin-content > .service-operations-panel { width:calc(100% - 24px); } .micro-status-bar { grid-template-columns:minmax(110px,1fr) 1.5fr 32px; gap:8px; font-size:.9rem; } }
+@media(max-width:820px) { .ouvidoria-internal-page .page-header-container, .micro-admin-content > .page-header-container { grid-template-columns:minmax(0,1fr) auto; } .ouvidoria-internal-page .page-header-container .user-profile, .micro-admin-content > .page-header-container .user-profile { grid-column:1/-1; justify-self:start; } .ouvidoria-internal-page .page-header-container .user-text, .micro-admin-content > .page-header-container .user-text { text-align:left; } }

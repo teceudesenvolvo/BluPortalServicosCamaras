@@ -76,7 +76,8 @@ const Footer = () => {
                     {/* <li>Procon</li> */}
                     {/* <li>Atendimento Jurídico</li> */}
                     <li><a href="/login">Balcão do Cidadão <LiaArrowRightSolid /></a></li>
-                    <li><a href="https://esic.camaraparaipaba.ce.gov.br/ouvidoria" target="_blank" rel="noopener noreferrer">Ouvidoria <LiaArrowRightSolid /></a></li>
+                    <li><a href="/esic-publico">e-SIC <LiaArrowRightSolid /></a></li>
+                    <li><a href="/ouvidoria-publica">Ouvidoria <LiaArrowRightSolid /></a></li>
                     <li><a href="/login">Procuradoria da Mulher <LiaArrowRightSolid /></a></li>
                     {/* <li>Vereadores</li> */}
                 </ul>

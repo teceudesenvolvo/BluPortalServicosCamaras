@@ -9,10 +9,12 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { firestore, auth } from '../../firebase';
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
+import CabinetOverlay from '../../components/CabinetOverlay';
 import QueueManagerModal from '../../components/QueueManagerModal';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane, LiaSearchSolid, LiaFilterSolid, LiaArrowLeftSolid, LiaUsersCogSolid, LiaCogSolid } from "react-icons/lia";
 import { SectorAvailabilityModal } from '../../components/SectorScheduling';
+import ServiceOperationsNav from '../../components/ServiceOperationsNav';
 
 // Modal Component
 const ManifestacaoModal = ({ manifestacao, onClose, onStatusChange, onSendMessage, onFileUpload }) => {
@@ -64,7 +66,7 @@ const ManifestacaoModal = ({ manifestacao, onClose, onStatusChange, onSendMessag
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <CabinetOverlay onClick={onClose}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                     <h3>Detalhes da Manifestação</h3>
@@ -99,11 +101,13 @@ const ManifestacaoModal = ({ manifestacao, onClose, onStatusChange, onSendMessag
                             <label>Alterar Status</label>
                             <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} className="form-input">
                                 <option value="Recebida">Recebida</option>
+                                <option value="Triagem">Triagem</option>
                                 <option value="Em Análise">Em Análise</option>
-                                <option value="Agendamento Liberado">Agendamento Liberado</option>
-                                <option value="Agendado">Agendado</option>
-                                <option value="Respondida">Respondida</option>
                                 <option value="Encaminhada">Encaminhada</option>
+                                <option value="Aguardando Resposta">Aguardando resposta</option>
+                                <option value="Respondida">Respondida</option>
+                                <option value="Concluída">Concluída</option>
+                                <option value="Arquivada">Arquivada</option>
                                 <option value="Cancelada">Cancelada</option>
                             </select>
                         </div>
@@ -132,7 +136,7 @@ const ManifestacaoModal = ({ manifestacao, onClose, onStatusChange, onSendMessag
                     </div>
                 </div>
             </div>
-        </div>
+        </CabinetOverlay>
     );
 };
 
@@ -155,6 +159,7 @@ const AdminOuvidoriaDashboard = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [showQueueManager, setShowQueueManager] = useState(false);
     const [showAvailability, setShowAvailability] = useState(false);
+    const [operationView, setOperationView] = useState('dashboard');
 
     // Paginação
     const [currentPage, setCurrentPage] = useState(1);
@@ -162,7 +167,7 @@ const AdminOuvidoriaDashboard = () => {
     const [lastDoc, setLastDoc] = useState(null);
     const [isLastPage, setIsLastPage] = useState(false);
     const itemsPerPage = 15;
-    const maxItemsWithFilters = 500;
+    const maxItemsWithFilters = 50;
 
     const hasActiveFilters = !!(searchTerm || filterStatus !== 'Todas' || filterTipo !== 'Todos');
 
@@ -217,7 +222,7 @@ const AdminOuvidoriaDashboard = () => {
                 return acc;
             }, {});
 
-            const fixedStatuses = ['Recebida', 'Em Análise', 'Respondida', 'Encaminhada', 'Não Classificado'];
+            const fixedStatuses = ['Recebida', 'Triagem', 'Em Análise', 'Encaminhada', 'Aguardando Resposta', 'Respondida', 'Concluída', 'Arquivada', 'Não Classificado'];
             const orderedCounts = {};
             fixedStatuses.forEach(status => {
                 orderedCounts[status] = counts[status] || 0;
@@ -236,8 +241,8 @@ const AdminOuvidoriaDashboard = () => {
         if (!isAuthReady) return;
         setCurrentPage(1);
         setCursors([null]);
-        fetchManifestacoes(null, hasActiveFilters);
-    }, [isAuthReady, filterStatus, filterTipo, searchTerm, hasActiveFilters, fetchManifestacoes]);
+        fetchManifestacoes(null, filterStatus !== 'Todas' || filterTipo !== 'Todos');
+    }, [isAuthReady, filterStatus, filterTipo, fetchManifestacoes]);
 
     const handleNextPage = () => {
         if (!lastDoc || isLastPage) return;
@@ -342,8 +347,8 @@ const AdminOuvidoriaDashboard = () => {
 
     const handleStatusChange = async (id, newStatus) => {
         const itemRef = doc(firestore, 'ouvidoria', id);
-        let updateData = { status: newStatus };
-        if (newStatus === 'Respondida' || newStatus === 'Cancelada') {
+        let updateData = { status: newStatus, etapaAtual: newStatus, ultimaAtualizacao: serverTimestamp() };
+        if (['Respondida', 'Concluída', 'Arquivada', 'Cancelada'].includes(newStatus)) {
             updateData.deletionTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
         } else {
             updateData.deletionTimestamp = null;
@@ -398,21 +403,21 @@ const AdminOuvidoriaDashboard = () => {
         setCurrentPage(1);
     };
 
-    const statusTabs = ['Todas', 'Recebida', 'Em Análise', 'Respondida', 'Encaminhada'];
-    const tiposList = ['Todos', 'Reclamação', 'Sugestão', 'Denúncia', 'Elogio', 'Crítica'];
+    const statusTabs = ['Todas', 'Recebida', 'Triagem', 'Em Análise', 'Encaminhada', 'Aguardando Resposta', 'Respondida', 'Concluída', 'Arquivada'];
+    const tiposList = ['Todos', 'Reclamação', 'Solicitação', 'Sugestão', 'Denúncia', 'Elogio', 'Simplifique'];
 
     if (!isAuthReady) return <div className="loading-screen">Carregando...</div>;
 
     return (
         <div className="dashboard-layout">
             <AdminSidebar />
-            <div className="dashboard-content" style={{ padding: '40px' }}>
+            <div className="dashboard-content ouvidoria-internal-page" style={{ padding: '40px' }}>
                 <header className="page-header-container">
                     <div className="header-title-section">
                         <button onClick={() => navigate('/admin-balcao')} className="btn-secondary" style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
                             <LiaArrowLeftSolid size={18} /> Voltar ao Dashboard
                         </button>
-                        <h1>Admin Ouvidoria</h1>
+                        <h1>Central da Ouvidoria</h1>
                         <p>Gerencie as manifestações do cidadão ({filteredManifestacoes.length} registros)</p>
                         <button onClick={() => fetchManifestacoes(null, hasActiveFilters)} className="btn-secondary" disabled={loading} style={{ marginTop: '8px', fontSize: '0.85rem' }}>
                             ↻ Atualizar lista
@@ -435,7 +440,15 @@ const AdminOuvidoriaDashboard = () => {
                 {showQueueManager && <QueueManagerModal lockedService="Ouvidoria" onClose={() => setShowQueueManager(false)} />}
                 {showAvailability && <SectorAvailabilityModal configCollection="ouvidoria-config" sectorLabel="Ouvidoria" onClose={() => setShowAvailability(false)} />}
 
-                <div className="data-card" style={{ marginBottom: '24px' }}>
+                <ServiceOperationsNav active={operationView} onChange={setOperationView} serviceName="Ouvidoria" />
+
+                {operationView === 'reports' && <section className="ouv-summary" aria-label="Resumo operacional da Ouvidoria">
+                    <article><span>Recebidas</span><strong>{statusCounts.Recebida || 0}</strong><small>Aguardando triagem</small></article>
+                    <article><span>Em tratamento</span><strong>{(statusCounts.Triagem || 0) + (statusCounts['Em Análise'] || 0) + (statusCounts.Encaminhada || 0) + (statusCounts['Aguardando Resposta'] || 0)}</strong><small>Em análise ou encaminhadas</small></article>
+                    <article><span>Respondidas</span><strong>{(statusCounts.Respondida || 0) + (statusCounts.Concluída || 0)}</strong><small>Prontas ou concluídas</small></article>
+                </section>}
+
+                {operationView === 'requests' && <div className="data-card" style={{ marginBottom: '24px' }}>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
                             <LiaSearchSolid style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888' }} size={20} />
@@ -449,6 +462,18 @@ const AdminOuvidoriaDashboard = () => {
                             />
                         </div>
 
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setCurrentPage(1);
+                                setCursors([null]);
+                                fetchManifestacoes(null, hasActiveFilters);
+                            }}
+                            className="btn-primary"
+                            disabled={loading}
+                        >
+                            Buscar
+                        </button>
                         <button
                             onClick={() => setShowFilters(!showFilters)}
                             className={showFilters ? 'btn-primary' : 'btn-secondary'}
@@ -489,67 +514,31 @@ const AdminOuvidoriaDashboard = () => {
                             </div>
                         </div>
                     )}
-                </div>
+                </div>}
 
-                <div className="data-sections-grid">
-                    <div className="data-card">
-                        <div className="card-header"><h3>Atividades Recentes</h3></div>
+                {operationView === 'dashboard' && <section className="data-card service-dashboard-chart">
+                        <div className="card-header"><div><h3>Atividades recentes</h3><p>Distribuição das manifestações por status.</p></div></div>
                         <div className="chart-container">
                             <div style={{ height: '350px', width: '100%' }}>
                                 {loading ? <p>Carregando...</p> : <canvas ref={chartRef}></canvas>}
                             </div>
                         </div>
-                    </div>
+                </section>}
 
-                    <div className="data-card">
-                        <div className="card-header"><h3>Lista de Manifestações ({filterStatus})</h3></div>
-                        {loading && <p>Carregando...</p>}
-                        {!loading && filteredManifestacoes.length === 0 && <p style={{ padding: '20px' }}>Nenhuma manifestação encontrada com o status "{filterStatus}".</p>}
-                        <ul className="data-list">
-                            {filteredManifestacoes.map(item => (
-                                <li key={item.id} className="data-list-item" onClick={() => handleOpenModal(item)}>
-                                    <div className="item-main-info">
-                                        <strong>{item.dadosManifestacao?.assunto || 'Sem assunto'}</strong>
-                                        <span>Manifestante: {item.dadosUsuario?.name || 'Anônimo'}</span>
-                                    </div>
-                                    <div className="item-status"><span className={`status-badge status-${item.status?.toLowerCase().replace(/\s/g, '-') || 'pending'}`}>{item.status || 'Pendente'}</span></div>
-                                </li>
-                            ))}
-                        </ul>
+                {operationView === 'requests' && <section className="data-card service-operations-panel">
+                    <div className="card-header"><div><h2>Solicitações</h2><p>Abra uma manifestação para classificar, responder, encaminhar e anexar documentos.</p></div></div>
+                    <ul className="data-list">{filteredManifestacoes.map(item => <li key={item.id} className="data-list-item" onClick={() => handleOpenModal(item)}><div className="item-main-info"><strong>{item.dadosManifestacao?.assunto || 'Sem assunto'}</strong><span>{item.protocolo || item.id} · {item.dadosManifestacao?.tipoManifestacao || 'Manifestação'}</span></div><div className="item-status"><span className={`status-badge status-${item.status?.toLowerCase().replace(/\s/g, '-') || 'pending'}`}>{item.status || 'Pendente'}</span></div></li>)}</ul>
+                    {!loading && !filteredManifestacoes.length && <p>Nenhuma manifestação encontrada.</p>}
+                    {!loading && manifestacoes.length > 0 && !hasActiveFilters && <div className="service-pagination"><button onClick={handleResetPagination} disabled={currentPage === 1} className="btn-secondary">⇤ Início</button><button onClick={handlePrevPage} disabled={currentPage === 1} className="btn-secondary">Anterior</button><button onClick={handleNextPage} disabled={isLastPage} className="btn-primary">Próxima página ➔</button></div>}
+                </section>}
 
-                        {/* Paginação */}
-                        {!loading && manifestacoes.length > 0 && !hasActiveFilters && (
-                            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px', paddingBottom: '20px', flexWrap: 'wrap' }}>
-                                <button
-                                    onClick={handleResetPagination}
-                                    disabled={currentPage === 1}
-                                    className="btn-secondary"
-                                    style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
-                                >
-                                    ⇤ Início
-                                </button>
-                                
-                                <button
-                                    onClick={handlePrevPage}
-                                    disabled={currentPage === 1}
-                                    className="btn-secondary"
-                                    style={{ padding: '6px 14px', opacity: currentPage === 1 ? 0.4 : 1 }}
-                                >
-                                    Anterior
-                                </button>
+                {operationView === 'appointments' && <section className="data-card service-operations-panel"><div className="card-header"><div><h2>Agendamentos</h2><p>Confirme os atendimentos e mantenha a agenda publicada para o cidadão.</p></div><button className="btn-primary" onClick={() => setShowAvailability(true)}>Configurar horários</button></div><ul className="data-list">{manifestacoes.filter(item => ['Agendamento Liberado', 'Agendado'].includes(item.status)).map(item => <li key={item.id} className="data-list-item" onClick={() => handleOpenModal(item)}><div className="item-main-info"><strong>{item.dadosManifestacao?.assunto || 'Atendimento de Ouvidoria'}</strong><span>{item.appointmentDate || 'Data pendente'} {item.appointmentTime || ''}</span></div><div className="item-status"><span className="status-badge status-in-progress">{item.status}</span></div></li>)}</ul>{!manifestacoes.some(item => ['Agendamento Liberado', 'Agendado'].includes(item.status)) && <p>Nenhum agendamento pendente.</p>}</section>}
 
-                                <button
-                                    onClick={handleNextPage}
-                                    disabled={isLastPage}
-                                    className="btn-primary"
-                                    style={{ padding: '6px 20px', opacity: isLastPage ? 0.4 : 1 }}
-                                >
-                                    Próxima Página ➔
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
+                {operationView === 'queue' && <section className="data-card service-operations-panel"><div className="card-header"><div><h2>Fila e guichês</h2><p>Organize chamadas, prioridades e a ocupação dos guichês da Ouvidoria.</p></div><button className="btn-primary" onClick={() => setShowQueueManager(true)}>Abrir gerenciamento da fila</button></div><p>O painel usa a mesma fila operacional do Balcão, filtrada para a Ouvidoria.</p></section>}
+
+                {operationView === 'reports' && <section className="data-card service-operations-panel"><div className="card-header"><div><h2>Relatórios operacionais</h2><p>Resumo dos registros carregados nesta consulta.</p></div></div><div className="ouv-summary">{Object.entries(statusCounts).filter(([, total]) => total > 0).map(([status, total]) => <article key={status}><span>{status}</span><strong>{total}</strong></article>)}</div></section>}
+
+                {operationView === 'settings' && <section className="data-card service-operations-panel"><div className="card-header"><div><h2>Configurações da Ouvidoria</h2><p>Defina a disponibilidade usada na solicitação de atendimento e consulte o gerenciamento da fila.</p></div></div><div className="form-actions"><button className="btn-primary" onClick={() => setShowAvailability(true)}>Horários de atendimento</button><button className="btn-secondary" onClick={() => setShowQueueManager(true)}>Guichês e fila</button></div></section>}
 
                 <ManifestacaoModal
                     manifestacao={selectedManifestacao}

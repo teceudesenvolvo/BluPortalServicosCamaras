@@ -155,11 +155,12 @@ const HomePage = () => {
             title: "Ouvidoria",
             tag: "Comunicação direta",
             description: "Envie suas sugestões, reclamações, elogios ou críticas.",
-            action: () => window.open('https://esic.camaraparaipaba.ce.gov.br/ouvidoria', '_blank', 'noopener,noreferrer'),
+            action: () => navigate('/ouvidoria-publica'),
         }
     ];
 
     const quickAccessItems = [
+        { icon: <LiaUserAstronautSolid />, title: 'e-SIC', text: 'Solicite informações públicas', path: '/esic-publico' },
         { icon: <LiaCalendarCheckSolid />, title: 'Agendamentos', text: 'Acompanhe datas e retornos', path: '/login' },
         { icon: <LiaCommentsSolid />, title: 'Mensagens', text: 'Fale com os setores da Câmara', path: '/login' },
         { icon: <LiaNewspaperSolid />, title: 'Notícias', text: 'Veja avisos e publicações', path: '#noticias' },

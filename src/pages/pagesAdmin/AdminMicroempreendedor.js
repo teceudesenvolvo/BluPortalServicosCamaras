@@ -6,6 +6,7 @@ import { LiaArrowLeftSolid, LiaCogSolid, LiaPaperPlane, LiaSearchSolid, LiaTimes
 import AdminSidebar from '../../components/AdminSidebar';
 import QueueManagerModal from '../../components/QueueManagerModal';
 import { auth, firestore } from '../../firebase';
+import ServiceOperationsNav from '../../components/ServiceOperationsNav';
 
 const STATUSES = ['Recebida', 'Em Análise', 'Agendamento Liberado', 'Agendado', 'Concluída', 'Cancelada'];
 
@@ -362,6 +363,7 @@ const AdminMicroempreendedor = () => {
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
     const [showQueueManager, setShowQueueManager] = useState(false);
+    const [operationView, setOperationView] = useState('dashboard');
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -500,8 +502,16 @@ const AdminMicroempreendedor = () => {
                     </div>
                 </header>
                 {showQueueManager && <QueueManagerModal lockedService="Assessoria ao Microempreendedor" onClose={() => setShowQueueManager(false)} />}
+                <ServiceOperationsNav active={operationView} onChange={setOperationView} serviceName="Assessoria ao Empreendedor" />
 
-                <div className="data-card micro-filter-card">
+                {operationView === 'dashboard' && <section className="data-card service-dashboard-chart micro-dashboard-chart">
+                    <div className="card-header"><div><h2>Visão geral</h2><p>Distribuição das solicitações da Assessoria ao Empreendedor.</p></div></div>
+                    <div className="micro-status-chart" role="img" aria-label="Solicitações por status">
+                        {STATUSES.map(status => { const total = solicitacoes.filter(item => item.status === status).length; const max = Math.max(1, solicitacoes.length); return <div className="micro-status-bar" key={status}><span>{status}</span><div><i style={{ width: `${Math.max(total ? 8 : 0, (total / max) * 100)}%` }} /></div><strong>{total}</strong></div>; })}
+                    </div>
+                </section>}
+
+                {operationView === 'requests' && <><div className="data-card micro-filter-card">
                     <div className="search-box">
                         <LiaSearchSolid />
                         <input
@@ -539,7 +549,12 @@ const AdminMicroempreendedor = () => {
                             ))}
                         </ul>
                     )}
-                </div>
+                </div></>}
+
+                {operationView === 'appointments' && <section className="data-card service-operations-panel"><div className="card-header"><div><h2>Agendamentos</h2><p>Consulte os atendimentos agendados para orientação.</p></div><button className="btn-primary" onClick={() => setIsAvailabilityModalOpen(true)}>Configurar horários</button></div><p>Os agendamentos vinculados aparecerão nesta aba.</p></section>}
+                {operationView === 'queue' && <section className="data-card service-operations-panel"><div className="card-header"><div><h2>Fila e guichês</h2><p>Organize chamadas da Assessoria ao Empreendedor.</p></div><button className="btn-primary" onClick={() => setShowQueueManager(true)}>Abrir fila</button></div></section>}
+                {operationView === 'reports' && <section className="data-card service-operations-panel"><div className="card-header"><div><h2>Relatórios</h2><p>Indicadores operacionais das solicitações.</p></div></div><div className="ouv-summary"><article><span>Total</span><strong>{solicitacoes.length}</strong></article><article><span>Em andamento</span><strong>{solicitacoes.filter(item => ['Recebida','Em Análise','Agendamento Liberado','Agendado'].includes(item.status)).length}</strong></article><article><span>Concluídas</span><strong>{solicitacoes.filter(item => item.status === 'Concluída').length}</strong></article></div></section>}
+                {operationView === 'settings' && <section className="data-card service-operations-panel"><div className="card-header"><div><h2>Configurações</h2><p>Defina horários e recursos da Assessoria.</p></div></div><div className="form-actions"><button className="btn-primary" onClick={() => setIsAvailabilityModalOpen(true)}>Horários de atendimento</button><button className="btn-secondary" onClick={() => setShowQueueManager(true)}>Guichês e fila</button></div></section>}
 
                 <AssessoriaAdminModal
                     solicitacao={selectedSolicitacao}

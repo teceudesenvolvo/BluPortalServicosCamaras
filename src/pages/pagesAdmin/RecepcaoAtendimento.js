@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { collection, doc, getDocs, limit, onSnapshot, query, runTransaction, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { getWalkInLimit } from '../../utils/walkInLimit';
 import {
@@ -356,6 +356,31 @@ const RecepcaoAtendimento = () => {
     const [todayAgendaLoading, setTodayAgendaLoading] = useState(false);
     const [todayAgendaErrors, setTodayAgendaErrors] = useState([]);
     const [queuePriority, setQueuePriority] = useState(null);
+    const [callNotification, setCallNotification] = useState(null);
+    const knownCallsRef = useRef(new Map());
+
+    // A recepção acompanha as chamadas em tempo real para orientar o cidadão,
+    // mesmo quando a Câmara não possui um painel público instalado.
+    useEffect(() => {
+        const unsubscribe = onSnapshot(query(collection(firestore, 'atendimento-fila'), where('status', 'in', ['Chamando', 'Em Atendimento']), limit(30)), snapshot => {
+            snapshot.docChanges().forEach(change => {
+                const ticket = { id: change.doc.id, ...change.doc.data() };
+                const callKey = `${ticket.id}:${ticket.chamadoEm?.seconds || ticket.chamadoEm || ''}`;
+                const previous = knownCallsRef.current.get(ticket.id);
+                knownCallsRef.current.set(ticket.id, callKey);
+                if (change.type !== 'removed' && callKey !== previous && ticket.status === 'Chamando') {
+                    setCallNotification({ id: ticket.id, nome: ticket.nome || ticket.beneficiarioNome || 'Cidadão', guiche: ticket.guiche || ticket.guicheNome || 'Guichê de atendimento', senha: ticket.senha || '' });
+                }
+            });
+        }, error => console.warn('Não foi possível acompanhar chamadas da recepção:', error?.code || error));
+        return unsubscribe;
+    }, []);
+
+    useEffect(() => {
+        if (!callNotification) return undefined;
+        const timeout = window.setTimeout(() => setCallNotification(null), 9000);
+        return () => window.clearTimeout(timeout);
+    }, [callNotification]);
 
     const loadAllTodayAppointments = async () => {
         setShowTodayAgenda(true);
@@ -1337,6 +1362,7 @@ const RecepcaoAtendimento = () => {
 
                 {showReceptionQueue && <ReceptionQueueModal onClose={() => setShowReceptionQueue(false)} />}
                 {showTodayAgenda && <TodayAppointmentsModal appointments={allTodayAppointments} loading={todayAgendaLoading} errors={todayAgendaErrors} onClose={() => setShowTodayAgenda(false)} onPrint={printTodayAgenda} />}
+                {callNotification && <div className="reception-call-notification" role="status" aria-live="polite"><span className="reception-call-notification-label">Chamando agora</span><strong>{callNotification.nome}</strong><span>{callNotification.senha ? `Senha ${callNotification.senha} · ` : ''}{callNotification.guiche}</span><button type="button" onClick={() => setCallNotification(null)} aria-label="Fechar aviso">×</button></div>}
 
                 <section className="reception-flow-shell">
                     <div className="reception-stepper reception-main-stepper">

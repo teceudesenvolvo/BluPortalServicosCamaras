@@ -1,6 +1,8 @@
+import Esic, { EsicPublico } from './pages/esic/Esic';
 import React from 'react';
 import { BrowserRouter as Router, Navigate, Routes, Route } from 'react-router-dom';
 import './App.css';
+import './ouvidoria.css';
 
 // Importa o provedor de autenticação
 import { AuthProvider } from './contexts/FirebaseAuthContext';
@@ -32,6 +34,9 @@ import BalcaoCidadao from './pages/pagesUser/BalcaoCidadao';
 import NovoBalcaoCidadao from './pages/pagesUser/NovoBalcaoCidadao';
 import Ouvidoria from './pages/pagesUser/Ouvidoria';
 import NovaOuvidoria from './pages/pagesUser/NovaOuvidoria';
+import NovaOuvidoriaInterna from './pages/pagesUser/NovaOuvidoriaInterna';
+import OuvidoriaPublica from './pages/pagesUser/OuvidoriaPublica';
+import OuvidoriaInstitucional from './pages/pagesUser/OuvidoriaInstitucional';
 import Procuradoria from './pages/pagesUser/Procuradoria';
 import NovaProcuradoria from './pages/pagesUser/NovaProcuradoria';
 import MensagensUsuario from './pages/pagesUser/MensagensUsuario';
@@ -91,6 +96,12 @@ function App() {
           <Route path="/download-app" element={<DownloadApp />} />
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/noticia/:id" element={<NoticiaDetalhe />} />
+          <Route path="/esic-publico" element={<EsicPublico />} />
+          <Route path="/esic" element={<ModuleRoute surface="portal"><Esic /></ModuleRoute>} />
+          <Route path="/admin-esic" element={<ModuleRoute surface="admin"><Esic admin /></ModuleRoute>} />
+          <Route path="/ouvidoria-publica" element={<OuvidoriaPublica />} />
+          <Route path="/ouvidoria-publica/nova" element={<NovaOuvidoria />} />
+          <Route path="/ouvidoria-publica/:page" element={<OuvidoriaInstitucional />} />
 
           {/* Com Login - Usuário Comum */}
           <Route path="/dashboard" element={<Painel />} />
@@ -103,7 +114,7 @@ function App() {
           <Route path="/balcao" element={<ModuleRoute surface="portal"><BalcaoCidadao /></ModuleRoute>} />
           <Route path="/balcao/novo" element={<ModuleRoute surface="portal"><NovoBalcaoCidadao /></ModuleRoute>} />
           <Route path="/ouvidoria" element={<ModuleRoute surface="portal"><Ouvidoria /></ModuleRoute>} />
-          <Route path="/ouvidoria/nova" element={<ModuleRoute surface="portal"><NovaOuvidoria /></ModuleRoute>} />
+          <Route path="/ouvidoria/nova" element={<ModuleRoute surface="portal"><NovaOuvidoriaInterna /></ModuleRoute>} />
           <Route path="/procuradoria" element={<ModuleRoute surface="portal"><Procuradoria /></ModuleRoute>} />
           <Route path="/procuradoria/nova" element={<ModuleRoute surface="portal"><NovaProcuradoria /></ModuleRoute>} />
           <Route path="/mensagens" element={<ModuleRoute surface="portal"><MensagensUsuario /></ModuleRoute>} />

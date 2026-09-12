@@ -47,6 +47,7 @@ const Sidebar = ({ onItemClick }) => {
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/balcao' },
         { title: 'Microempreendedor', icon: <LiaUserFriendsSolid />, path: '/microempreendedor' },
         { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/mensagens' },
+        { title: 'e-SIC', icon: <LiaUserAstronautSolid />, path: '/esic' },
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/ouvidoria' },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/procuradoria' },
         { title: 'TV Câmara', icon: <LiaTvSolid />, path: '/tv-camara' },

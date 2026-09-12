@@ -1,0 +1,5 @@
+.service-operations-nav { display:flex; gap:8px; overflow-x:auto; max-width:100%; min-width:0; box-sizing:border-box; padding:8px; margin:0 0 24px; border:1px solid rgba(192,214,230,.8); border-radius:18px; background:rgba(255,255,255,.64); backdrop-filter:blur(18px); }
+.service-operations-nav button { display:inline-flex; align-items:center; gap:8px; flex:0 0 auto; min-height:42px; padding:10px 14px; border:0; border-radius:12px; background:transparent; color:#163451; font:inherit; font-weight:700; cursor:pointer; }
+.service-operations-nav button:hover, .service-operations-nav button.active { color:white; background:linear-gradient(120deg,#025aa1,#0284c7); box-shadow:0 10px 22px rgba(2,90,161,.2); }
+.service-operations-nav svg { width:20px; height:20px; }
+@media(max-width:640px) { .service-operations-nav { margin-left:0; margin-right:0; border-radius:14px; } .service-operations-nav button { padding:9px 12px; } }

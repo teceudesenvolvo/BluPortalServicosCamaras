@@ -1,0 +1,29 @@
+.esic-page { color:#163451; }
+.esic-page .esic-boundary { width:calc(100% - 48px);max-width:1600px;margin:0 auto;min-width:0; }
+.dashboard-layout .esic-boundary > .page-header-container { width:100%;max-width:none;margin:0 0 24px;box-sizing:border-box; }
+.esic-panel { padding:28px;margin:0 0 24px;border:1px solid #d2e2ef;border-radius:24px;background:linear-gradient(135deg,rgba(255,255,255,.9),rgba(231,244,255,.65));box-shadow:0 16px 48px #1634510d;backdrop-filter:blur(18px);min-width:0;box-sizing:border-box; }
+.esic-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px; }
+.esic-page p { line-height:1.65; }
+.esic-actions { display:flex;flex-wrap:wrap;gap:12px;margin:16px 0; }
+.esic-page button,.esic-dialog button { width:auto;min-height:44px;padding:10px 18px;border:1px solid #026aaa;border-radius:12px;background:linear-gradient(120deg,#025aa1,#0284c7);color:white;font:inherit;cursor:pointer; }
+.esic-page button:disabled,.esic-dialog button:disabled { opacity:.6;cursor:wait; }
+.esic-filters { display:flex;align-items:end;gap:16px;flex-wrap:wrap;margin:24px 0; }
+.esic-filters label { flex:1;min-width:180px; }
+.esic-page label,.esic-dialog label { display:flex;flex-direction:column;gap:8px;margin-bottom:16px;font-size:15px;color:#163451;font-weight:600; }
+.esic-page input,.esic-page select,.esic-dialog input,.esic-dialog select,.esic-dialog textarea { width:100%;box-sizing:border-box;min-width:0;min-height:46px;padding:12px;border:1px solid #b8d0e3;border-radius:12px;background:#ffffffd9;color:#163451;font:inherit; }
+.esic-dialog textarea { min-height:180px;resize:vertical; }
+.esic-page .esic-record { display:flex;justify-content:space-between;gap:20px;text-align:left;width:100%;background:#ffffffad;color:#163451;border:1px solid #d2e2ef;margin:12px 0;padding:20px; }
+.esic-record span { display:grid;gap:8px;min-width:0;overflow-wrap:anywhere; }
+.esic-dialog { width:min(760px,100%)!important;max-height:calc(100dvh - 32px);overflow:auto;box-sizing:border-box;color:#163451; }
+.esic-dialog .modal-header button { flex:none; }
+.esic-timeline { padding-left:24px; }.esic-timeline li { padding:12px 0;border-bottom:1px solid #d2e2ef; }.esic-timeline small { display:block; }
+.esic-text { white-space:pre-wrap;overflow-wrap:anywhere; }
+.esic-page [role=alert],.esic-dialog [role=alert] { padding:12px;background:#fff0ef;color:#9d2424;border-radius:10px; }
+.esic-page details { padding:16px 0;border-bottom:1px solid #d2e2ef; }
+@media(max-width:700px){.esic-page .esic-boundary {width:calc(100% - 24px)}.esic-grid{grid-template-columns:1fr}.esic-panel{padding:20px}.esic-page .esic-record{flex-direction:column}.esic-filters{display:grid;grid-template-columns:1fr}.esic-filters label{min-width:0}.esic-actions>*{flex:1}}
+
+.ouvidoria-public-shell.esic-page > * { max-width:1200px;width:100%;margin-left:auto;margin-right:auto;box-sizing:border-box; }
+.esic-actions a { flex:0 1 auto;width:auto;text-decoration:none;padding:12px 20px;border-radius:12px; }
+.esic-page li { line-height:1.7; }
+
+.esic-stats {display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}.esic-stats article{padding:16px;border:1px solid #d2e2ef;border-radius:16px;display:grid;gap:10px}.esic-stats strong{font-size:28px;color:#026aaa}

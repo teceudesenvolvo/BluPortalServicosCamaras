@@ -5,7 +5,7 @@ const STAFF_MODULES = {
     agendaVereadores: ['Vereador', 'Assessor'], juridico: ['Juridico'], balcao: ['Balcão'],
     microempreendedor: ['Microempreendedor'], recepcao: ['Balcão', 'Recepção', 'Microempreendedor'],
     mensagens: ['Balcão', 'Ouvidoria', 'Procuradoria'], avaliacoes: ['Balcão'],
-    ouvidoria: ['Ouvidoria'], procuradoria: ['Procuradoria'], vereadores: ['Vereador'], procon: ['Procon'],
+    esic: ['Ouvidoria'], ouvidoria: ['Ouvidoria'], procuradoria: ['Procuradoria'], vereadores: ['Vereador'], procon: ['Procon'],
 };
 export const defaultRolePermission = (role, moduleId, surface) => surface !== 'admin' || role === 'Admin' || Boolean(STAFF_MODULES[moduleId]?.includes(role));
 export const rolePermission = (settings, role, moduleId, surface) => {
