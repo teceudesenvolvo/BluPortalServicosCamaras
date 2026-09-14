@@ -71,6 +71,7 @@ import AdminMicroempreendedor from './pages/pagesAdmin/AdminMicroempreendedor';
 import AdminAvaliacoes from './pages/pagesAdmin/AdminAvaliacoes';
 import AdminEscolaParlamento from './pages/pagesAdmin/AdminEscolaParlamento';
 import EscolaParlamento from './pages/pagesUser/EscolaParlamento';
+import NoticiasPortal from './pages/pagesUser/NoticiasPortal';
 import MeusCursosEscola from './pages/pagesUser/MeusCursosEscola';
 import CursoEscolaPlayer from './pages/pagesUser/CursoEscolaPlayer';
 import AdminAtendimentosGuiches from './pages/pagesAdmin/AdminAtendimentosGuiches';
@@ -127,6 +128,7 @@ function App() {
           <Route path="/vereadores/nova" element={<ModuleRoute surface="portal"><NovaSolicitacaoVereador /></ModuleRoute>} />
           <Route path="/piel" element={<ModuleRoute surface="portal"><Piel /></ModuleRoute>} />
           <Route path="/tv-camara" element={<ModuleRoute surface="portal"><TvCamara /></ModuleRoute>} />
+          <Route path="/noticias" element={<ModuleRoute surface="portal"><NoticiasPortal /></ModuleRoute>} />
           <Route path="/escola-parlamento" element={<ModuleRoute surface="portal"><EscolaParlamento /></ModuleRoute>} />
           <Route path="/escola-parlamento/meus-cursos" element={<ModuleRoute surface="portal"><MeusCursosEscola /></ModuleRoute>} />
           <Route path="/escola-parlamento/curso/:courseId" element={<ModuleRoute surface="portal"><CursoEscolaPlayer /></ModuleRoute>} />

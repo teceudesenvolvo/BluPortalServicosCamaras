@@ -19,6 +19,7 @@ import {
     LiaLandmarkSolid,
     LiaFileAltSolid,
     LiaHeadsetSolid,
+    LiaNewspaperSolid,
 } from "react-icons/lia";
 import { useSystemControl } from '../contexts/SystemControlContext';
 import { findModuleByPath } from '../config/systemModules';
@@ -56,6 +57,7 @@ const Sidebar = ({ onItemClick }) => {
         { title: 'Escola do Parlamento', icon: <LiaGraduationCapSolid />, path: '/escola-parlamento' },
         { title: 'Meus cursos', icon: <LiaBookSolid />, path: '/escola-parlamento/meus-cursos' },
         { title: 'TV Câmara', icon: <LiaTvSolid />, path: '/tv-camara' },
+        { title: 'Notícias da Câmara', icon: <LiaNewspaperSolid />, path: '/noticias' },
         { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/mensagens' },
         { title: 'Vereadores', icon: <LiaLandmarkSolid />, path: '/vereadores' },
         { title: 'Perfil', icon: <LiaUser />, path: '/perfil' },
@@ -66,7 +68,7 @@ const Sidebar = ({ onItemClick }) => {
     });
     const menuGroups = [
         { title: 'Atendimento', paths: ['/dashboard', '/balcao', '/ouvidoria', '/esic', '/procuradoria', '/procon', '/microempreendedor'] },
-        { title: 'Conteúdo e formação', paths: ['/escola-parlamento', '/escola-parlamento/meus-cursos', '/tv-camara', '/vereadores'] },
+        { title: 'Conteúdo e formação', paths: ['/escola-parlamento', '/escola-parlamento/meus-cursos', '/tv-camara', '/noticias', '/vereadores'] },
         { title: 'Minha conta', paths: ['/mensagens', '/perfil'] },
     ].map(group => ({ ...group, items: visibleMenuItems.filter(item => group.paths.includes(item.path)) }));
 

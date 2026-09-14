@@ -1,0 +1,16 @@
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { LiaCalendarSolid, LiaImageSolid, LiaTimesSolid, LiaUserSolid } from 'react-icons/lia';
+import Sidebar from '../../components/Sidebar';
+import { firestore } from '../../firebase';
+
+const safeHtml = html => (html || '').replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '').replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '');
+const dateLabel = value => value?.toMillis ? new Date(value.toMillis()).toLocaleDateString('pt-BR') : 'Notícia';
+
+const NoticiasPortal = () => {
+  const [news, setNews] = useState([]); const [loading, setLoading] = useState(true); const [selected, setSelected] = useState(null);
+  useEffect(() => { getDocs(query(collection(firestore, 'noticias'), orderBy('createdAt', 'desc'))).then(snapshot => setNews(snapshot.docs.map(item => ({ id: item.id, ...item.data() })).filter(item => item.status === 'Publicado'))).catch(error => console.error('Erro ao carregar notícias:', error)).finally(() => setLoading(false)); }, []);
+  return <div className="dashboard-layout"><Sidebar onItemClick={path => window.location.assign(path)} /><main className="dashboard-content noticias-portal-page"><header className="page-header-container"><div className="header-title-section"><span className="escola-kicker">Informação institucional</span><h1>Notícias da Câmara</h1><p>Acompanhe as publicações, ações e informações do Poder Legislativo.</p></div></header><section className="noticias-portal-grid">{loading && <p>Carregando notícias...</p>}{!loading && !news.length && <p>Nenhuma notícia publicada.</p>}{news.map(item => <article key={item.id} onClick={() => setSelected(item)} role="button" tabIndex={0} onKeyDown={event => event.key === 'Enter' && setSelected(item)}>{item.capaUrl ? <img src={item.capaUrl} alt="" /> : <div className="noticias-portal-placeholder"><LiaImageSolid /></div>}<div><span><LiaCalendarSolid /> {dateLabel(item.createdAt)}</span><h2>{item.titulo}</h2><p>{item.subtitulo || 'Leia a publicação completa.'}</p><button className="btn-secondary" onClick={event => { event.stopPropagation(); setSelected(item); }}>Ler notícia</button></div></article>)}</section>{selected && createPortal(<div className="modal-overlay escola-global-overlay" onClick={() => setSelected(null)}><article className="modal-content noticias-portal-modal" onClick={event => event.stopPropagation()}><div className="modal-header"><div><span className="escola-kicker">Notícia da Câmara</span><h2>{selected.titulo}</h2></div><button type="button" aria-label="Fechar" className="modal-close-btn" onClick={() => setSelected(null)}><LiaTimesSolid /></button></div><div className="noticias-portal-meta"><span><LiaCalendarSolid /> {dateLabel(selected.createdAt)}</span>{selected.autor && <span><LiaUserSolid /> {selected.autor}</span>}</div>{selected.capaUrl && <img src={selected.capaUrl} alt="" />}{selected.subtitulo && <p className="noticias-portal-subtitle">{selected.subtitulo}</p>}<div className="noticias-portal-content ql-editor" dangerouslySetInnerHTML={{ __html: safeHtml(selected.conteudo) }} /></article></div>, document.body)}</main></div>;
+};
+export default NoticiasPortal;
