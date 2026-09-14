@@ -56,3 +56,21 @@
 .micro-status-bar strong { color:#056aa8; text-align:right; }
 @media(max-width:640px) { .micro-admin-content > .service-operations-nav, .micro-admin-content > .service-dashboard-chart, .micro-admin-content > .service-operations-panel { width:calc(100% - 24px); } .micro-status-bar { grid-template-columns:minmax(110px,1fr) 1.5fr 32px; gap:8px; font-size:.9rem; } }
 @media(max-width:820px) { .ouvidoria-internal-page .page-header-container, .micro-admin-content > .page-header-container { grid-template-columns:minmax(0,1fr) auto; } .ouvidoria-internal-page .page-header-container .user-profile, .micro-admin-content > .page-header-container .user-profile { grid-column:1/-1; justify-self:start; } .ouvidoria-internal-page .page-header-container .user-text, .micro-admin-content > .page-header-container .user-text { text-align:left; } }
+.escola-admin-page, .escola-public-page { min-width:0; padding:clamp(16px,2.5vw,40px); }
+.escola-tabs { width:100%; margin-bottom:24px; }
+.escola-admin-list { display:grid; gap:12px; }
+.escola-admin-list article, .escola-resource { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px; border:1px solid #d5e3ef; border-radius:14px; background:rgba(255,255,255,.72); }
+.escola-admin-list article div, .escola-resource div { display:grid; gap:5px; min-width:0; }
+.escola-admin-list article span, .escola-admin-list article a, .escola-resource span { color:#59728d; overflow-wrap:anywhere; }
+.escola-modal { width:min(680px,calc(100vw - 32px)); max-height:calc(100vh - 48px); overflow:auto; }
+.escola-kicker { color:#0576b7; font-size:.78rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+.escola-news { display:grid; gap:12px; padding:24px; margin-bottom:24px; border:1px solid #d5e3ef; border-radius:18px; background:rgba(255,255,255,.76); }
+.escola-news article { padding:14px; border-left:4px solid #0986c5; background:#f7fbff; }
+.escola-news p { margin:5px 0 0; color:#59728d; }
+.escola-course-layout { display:grid; grid-template-columns:minmax(240px,320px) minmax(0,1fr); gap:24px; }
+.escola-course-layout aside { display:grid; align-content:start; gap:10px; padding:20px; border-radius:18px; background:rgba(255,255,255,.76); border:1px solid #d5e3ef; }
+.escola-course-layout aside button { display:grid; gap:5px; text-align:left; padding:14px; border:0; border-radius:12px; background:transparent; color:#163451; cursor:pointer; }
+.escola-course-layout aside button.active { background:linear-gradient(120deg,#025aa1,#0284c7); color:white; }
+.escola-course-layout aside button span { font-size:.9rem; opacity:.8; }
+.escola-public-page h3 { margin-top:28px; }
+@media(max-width:780px) { .escola-course-layout { grid-template-columns:1fr; } .escola-admin-list article, .escola-resource { align-items:flex-start; flex-direction:column; } }

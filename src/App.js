@@ -69,6 +69,8 @@ import PainelAtendimento from './pages/pagesAdmin/PainelAtendimento';
 import AdminTvCamara from './pages/pagesAdmin/AdminTvCamara';
 import AdminMicroempreendedor from './pages/pagesAdmin/AdminMicroempreendedor';
 import AdminAvaliacoes from './pages/pagesAdmin/AdminAvaliacoes';
+import AdminEscolaParlamento from './pages/pagesAdmin/AdminEscolaParlamento';
+import EscolaParlamento from './pages/pagesUser/EscolaParlamento';
 import AdminAtendimentosGuiches from './pages/pagesAdmin/AdminAtendimentosGuiches';
 import SystemControl from './pages/pagesAdmin/SystemControl';
 import InstallationWizard from './pages/InstallationWizard';
@@ -123,6 +125,7 @@ function App() {
           <Route path="/vereadores/nova" element={<ModuleRoute surface="portal"><NovaSolicitacaoVereador /></ModuleRoute>} />
           <Route path="/piel" element={<ModuleRoute surface="portal"><Piel /></ModuleRoute>} />
           <Route path="/tv-camara" element={<ModuleRoute surface="portal"><TvCamara /></ModuleRoute>} />
+          <Route path="/escola-parlamento" element={<ModuleRoute surface="portal"><EscolaParlamento /></ModuleRoute>} />
           <Route path="/microempreendedor" element={<ModuleRoute surface="portal"><Microempreendedor /></ModuleRoute>} />
           <Route path="/microempreendedor/novo" element={<ModuleRoute surface="portal"><NovaMicroempreendedor /></ModuleRoute>} />
           <Route path="/avaliar-atendimento/:protocolo" element={<ModuleRoute surface="portal"><AvaliarAtendimento /></ModuleRoute>} />
@@ -147,6 +150,7 @@ function App() {
           <Route path="/admin-tv-camara" element={<ModuleRoute surface="admin"><AdminTvCamara /></ModuleRoute>} />
           <Route path="/admin-microempreendedor" element={<ModuleRoute surface="admin"><AdminMicroempreendedor /></ModuleRoute>} />
           <Route path="/admin-avaliacoes" element={<ModuleRoute surface="admin"><AdminAvaliacoes /></ModuleRoute>} />
+          <Route path="/admin-escola-parlamento" element={<ModuleRoute surface="admin"><AdminEscolaParlamento /></ModuleRoute>} />
           <Route path="/admin-migration" element={<Navigate to="/controle-sistema" replace />} />
           <Route path="/recepcao" element={<ModuleRoute surface="admin"><RecepcaoAtendimento /></ModuleRoute>} />
           <Route path="/painel-atendimento" element={<PainelAtendimento />} />

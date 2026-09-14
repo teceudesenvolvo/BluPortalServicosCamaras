@@ -1,11 +1,12 @@
 import { isSystemRootEmail } from './systemModules';
 
-export const USER_ROLES = ['Admin', 'Vereador', 'Assessor', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor', 'Cidadão'];
+export const USER_ROLES = ['Admin', 'Vereador', 'Assessor', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor', 'Escola do Parlamento', 'Cidadão'];
 const STAFF_MODULES = {
     agendaVereadores: ['Vereador', 'Assessor'], juridico: ['Juridico'], balcao: ['Balcão'],
     microempreendedor: ['Microempreendedor'], recepcao: ['Balcão', 'Recepção', 'Microempreendedor'],
     mensagens: ['Balcão', 'Ouvidoria', 'Procuradoria'], avaliacoes: ['Balcão'],
     esic: ['Ouvidoria'], ouvidoria: ['Ouvidoria'], procuradoria: ['Procuradoria'], vereadores: ['Vereador'], procon: ['Procon'],
+    escolaParlamento: ['Escola do Parlamento'],
 };
 export const defaultRolePermission = (role, moduleId, surface) => surface !== 'admin' || role === 'Admin' || Boolean(STAFF_MODULES[moduleId]?.includes(role));
 export const rolePermission = (settings, role, moduleId, surface) => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { 
     collection, doc, getDocs, query, orderBy, limit, getDoc, 
@@ -26,8 +27,8 @@ const FileViewerModal = ({ file, onClose }) => {
     const isImage = file.type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
     const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
     const fileUrl = file.url || file.data;
-    return (
-        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
+    return createPortal(
+        <div className="modal-overlay file-viewer-overlay" onClick={onClose}>
             <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '90vw', width: '760px' }}>
                 <div className="modal-header">
                     <h3 style={{ fontSize: '0.95rem', wordBreak: 'break-all' }}>{file.name}</h3>
@@ -55,7 +56,8 @@ const FileViewerModal = ({ file, onClose }) => {
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

@@ -145,11 +145,12 @@ const AdminSidebar = () => {
         { title: 'Vereadores', icon: <LiaUserFriendsSolid />, path: '/admin-vereadores', roles: ['Admin', 'Vereador'] },
         { title: 'Gabinete Vereador', icon: <LiaClipboardListSolid />, path: '/admin-agenda-vereadores', roles: ['Admin', 'Vereador', 'Assessor'] },
         { title: 'PIEL', icon: <LiaUsersSolid />, path: '/admin-piel', roles: ['Admin'] },
+        { title: 'Escola do Parlamento', icon: <LiaUserFriendsSolid />, path: '/admin-escola-parlamento', roles: ['Admin', 'Escola do Parlamento'] },
         { title: 'PROCON', icon: <LiaBriefcaseSolid />, path: '/admin-procon', roles: ['Admin', 'Procon'] },
         { title: 'Controle do Sistema', icon: <LiaCogSolid />, path: '/controle-sistema', roles: ['Admin'] },
         { title: 'Gerenciar Usuários', icon: <LiaUsersCogSolid />, path: '/admin-users', roles: ['Admin'] },
         { title: 'Histórico Notificações', icon: <LiaBellSolid />, path: '/admin-notifications', roles: ['Admin'] },
-        { title: 'Perfil', icon: <LiaUser />, path: '/perfil', roles: ['Admin', 'Vereador', 'Assessor', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor'] },
+        { title: 'Perfil', icon: <LiaUser />, path: '/perfil', roles: ['Admin', 'Vereador', 'Assessor', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor', 'Escola do Parlamento'] },
     ];
 
     // Filtra os itens do menu com base no tipo de usuário

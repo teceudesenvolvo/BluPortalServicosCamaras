@@ -12222,6 +12222,25 @@ color: #fff !important;
 .cabinet-demand-tools{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.cabinet-demand-tools>div{display:flex;flex-direction:column;gap:4px;margin-right:auto}.cabinet-demand-tools span{color:#60748e}.cabinet-demand-tools select{min-width:150px}
 .cabinet-communication .modal-content{width:min(94vw,680px);max-height:90vh;overflow-y:auto;border-radius:16px}.cabinet-communication .modal-content fieldset{display:grid;gap:10px;border:1px solid #cbdbea;border-radius:10px;padding:14px}.cabinet-communication .modal-content fieldset label{display:flex;align-items:center;gap:10px}.cabinet-communication .modal-content fieldset input[type="checkbox"]{width:20px;height:20px;min-height:20px}
 .dashboard-layout .modal-overlay{z-index:3000;background:rgba(9,25,48,.62);isolation:isolate}.dashboard-layout .modal-overlay .modal-content{background:#fff!important;color:#10233f!important;opacity:1!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:0 24px 80px rgba(9,25,48,.35);max-height:90vh;overflow-y:auto}.dashboard-layout .modal-overlay .modal-content input,.dashboard-layout .modal-overlay .modal-content select,.dashboard-layout .modal-overlay .modal-content textarea{background:#fff;color:#10233f;opacity:1}
+.file-viewer-overlay {
+  z-index: 20000 !important;
+  padding: 24px;
+  box-sizing: border-box;
+  background: rgba(7, 23, 44, 0.72) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+.file-viewer-overlay .modal-content {
+  position: relative;
+  z-index: 1;
+  width: min(760px, 100%) !important;
+  max-height: calc(100dvh - 48px) !important;
+  overflow: auto;
+}
+@media (max-width: 640px) {
+  .file-viewer-overlay { padding: 12px; }
+  .file-viewer-overlay .modal-content { max-height: calc(100dvh - 24px) !important; }
+}
 .official-editor form{display:grid;gap:14px}.official-editor .form-row{display:flex;flex-wrap:wrap;gap:12px}.official-editor textarea{min-height:220px;resize:vertical}.official-editor small{color:#16734a}
 .official-editor .modal-content{width:min(94vw,680px);padding:24px 28px;border-radius:16px}.official-editor .modal-content form{display:grid;gap:15px}.official-editor .modal-content form input,.official-editor .modal-content form select,.official-editor .modal-content form textarea{width:100%;min-height:44px;padding:10px 12px;border:1px solid #cbdbea;border-radius:10px;background:#fff;color:#10233f;font:inherit;box-sizing:border-box}.official-editor .modal-content form textarea{min-height:180px;resize:vertical}.official-editor .modal-content .form-row{display:flex;gap:12px;flex-wrap:wrap}.official-editor .modal-content .form-row button{flex:1;min-width:180px}
 .cabinet-workspace .modal-overlay,

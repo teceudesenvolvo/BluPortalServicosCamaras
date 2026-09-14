@@ -51,6 +51,7 @@ const Sidebar = ({ onItemClick }) => {
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/ouvidoria' },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/procuradoria' },
         { title: 'TV Câmara', icon: <LiaTvSolid />, path: '/tv-camara' },
+        { title: 'Escola do Parlamento', icon: <LiaUserFriendsSolid />, path: '/escola-parlamento' },
         { title: 'Vereadores', icon: <LiaUserFriendsSolid />, path: '/vereadores' },
         { title: 'Perfil', icon: <LiaUser />, path: '/perfil' },
     ];

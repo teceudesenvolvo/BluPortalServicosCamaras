@@ -25,6 +25,7 @@ export const SYSTEM_MODULES = [
     { id: 'procuradoria', name: 'Procuradoria da Mulher', description: 'Solicitações, acolhimento e botão de pânico.', adminPaths: ['/admin-procuradoria'], userPaths: ['/procuradoria'], app: true },
     { id: 'vereadores', name: 'Vereadores', description: 'Cadastro e apresentação dos parlamentares.', adminPaths: ['/admin-vereadores'], userPaths: [], app: true },
     { id: 'piel', name: 'PIEL', description: 'Programa de integração do Legislativo.', adminPaths: ['/admin-piel'], userPaths: ['/piel'], app: true },
+    { id: 'escolaParlamento', name: 'Escola do Parlamento', description: 'Cursos, aulas, materiais e notícias de formação legislativa.', adminPaths: ['/admin-escola-parlamento'], userPaths: ['/escola-parlamento'], app: true },
     { id: 'procon', name: 'PROCON', description: 'Atendimentos, fila, consumidores e fornecedores.', adminPaths: ['/admin-procon'], userPaths: ['/procon'], app: true },
     { id: 'usuarios', name: 'Gestão de usuários', description: 'Perfis, papéis e permissões administrativas.', adminPaths: ['/admin-users'], userPaths: [], app: false },
     { id: 'notificacoes', name: 'Notificações', description: 'Histórico e entrega de notificações.', adminPaths: ['/admin-notifications'], userPaths: [], app: true },
