@@ -11,7 +11,7 @@ import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import QueueManagerModal from '../../components/QueueManagerModal';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
-import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane, LiaSearchSolid, LiaUsersCogSolid, LiaCogSolid } from "react-icons/lia";
+import { LiaTimesSolid, LiaUploadSolid, LiaPaperPlane, LiaUsersCogSolid, LiaCogSolid } from "react-icons/lia";
 import { SectorAvailabilityModal } from '../../components/SectorScheduling';
 import ServiceOperationsNav from '../../components/ServiceOperationsNav';
 
@@ -156,7 +156,7 @@ const AdminProcuradoriaDashboard = () => {
     const [currentTab, setCurrentTab] = useState('Todas');
     const [statusCounts, setStatusCounts] = useState({});
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm] = useState('');
     const [showQueueManager, setShowQueueManager] = useState(false);
     const [showAvailability, setShowAvailability] = useState(false);
     const [operationView, setOperationView] = useState('dashboard');

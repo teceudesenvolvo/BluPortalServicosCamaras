@@ -68,8 +68,20 @@
 }
 .escola-tabs { margin-bottom:24px; }
 .escola-admin-list { display:grid; gap:12px; }
+.escola-list-header { align-items:flex-start; gap:16px; }
+.escola-list-header > div { min-width:0; }
+.escola-add-button { flex:0 0 auto; white-space:nowrap; }
+.escola-back-button { display:inline-flex; align-items:center; gap:4px; margin:0 0 8px; padding:0; border:0; color:#056aa8; background:transparent; font:inherit; font-weight:700; cursor:pointer; }
+.escola-filters { display:grid; grid-template-columns:minmax(220px,1fr) repeat(3,minmax(160px,220px)); gap:12px; margin:20px 0; }
+.escola-filters select, .escola-search { min-width:0; min-height:44px; padding:0 12px; box-sizing:border-box; border:1px solid #c8dbe9; border-radius:12px; color:#163451; background:rgba(255,255,255,.82); font:inherit; }
+.escola-search { display:flex; align-items:center; gap:8px; }
+.escola-search input { min-width:0; width:100%; border:0; outline:0; color:#163451; background:transparent; font:inherit; }
 .escola-admin-list article, .escola-resource { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px; border:1px solid #d5e3ef; border-radius:14px; background:rgba(255,255,255,.72); }
-.escola-admin-list article div, .escola-resource div { display:grid; gap:5px; min-width:0; }
+.escola-record-open, .escola-admin-list article div, .escola-resource div { display:grid; gap:5px; min-width:0; }
+.escola-record-open { flex:1; padding:0; border:0; color:#163451; background:transparent; text-align:left; font:inherit; cursor:pointer; }
+.escola-record-open:disabled { cursor:default; }
+.escola-record-open:not(:disabled):hover strong { color:#0576b7; text-decoration:underline; }
+.escola-record-open small { color:#0576b7; font-weight:700; }
 .escola-admin-list article span, .escola-admin-list article a, .escola-resource span { color:#59728d; overflow-wrap:anywhere; }
 .escola-modal { width:min(680px,calc(100vw - 32px)); max-height:calc(100vh - 48px); overflow:auto; }
 .escola-kicker { color:#0576b7; font-size:.78rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
@@ -86,5 +98,8 @@
   .dashboard-layout .escola-admin-page > :is(.page-header-container,.escola-tabs,.data-card),
   .dashboard-layout .escola-public-page > :is(.page-header-container,.escola-news,.escola-course-layout) { width:100%; }
   .escola-course-layout { grid-template-columns:1fr; }
+  .escola-list-header { flex-direction:column; }
+  .escola-add-button { width:100%; }
+  .escola-filters { grid-template-columns:1fr; }
   .escola-admin-list article, .escola-resource { align-items:flex-start; flex-direction:column; }
 }
