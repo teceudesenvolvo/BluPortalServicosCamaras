@@ -22,6 +22,19 @@ service cloud.firestore {
       );
     }
 
+    // A gestão da Escola do Parlamento pode ser feita pelo administrador
+    // global ou pelo perfil operacional específico da Escola, respeitando
+    // as permissões configuradas no Controle do Sistema quando existentes.
+    function isEscolaParlamentoManager() {
+      return request.auth != null && (
+        isConfiguredRoot()
+        || isAdminProfile()
+        || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', '') == 'Escola do Parlamento'
+          && hasModuleAdminAccess('escolaParlamento', ['Escola do Parlamento']))
+      );
+    }
+
     match /system-control/{documentId} {
       allow read: if documentId == 'portal';
       allow create: if documentId == 'portal'
@@ -50,19 +63,39 @@ service cloud.firestore {
     }
     match /escola-parlamento-cursos/{documentId} {
       allow read: if true;
-      allow write: if isConfiguredRoot() || isAdminProfile() || hasModuleAdminAccess('escolaParlamento', ['Escola do Parlamento']);
+      allow write: if isEscolaParlamentoManager();
     }
     match /escola-parlamento-aulas/{documentId} {
       allow read: if true;
-      allow write: if isConfiguredRoot() || isAdminProfile() || hasModuleAdminAccess('escolaParlamento', ['Escola do Parlamento']);
+      allow write: if isEscolaParlamentoManager();
     }
     match /escola-parlamento-conteudos/{documentId} {
       allow read: if true;
-      allow write: if isConfiguredRoot() || isAdminProfile() || hasModuleAdminAccess('escolaParlamento', ['Escola do Parlamento']);
+      allow write: if isEscolaParlamentoManager();
     }
     match /escola-parlamento-noticias/{documentId} {
       allow read: if true;
-      allow write: if isConfiguredRoot() || isAdminProfile() || hasModuleAdminAccess('escolaParlamento', ['Escola do Parlamento']);
+      allow write: if isEscolaParlamentoManager();
+    }
+    match /escola-parlamento-matriculas/{documentId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isEscolaParlamentoManager());
+      allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isEscolaParlamentoManager());
+    }
+    match /escola-parlamento-progresso/{documentId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isEscolaParlamentoManager());
+      allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isEscolaParlamentoManager());
+    }
+    match /escola-parlamento-downloads/{documentId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isEscolaParlamentoManager());
+      allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isEscolaParlamentoManager());
+    }
+    match /escola-parlamento-respostas/{documentId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isEscolaParlamentoManager());
+      allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isEscolaParlamentoManager());
     }
     match /tv-camara-playlist/{documentId} {
       allow read: if true;

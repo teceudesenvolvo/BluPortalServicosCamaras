@@ -18,7 +18,14 @@ import {
     LiaCommentsSolid,
     LiaTvSolid,
     LiaStarSolid,
-    LiaCogSolid
+    LiaCogSolid,
+    LiaBookSolid,
+    LiaBuildingSolid,
+    LiaFileAltSolid,
+    LiaHandshakeSolid,
+    LiaGraduationCapSolid,
+    LiaUserTieSolid,
+    LiaLandmarkSolid
 } from "react-icons/lia";
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, firestore } from '../firebase';
@@ -133,20 +140,20 @@ const AdminSidebar = () => {
     const allMenuItems = [
         // { title: 'Atendimentos Jurídicos', icon: <LiaGavelSolid />, path: '/admin-juridico', roles: ['Admin', 'Juridico'] },
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/admin-balcao', roles: ['Admin', 'Balcão'] },
-        { title: 'Microempreendedor', icon: <LiaBriefcaseSolid />, path: '/admin-microempreendedor', roles: ['Admin', 'Microempreendedor'] },
         { title: 'Recepção', icon: <LiaClipboardListSolid />, path: '/recepcao', roles: ['Admin', 'Balcão', 'Recepção', 'Microempreendedor'] },
         { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/admin-mensagens', roles: ['Admin', 'Balcão', 'Ouvidoria', 'Procuradoria'] },
+        { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/admin-ouvidoria', roles: ['Admin', 'Ouvidoria'] },
+        { title: 'e-SIC', icon: <LiaFileAltSolid />, path: '/admin-esic', roles: ['Admin', 'Ouvidoria'] },
+        { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/admin-procuradoria', roles: ['Admin', 'Procuradoria'] },
+        { title: 'PROCON', icon: <LiaBuildingSolid />, path: '/admin-procon', roles: ['Admin', 'Procon'] },
+        { title: 'Microempreendedor', icon: <LiaHandshakeSolid />, path: '/admin-microempreendedor', roles: ['Admin', 'Microempreendedor'] },
+        { title: 'Escola: cursos e conteúdo', icon: <LiaGraduationCapSolid />, path: '/admin-escola-parlamento', roles: ['Admin', 'Escola do Parlamento'] },
+        { title: 'Avaliações', icon: <LiaStarSolid />, path: '/admin-avaliacoes', roles: ['Admin', 'Balcão'] },
+        { title: 'Vereadores', icon: <LiaUserTieSolid />, path: '/admin-vereadores', roles: ['Admin', 'Vereador'] },
+        { title: 'Gabinete Vereador', icon: <LiaLandmarkSolid />, path: '/admin-agenda-vereadores', roles: ['Admin', 'Vereador', 'Assessor'] },
+        { title: 'PIEL', icon: <LiaUsersSolid />, path: '/admin-piel', roles: ['Admin'] },
         { title: 'Notícias do Site', icon: <LiaNewspaperSolid />, path: '/admin-noticias', roles: ['Admin'] },
         { title: 'TV Câmara', icon: <LiaTvSolid />, path: '/admin-tv-camara', roles: ['Admin'] },
-        { title: 'Avaliações', icon: <LiaStarSolid />, path: '/admin-avaliacoes', roles: ['Admin', 'Balcão'] },
-        { title: 'e-SIC', icon: <LiaClipboardListSolid />, path: '/admin-esic', roles: ['Admin', 'Ouvidoria'] },
-        { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/admin-ouvidoria', roles: ['Admin', 'Ouvidoria'] },
-        { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/admin-procuradoria', roles: ['Admin', 'Procuradoria'] },
-        { title: 'Vereadores', icon: <LiaUserFriendsSolid />, path: '/admin-vereadores', roles: ['Admin', 'Vereador'] },
-        { title: 'Gabinete Vereador', icon: <LiaClipboardListSolid />, path: '/admin-agenda-vereadores', roles: ['Admin', 'Vereador', 'Assessor'] },
-        { title: 'PIEL', icon: <LiaUsersSolid />, path: '/admin-piel', roles: ['Admin'] },
-        { title: 'Escola do Parlamento', icon: <LiaUserFriendsSolid />, path: '/admin-escola-parlamento', roles: ['Admin', 'Escola do Parlamento'] },
-        { title: 'PROCON', icon: <LiaBriefcaseSolid />, path: '/admin-procon', roles: ['Admin', 'Procon'] },
         { title: 'Controle do Sistema', icon: <LiaCogSolid />, path: '/controle-sistema', roles: ['Admin'] },
         { title: 'Gerenciar Usuários', icon: <LiaUsersCogSolid />, path: '/admin-users', roles: ['Admin'] },
         { title: 'Histórico Notificações', icon: <LiaBellSolid />, path: '/admin-notifications', roles: ['Admin'] },
@@ -176,6 +183,11 @@ const AdminSidebar = () => {
         }
         return false;
     });
+    const menuGroups = [
+        { title: 'Atendimento', paths: ['/admin-balcao', '/recepcao', '/admin-mensagens', '/admin-ouvidoria', '/admin-esic', '/admin-procuradoria', '/admin-procon', '/admin-microempreendedor'] },
+        { title: 'Gestão institucional', paths: ['/admin-escola-parlamento', '/admin-avaliacoes', '/admin-vereadores', '/admin-agenda-vereadores', '/admin-piel', '/admin-noticias', '/admin-tv-camara'] },
+        { title: 'Sistema', paths: ['/controle-sistema', '/admin-users', '/admin-notifications', '/perfil'] },
+    ].map(group => ({ ...group, items: visibleMenuItems.filter(item => group.paths.includes(item.path)) }));
 
     const handleItemClick = (path) => {
         navigate(path);
@@ -225,17 +237,7 @@ const AdminSidebar = () => {
                 {loadingRoles ? (
                     <div style={{ padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>Carregando...</div>
                 ) : (
-                    visibleMenuItems.map((item) => (
-                        <AdminSidebarItem
-                            badge={item.path === '/admin-mensagens' ? unreadMessagesCount : 0}
-                            key={item.title}
-                            icon={item.icon}
-                            title={item.title}
-                            path={item.path}
-                            isActive={location.pathname === item.path}
-                            onClick={handleItemClick}
-                        />
-                    ))
+                    menuGroups.map(group => group.items.length > 0 && <section className="sidebar-menu-group" key={group.title}><span className="sidebar-group-title">{group.title}</span>{group.items.map(item => <AdminSidebarItem badge={item.path === '/admin-mensagens' ? unreadMessagesCount : 0} key={item.title} icon={item.icon} title={item.title} path={item.path} isActive={location.pathname === item.path} onClick={handleItemClick} />)}</section>)
                 )}
             </div>
             <div className="sidebar-app-download">

@@ -71,6 +71,8 @@ import AdminMicroempreendedor from './pages/pagesAdmin/AdminMicroempreendedor';
 import AdminAvaliacoes from './pages/pagesAdmin/AdminAvaliacoes';
 import AdminEscolaParlamento from './pages/pagesAdmin/AdminEscolaParlamento';
 import EscolaParlamento from './pages/pagesUser/EscolaParlamento';
+import MeusCursosEscola from './pages/pagesUser/MeusCursosEscola';
+import CursoEscolaPlayer from './pages/pagesUser/CursoEscolaPlayer';
 import AdminAtendimentosGuiches from './pages/pagesAdmin/AdminAtendimentosGuiches';
 import SystemControl from './pages/pagesAdmin/SystemControl';
 import InstallationWizard from './pages/InstallationWizard';
@@ -126,6 +128,8 @@ function App() {
           <Route path="/piel" element={<ModuleRoute surface="portal"><Piel /></ModuleRoute>} />
           <Route path="/tv-camara" element={<ModuleRoute surface="portal"><TvCamara /></ModuleRoute>} />
           <Route path="/escola-parlamento" element={<ModuleRoute surface="portal"><EscolaParlamento /></ModuleRoute>} />
+          <Route path="/escola-parlamento/meus-cursos" element={<ModuleRoute surface="portal"><MeusCursosEscola /></ModuleRoute>} />
+          <Route path="/escola-parlamento/curso/:courseId" element={<ModuleRoute surface="portal"><CursoEscolaPlayer /></ModuleRoute>} />
           <Route path="/microempreendedor" element={<ModuleRoute surface="portal"><Microempreendedor /></ModuleRoute>} />
           <Route path="/microempreendedor/novo" element={<ModuleRoute surface="portal"><NovaMicroempreendedor /></ModuleRoute>} />
           <Route path="/avaliar-atendimento/:protocolo" element={<ModuleRoute surface="portal"><AvaliarAtendimento /></ModuleRoute>} />

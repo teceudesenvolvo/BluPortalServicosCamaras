@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { collection, doc, getDoc, onSnapshot, query, runTransaction, updateDoc, where } from 'firebase/firestore';
 import { LiaPaperPlane, LiaPlusSolid, LiaTimesSolid } from 'react-icons/lia';
@@ -231,6 +232,7 @@ const Microempreendedor = () => {
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [showMeiGuide, setShowMeiGuide] = useState(false);
 
     const fetchUserProfile = useCallback(async () => {
         if (!currentUser) return;
@@ -355,7 +357,7 @@ const Microempreendedor = () => {
                 </header>
 
                 <section className="user-dashboard-summary micro-summary-grid">
-                    <article className="user-dashboard-summary-card micro-service-card">
+                    <article className="user-dashboard-summary-card micro-service-card micro-mei-guide-card" role="button" tabIndex={0} onClick={() => setShowMeiGuide(true)} onKeyDown={(event) => event.key === 'Enter' && setShowMeiGuide(true)}>
                         <span>
                             <strong>Abertura de MEI</strong>
                             <small>Orientação para iniciar um novo negócio.</small>
@@ -406,6 +408,7 @@ const Microempreendedor = () => {
                     onSendMessage={handleSendMessage}
                     onScheduleSubmit={handleScheduleSubmit}
                 />
+                {showMeiGuide && createPortal(<div className="modal-overlay micro-mei-video-overlay" onClick={() => setShowMeiGuide(false)}><section className="modal-content micro-mei-video-modal" onClick={(event) => event.stopPropagation()}><div className="modal-header"><div><h2>Abertura de MEI</h2><p>Assista ao passo a passo para abrir o seu MEI.</p></div><button type="button" className="modal-close-btn" aria-label="Fechar" onClick={() => setShowMeiGuide(false)}><LiaTimesSolid /></button></div><div className="micro-mei-video-frame"><iframe src="https://www.youtube.com/embed/N3PwRyNL8OM" title="Passo a passo para abertura de MEI" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div></section></div>, document.body)}
             </div>
         </div>
     );

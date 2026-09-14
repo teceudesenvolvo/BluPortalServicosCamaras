@@ -5,8 +5,6 @@ import { useLocation } from 'react-router-dom';
 import Logo from '../assets/logo-paraipaba.png';
 import {
     LiaHomeSolid,
-    LiaUserFriendsSolid,
-    LiaUserAstronautSolid,
     LiaFemaleSolid,
     LiaUser,
     LiaBarsSolid,
@@ -14,6 +12,13 @@ import {
     LiaTvSolid,
     LiaCommentsSolid,
     LiaShieldAltSolid,
+    LiaBookSolid,
+    LiaStoreSolid,
+    LiaHandshakeSolid,
+    LiaGraduationCapSolid,
+    LiaLandmarkSolid,
+    LiaFileAltSolid,
+    LiaHeadsetSolid,
 } from "react-icons/lia";
 import { useSystemControl } from '../contexts/SystemControlContext';
 import { findModuleByPath } from '../config/systemModules';
@@ -42,23 +47,28 @@ const Sidebar = ({ onItemClick }) => {
     // Itens do menu agora são definidos diretamente aqui
     const menuItems = [
         { title: 'Início', icon: <LiaHomeSolid />, path: '/dashboard' },
-        { title: 'PROCON', icon: <LiaShieldAltSolid />, path: '/procon' },
-        // { title: 'Atendimento Jurídico', icon: <LiaBalanceScaleLeftSolid />, path: '/juridico' },
-        { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/balcao' },
-        { title: 'Microempreendedor', icon: <LiaUserFriendsSolid />, path: '/microempreendedor' },
-        { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/mensagens' },
-        { title: 'e-SIC', icon: <LiaUserAstronautSolid />, path: '/esic' },
-        { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/ouvidoria' },
+        { title: 'Balcão do Cidadão', icon: <LiaStoreSolid />, path: '/balcao' },
+        { title: 'Ouvidoria', icon: <LiaHeadsetSolid />, path: '/ouvidoria' },
+        { title: 'e-SIC', icon: <LiaFileAltSolid />, path: '/esic' },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/procuradoria' },
+        { title: 'PROCON', icon: <LiaShieldAltSolid />, path: '/procon' },
+        { title: 'Microempreendedor', icon: <LiaHandshakeSolid />, path: '/microempreendedor' },
+        { title: 'Escola do Parlamento', icon: <LiaGraduationCapSolid />, path: '/escola-parlamento' },
+        { title: 'Meus cursos', icon: <LiaBookSolid />, path: '/escola-parlamento/meus-cursos' },
         { title: 'TV Câmara', icon: <LiaTvSolid />, path: '/tv-camara' },
-        { title: 'Escola do Parlamento', icon: <LiaUserFriendsSolid />, path: '/escola-parlamento' },
-        { title: 'Vereadores', icon: <LiaUserFriendsSolid />, path: '/vereadores' },
+        { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/mensagens' },
+        { title: 'Vereadores', icon: <LiaLandmarkSolid />, path: '/vereadores' },
         { title: 'Perfil', icon: <LiaUser />, path: '/perfil' },
     ];
     const visibleMenuItems = menuItems.filter(item => {
         const module = findModuleByPath(item.path);
         return !module || canAccessModule(settings, role, currentUser?.email, module.id, 'portal');
     });
+    const menuGroups = [
+        { title: 'Atendimento', paths: ['/dashboard', '/balcao', '/ouvidoria', '/esic', '/procuradoria', '/procon', '/microempreendedor'] },
+        { title: 'Conteúdo e formação', paths: ['/escola-parlamento', '/escola-parlamento/meus-cursos', '/tv-camara', '/vereadores'] },
+        { title: 'Minha conta', paths: ['/mensagens', '/perfil'] },
+    ].map(group => ({ ...group, items: visibleMenuItems.filter(item => group.paths.includes(item.path)) }));
 
     const handleItemClick = (path) => {
         onItemClick(path);
@@ -110,16 +120,7 @@ const Sidebar = ({ onItemClick }) => {
 
             {/* O menu agora permanece sempre visível através dos ícones */}
             <div className="sidebar-menu">
-                {visibleMenuItems.map((item) => (
-                    <SidebarItem
-                        key={item.title} // A chave continua sendo o título
-                        icon={item.icon}
-                        title={item.title}
-                        path={item.path}
-                        isActive={location.pathname === item.path}
-                        onClick={handleItemClick}
-                    />
-                ))}
+                {menuGroups.map(group => group.items.length > 0 && <section className="sidebar-menu-group" key={group.title}><span className="sidebar-group-title">{group.title}</span>{group.items.map(item => <SidebarItem key={item.title} icon={item.icon} title={item.title} path={item.path} isActive={location.pathname === item.path || (item.path === '/escola-parlamento/meus-cursos' && location.pathname.startsWith('/escola-parlamento/curso/'))} onClick={handleItemClick} />)}</section>)}
             </div>
 
             <div className="sidebar-app-download">
