@@ -15,8 +15,8 @@ const {
   getReceptionEmail,
   isReceptionWalkIn,
 } = require("./documentReadyAutomation");
-
 admin.initializeApp();
+Object.assign(exports, require("./videoConference"));
 
 const youtubeClientId = defineSecret("YOUTUBE_CLIENT_ID");
 const youtubeClientSecret = defineSecret("YOUTUBE_CLIENT_SECRET");

@@ -101,7 +101,7 @@ const AdminSidebar = () => {
                 return;
             }
 
-            const visibleAreas = userType === 'Admin'
+            const visibleAreas = canAccessModule(settings, userType, userEmail, 'mensagens', 'admin')
                 ? MESSAGE_MENU_AREAS
                 : MESSAGE_MENU_AREAS.filter(area => area.role === userType);
 
@@ -133,15 +133,15 @@ const AdminSidebar = () => {
         };
 
         fetchUnreadMessagesCount();
-    }, [userType]);
+    }, [settings, userEmail, userType]);
 
     const allMenuItems = [
         // { title: 'Atendimentos Jurídicos', icon: <LiaGavelSolid />, path: '/admin-juridico', roles: ['Admin', 'Juridico'] },
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/admin-balcao', roles: ['Admin', 'Balcão'] },
         { title: 'Recepção', icon: <LiaClipboardListSolid />, path: '/recepcao', roles: ['Admin', 'Balcão', 'Recepção', 'Microempreendedor'] },
-        { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/admin-mensagens', roles: ['Admin', 'Balcão', 'Ouvidoria', 'Procuradoria'] },
+        { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/admin-mensagens', roles: ['Admin', 'Administrador', 'Balcão', 'Ouvidoria', 'Procuradoria'] },
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/admin-ouvidoria', roles: ['Admin', 'Ouvidoria'] },
-        { title: 'e-SIC', icon: <LiaFileAltSolid />, path: '/admin-esic', roles: ['Admin', 'Ouvidoria'] },
+        { title: 'e-SIC', icon: <LiaFileAltSolid />, path: '/admin-esic', roles: ['Admin', 'Administrador', 'Ouvidoria'] },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/admin-procuradoria', roles: ['Admin', 'Procuradoria'] },
         { title: 'PROCON', icon: <LiaBuildingSolid />, path: '/admin-procon', roles: ['Admin', 'Procon'] },
         { title: 'Microempreendedor', icon: <LiaHandshakeSolid />, path: '/admin-microempreendedor', roles: ['Admin', 'Microempreendedor'] },
@@ -149,6 +149,7 @@ const AdminSidebar = () => {
         { title: 'Avaliações', icon: <LiaStarSolid />, path: '/admin-avaliacoes', roles: ['Admin', 'Balcão'] },
         { title: 'Vereadores', icon: <LiaUserTieSolid />, path: '/admin-vereadores', roles: ['Admin', 'Vereador'] },
         { title: 'Gabinete Vereador', icon: <LiaLandmarkSolid />, path: '/admin-agenda-vereadores', roles: ['Admin', 'Vereador', 'Assessor'] },
+        { title: 'Gestão legislativa', icon: <LiaLandmarkSolid />, path: '/admin-legislativo', roles: ['Admin', 'Secretaria Legislativa', 'Vereador', 'Assessor', 'Juridico'] },
         { title: 'PIEL', icon: <LiaUsersSolid />, path: '/admin-piel', roles: ['Admin'] },
         { title: 'Notícias do Site', icon: <LiaNewspaperSolid />, path: '/admin-noticias', roles: ['Admin'] },
         { title: 'TV Câmara', icon: <LiaTvSolid />, path: '/admin-tv-camara', roles: ['Admin'] },
@@ -183,7 +184,7 @@ const AdminSidebar = () => {
     });
     const menuGroups = [
         { title: 'Atendimento', paths: ['/admin-balcao', '/recepcao', '/admin-mensagens', '/admin-ouvidoria', '/admin-esic', '/admin-procuradoria', '/admin-procon', '/admin-microempreendedor'] },
-        { title: 'Gestão institucional', paths: ['/admin-escola-parlamento', '/admin-avaliacoes', '/admin-vereadores', '/admin-agenda-vereadores', '/admin-piel', '/admin-noticias', '/admin-tv-camara'] },
+        { title: 'Gestão institucional', paths: ['/admin-escola-parlamento', '/admin-avaliacoes', '/admin-vereadores', '/admin-agenda-vereadores', '/admin-legislativo', '/admin-piel', '/admin-noticias', '/admin-tv-camara'] },
         { title: 'Sistema', paths: ['/controle-sistema', '/admin-users', '/admin-notifications', '/perfil'] },
     ].map(group => ({ ...group, items: visibleMenuItems.filter(item => group.paths.includes(item.path)) }));
 

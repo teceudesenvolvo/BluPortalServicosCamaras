@@ -13,6 +13,7 @@ export const isSystemRootEmail = (settings, email) => {
 export const SYSTEM_MODULES = [
     { id: 'esic', name: 'e-SIC', description: 'Pedidos de acesso à informação, respostas e recursos.', adminPaths: ['/admin-esic'], userPaths: ['/esic'], app: true },
     { id: 'agendaVereadores', name: 'Gabinete Vereador', description: 'Agenda, demandas, visitantes, equipe, tarefas, eventos e relatórios dos gabinetes.', adminPaths: ['/admin-agenda-vereadores'], userPaths: ['/vereadores'], app: true },
+    { id: 'legislativo', name: 'Gestão legislativa', description: 'Matérias, tramitação, pautas, sessões, comissões e documentos acessórios.', adminPaths: ['/admin-legislativo'], userPaths: [], app: true },
     { id: 'juridico', name: 'Atendimento Jurídico', description: 'Orientações e solicitações jurídicas.', adminPaths: ['/admin-juridico'], userPaths: ['/juridico'], app: true },
     { id: 'balcao', name: 'Balcão do Cidadão', description: 'Solicitações, agenda e atendimento nos guichês.', adminPaths: ['/admin-balcao'], userPaths: ['/balcao'], app: true },
     { id: 'microempreendedor', name: 'Microempreendedor', description: 'Assessoria e solicitações para empreendedores.', adminPaths: ['/admin-microempreendedor'], userPaths: ['/microempreendedor'], app: true },

@@ -1,14 +1,14 @@
 import { isSystemRootEmail } from './systemModules';
 
-export const USER_ROLES = ['Admin', 'Vereador', 'Assessor', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor', 'Escola do Parlamento', 'Cidadão'];
+export const USER_ROLES = ['Admin', 'Secretaria Legislativa', 'Vereador', 'Assessor', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor', 'Escola do Parlamento', 'Cidadão'];
 const STAFF_MODULES = {
-    agendaVereadores: ['Vereador', 'Assessor'], juridico: ['Juridico'], balcao: ['Balcão'],
+    agendaVereadores: ['Vereador', 'Assessor'], legislativo: ['Secretaria Legislativa', 'Vereador', 'Assessor', 'Juridico'], juridico: ['Juridico'], balcao: ['Balcão'],
     microempreendedor: ['Microempreendedor'], recepcao: ['Balcão', 'Recepção', 'Microempreendedor'],
     mensagens: ['Balcão', 'Ouvidoria', 'Procuradoria'], avaliacoes: ['Balcão'],
     esic: ['Ouvidoria'], ouvidoria: ['Ouvidoria'], procuradoria: ['Procuradoria'], vereadores: ['Vereador'], procon: ['Procon'],
     escolaParlamento: ['Escola do Parlamento'],
 };
-export const defaultRolePermission = (role, moduleId, surface) => surface !== 'admin' || role === 'Admin' || Boolean(STAFF_MODULES[moduleId]?.includes(role));
+export const defaultRolePermission = (role, moduleId, surface) => surface !== 'admin' || ['Admin', 'Administrador'].includes(role) || Boolean(STAFF_MODULES[moduleId]?.includes(role));
 export const rolePermission = (settings, role, moduleId, surface) => {
     const configured = settings.security?.rolePermissions?.[role]?.[moduleId]?.[surface];
     return typeof configured === 'boolean' ? configured : defaultRolePermission(role, moduleId, surface);

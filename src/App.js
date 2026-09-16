@@ -60,6 +60,11 @@ import AdminOuvidoria from './pages/pagesAdmin/AdminOuvidoria';
 import AdminProcuradoria from './pages/pagesAdmin/AdminProcuradoria';
 import AdminVereadores from './pages/pagesAdmin/AdminVereadores';
 import AdminAgendaVereadores from './pages/pagesAdmin/AdminAgendaVereadores';
+import AdminLegislativo from './pages/pagesAdmin/AdminLegislativo';
+import AdminLegislativeMatter from './pages/pagesAdmin/AdminLegislativeMatter';
+import AdminLegislativeCommissionMatter from './pages/pagesAdmin/AdminLegislativeCommissionMatter';
+import AdminLegislativeUnit from './pages/pagesAdmin/AdminLegislativeUnit';
+import AdminLegislativeEventForm from './pages/pagesAdmin/AdminLegislativeEventForm';
 import AdminUsers from './pages/pagesAdmin/AdminUsers';
 import AdminMail from './pages/pagesAdmin/AdminMail';
 import AdminNotifications from './pages/pagesAdmin/AdminNotifications';
@@ -74,6 +79,7 @@ import EscolaParlamento from './pages/pagesUser/EscolaParlamento';
 import NoticiasPortal from './pages/pagesUser/NoticiasPortal';
 import MeusCursosEscola from './pages/pagesUser/MeusCursosEscola';
 import CursoEscolaPlayer from './pages/pagesUser/CursoEscolaPlayer';
+import LegislativoPublico from './pages/LegislativoPublico';
 import AdminAtendimentosGuiches from './pages/pagesAdmin/AdminAtendimentosGuiches';
 import SystemControl from './pages/pagesAdmin/SystemControl';
 import InstallationWizard from './pages/InstallationWizard';
@@ -107,6 +113,7 @@ function App() {
           <Route path="/ouvidoria-publica" element={<OuvidoriaPublica />} />
           <Route path="/ouvidoria-publica/nova" element={<NovaOuvidoria />} />
           <Route path="/ouvidoria-publica/:page" element={<OuvidoriaInstitucional />} />
+          <Route path="/legislativo-publico" element={<LegislativoPublico />} />
 
           {/* Com Login - Usuário Comum */}
           <Route path="/dashboard" element={<Painel />} />
@@ -146,6 +153,12 @@ function App() {
           <Route path="/admin-procuradoria" element={<ModuleRoute surface="admin"><AdminProcuradoria /></ModuleRoute>} />
           <Route path="/admin-vereadores" element={<ModuleRoute surface="admin"><AdminVereadores /></ModuleRoute>} />
           <Route path="/admin-agenda-vereadores" element={<ModuleRoute surface="admin"><AdminAgendaVereadores /></ModuleRoute>} />
+          <Route path="/admin-legislativo" element={<ModuleRoute surface="admin"><AdminLegislativo /></ModuleRoute>} />
+          <Route path="/admin-legislativo/sessao/nova" element={<ModuleRoute surface="admin"><AdminLegislativeEventForm mode="session" /></ModuleRoute>} />
+          <Route path="/admin-legislativo/comissao/:commissionId/reuniao/nova" element={<ModuleRoute surface="admin"><AdminLegislativeEventForm mode="commission-meeting" /></ModuleRoute>} />
+          <Route path="/admin-legislativo/comissao/:commissionId/materia/:matterId" element={<ModuleRoute surface="admin"><AdminLegislativeCommissionMatter /></ModuleRoute>} />
+          <Route path="/admin-legislativo/materia/:matterId" element={<ModuleRoute surface="admin"><AdminLegislativeMatter /></ModuleRoute>} />
+          <Route path="/admin-legislativo/:unitType/:unitId" element={<ModuleRoute surface="admin"><AdminLegislativeUnit /></ModuleRoute>} />
           <Route path="/admin-users" element={<ModuleRoute surface="admin"><AdminUsers /></ModuleRoute>} />
           <Route path="/admin-piel" element={<ModuleRoute surface="admin"><AdminPiel /></ModuleRoute>} />
           <Route path="/admin-balcao/agendamentos" element={<ModuleRoute surface="admin"><AdminBalcaoAgendamentos /></ModuleRoute>} />

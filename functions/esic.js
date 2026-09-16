@@ -6,9 +6,16 @@ const text = (value, max = 20000) => String(value || "").trim().slice(0, max);
 const fail = (message) => {
   throw new HttpsError("failed-precondition", message);
 };
+const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
+const isRootUser = (settings, email) => {
+  const configured = Array.isArray(settings.security?.rootEmails) ?
+    settings.security.rootEmails.map(normalizeEmail).filter(Boolean) : [];
+  const roots = configured.length ? configured : ["leo@gmail.com"];
+  return roots.includes(normalizeEmail(email));
+};
 
 // All e-SIC access passes through this callable. Clients never write audit events.
-exports.esic = onCall(async (request) => {
+exports.esic = onCall({cors: true}, async (request) => {
   const db = admin.firestore();
   const data = request.data || {};
   const action = data.action;
@@ -17,12 +24,14 @@ exports.esic = onCall(async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Entre para acessar o e-SIC.");
   const uid = request.auth.uid;
   const profile = (await db.doc(`users/${uid}`).get()).data() || {};
-  const staff = ["Admin", "Ouvidoria"].includes(profile.tipo) && settings.security?.rolePermissions?.[profile.tipo]?.esic?.admin !== false;
+  const root = isRootUser(settings, request.auth.token.email);
+  const staff = root || (["Admin", "Administrador", "Ouvidoria"].includes(profile.tipo) &&
+    settings.security?.rolePermissions?.[profile.tipo]?.esic?.admin !== false);
   if (settings.modules?.esic?.[staff ? "admin" : "portal"] === false) fail("O e-SIC está desativado.");
   const requests = db.collection("esic-pedidos");
   const now = Date.now();
   if (action === "config") {
-    if (profile.tipo !== "Admin") throw new HttpsError("permission-denied", "Somente administradores.");
+    if (!root && !["Admin", "Administrador"].includes(profile.tipo)) throw new HttpsError("permission-denied", "Somente administradores.");
     const config = Object.fromEntries(["responsavel", "email", "telefone", "endereco", "horario", "regulamento", "autoridadeRecursal"].map((key) => [key, text(data[key], 500)]));
     await db.doc("system-control/portal").set({esic: config}, {merge: true});
     return config;

@@ -1,0 +1,40 @@
+// Coleções nativas do módulo Legislativo. Elas não compartilham dados nem
+// dependem do banco, das APIs ou da autenticação do projeto eCamara.
+export const LEGISLATIVE_COLLECTIONS = {
+  matters: 'legislativo_materias',
+  proceedings: 'legislativo_tramitacoes',
+  documents: 'legislativo_documentos',
+  opinions: 'legislativo_pareceres',
+  commissions: 'legislativo_comissoes',
+  rapporteurships: 'legislativo_relatorias',
+  commissionMeetings: 'legislativo_reunioes_comissao',
+  sessions: 'legislativo_sessoes',
+  agendas: 'legislativo_pautas',
+  attendance: 'legislativo_presencas',
+  votes: 'legislativo_votacoes',
+  minutes: 'legislativo_atas',
+  norms: 'legislativo_normas',
+  reports: 'legislativo_relatorios',
+  settings: 'legislativo_configuracoes',
+  subjects: 'legislativo_assuntos',
+  authorships: 'legislativo_autorias',
+  attachments: 'legislativo_anexacoes',
+  tracking: 'legislativo_acompanhamentos',
+  routingUnits: 'legislativo_unidades_tramitacao',
+  initialDispatches: 'legislativo_despachos_iniciais',
+  matterTypes: 'legislativo_tipos_materia',
+  statusCatalog: 'legislativo_status_tramitacao',
+  videoConferences: 'videoconferencias',
+  videoConferenceEvents: 'videoconferencia_eventos',
+  recordings: 'legislativo_gravacoes',
+  transcriptions: 'legislativo_transcricoes',
+  sessionEvents: 'legislativo_eventos_sessao',
+  transcriptionJobs: 'legislativo_jobs_transcricao',
+};
+
+export const legislativeCounterPath = (chamberId, counterId) => [
+  LEGISLATIVE_COLLECTIONS.settings,
+  chamberId || 'camara-padrao',
+  'contadores',
+  counterId,
+];

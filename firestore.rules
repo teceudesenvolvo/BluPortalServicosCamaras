@@ -113,7 +113,7 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if request.auth != null
-        && (request.auth.uid == userId || isConfiguredRoot() || isAdminProfile());
+        && (request.auth.uid == userId || isConfiguredRoot() || isAdminProfile() || isLegislativeSecretariat());
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null
         && (request.auth.uid == userId || isConfiguredRoot() || isAdminProfile());
@@ -228,6 +228,50 @@ service cloud.firestore {
     function canOperateCabinet(cabinetId) {
       return isCabinetMember(cabinetId)
         && get(/databases/$(database)/documents/gabinetes-equipe/$(cabinetId + '_' + request.auth.uid)).data.get('nivelAcesso', 'operacional') in ['operacional', 'gestao'];
+    }
+    function canReadLegislative(cabinetId) {
+      return request.auth != null && (
+        cabinetId == request.auth.uid
+        || isCabinetMember(cabinetId)
+        || isAdminProfile()
+        || isConfiguredRoot()
+        || hasLegislativePermission('legislative.secretariat')
+        || hasLegislativePermission('legislative.presidency')
+        || hasLegislativePermission('legislative.commissionPresident')
+        || hasLegislativePermission('legislative.rapporteur')
+        || hasLegislativePermission('legislative.legalOpinion')
+      );
+    }
+    function canManageLegislative(cabinetId) {
+      return request.auth != null && (
+        cabinetId == request.auth.uid
+        || canOperateCabinet(cabinetId)
+        || isConfiguredRoot()
+      );
+    }
+    function isLegislativeSecretariat() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', '') == 'Secretaria Legislativa'
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('legislativePermissions', []).hasAny(['legislative.secretariat']))
+        && hasModuleAdminAccess('legislativo', ['Secretaria Legislativa', 'Vereador']);
+    }
+    function hasLegislativePermission(permission) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('legislativePermissions', []).hasAny([permission])
+        && hasModuleAdminAccess('legislativo', ['Vereador', 'Assessor', 'Secretaria Legislativa', 'Juridico']);
+    }
+    function isLegislativeManager(cabinetId) {
+      return canManageLegislative(cabinetId)
+        || isLegislativeSecretariat();
+    }
+    function canOperateLegislativeWorkflow(cabinetId) {
+      return isLegislativeManager(cabinetId)
+        || hasLegislativePermission('legislative.presidency')
+        || hasLegislativePermission('legislative.commissionPresident')
+        || hasLegislativePermission('legislative.rapporteur')
+        || hasLegislativePermission('legislative.legalOpinion');
     }
 
     match /solicitacoes-vereadores/{requestId} {
@@ -362,13 +406,158 @@ service cloud.firestore {
       allow create: if request.auth != null && (request.resource.data.gabineteId == request.auth.uid || canOperateCabinet(request.resource.data.gabineteId) || isAdminProfile() || isConfiguredRoot());
       allow update, delete: if request.auth != null && (resource.data.gabineteId == request.auth.uid || canOperateCabinet(resource.data.gabineteId) || isAdminProfile() || isConfiguredRoot());
     }
+    match /legislativo_materias/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create: if isLegislativeManager(request.resource.data.gabineteId);
+      allow update: if canOperateLegislativeWorkflow(resource.data.gabineteId);
+      allow delete: if isLegislativeManager(resource.data.gabineteId)
+        && resource.data.status == 'Rascunho';
+    }
+    match /legislativo_tramitacoes/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create: if canOperateLegislativeWorkflow(request.resource.data.gabineteId);
+      allow update, delete: if isLegislativeManager(resource.data.gabineteId);
+    }
+    match /legislativo_documentos/{itemId} {
+      allow read: if resource.data.public == true || canReadLegislative(resource.data.gabineteId);
+      allow create: if isLegislativeManager(request.resource.data.gabineteId);
+      allow update, delete: if isLegislativeManager(resource.data.gabineteId);
+    }
+    match /legislativo_pareceres/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create: if isLegislativeManager(request.resource.data.gabineteId)
+        || hasLegislativePermission('legislative.legalOpinion')
+        || hasLegislativePermission('legislative.rapporteur');
+      allow update, delete: if isLegislativeManager(resource.data.gabineteId);
+    }
+    match /legislativo_comissoes/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create: if isLegislativeManager(request.resource.data.gabineteId);
+      allow update: if isLegislativeManager(resource.data.gabineteId);
+      allow delete: if isConfiguredRoot() || isAdminProfile();
+    }
+    match /legislativo_sessoes/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create: if isLegislativeManager(request.resource.data.gabineteId);
+      allow update, delete: if isLegislativeManager(resource.data.gabineteId);
+    }
+    match /legislativo_relatorias/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create: if isLegislativeManager(request.resource.data.gabineteId)
+        || hasLegislativePermission('legislative.commissionPresident')
+        || hasLegislativePermission('legislative.rapporteur');
+      allow update, delete: if isLegislativeManager(resource.data.gabineteId);
+    }
+    match /legislativo_reunioes_comissao/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create: if isLegislativeManager(request.resource.data.gabineteId);
+      allow update, delete: if isLegislativeManager(resource.data.gabineteId);
+    }
+    match /legislativo_pautas/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create: if isLegislativeManager(request.resource.data.gabineteId);
+      allow update, delete: if isLegislativeManager(resource.data.gabineteId);
+    }
+    match /legislativo_presencas/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create: if isLegislativeManager(request.resource.data.gabineteId);
+      allow update, delete: if isLegislativeManager(resource.data.gabineteId);
+    }
+    match /legislativo_votacoes/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create: if isLegislativeManager(request.resource.data.gabineteId)
+        || hasLegislativePermission('legislative.presidency');
+      allow update, delete: if isLegislativeManager(resource.data.gabineteId);
+    }
+    match /legislativo_atas/{itemId} {
+      allow read: if resource.data.public == true || canReadLegislative(resource.data.gabineteId);
+      allow create: if isLegislativeManager(request.resource.data.gabineteId) || hasLegislativePermission('legislative.minutes');
+      allow update, delete: if isLegislativeManager(resource.data.gabineteId) || hasLegislativePermission('legislative.minutes');
+    }
+    match /legislativo_normas/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create: if isLegislativeManager(request.resource.data.gabineteId);
+      allow update, delete: if isLegislativeManager(resource.data.gabineteId);
+    }
+    match /legislativo_relatorios/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create: if isLegislativeManager(request.resource.data.gabineteId)
+        || hasLegislativePermission('legislative.commissionPresident');
+      allow update, delete: if isLegislativeManager(resource.data.gabineteId);
+    }
+    match /legislativo_assuntos/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create, update, delete: if isLegislativeManager(request.resource.data.gabineteId);
+    }
+    match /legislativo_autorias/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create, update, delete: if isLegislativeManager(request.resource.data.gabineteId);
+    }
+    match /legislativo_anexacoes/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create, update, delete: if isLegislativeManager(request.resource.data.gabineteId);
+    }
+    match /legislativo_acompanhamentos/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create, update, delete: if isLegislativeManager(request.resource.data.gabineteId);
+    }
+    match /legislativo_unidades_tramitacao/{itemId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isAdminProfile() || isConfiguredRoot();
+    }
+    match /legislativo_despachos_iniciais/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create, update, delete: if isLegislativeManager(request.resource.data.gabineteId);
+    }
+    match /legislativo_tipos_materia/{itemId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isAdminProfile() || isConfiguredRoot();
+    }
+    match /legislativo_status_tramitacao/{itemId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isAdminProfile() || isConfiguredRoot();
+    }
+    match /videoconferencias/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow create, update, delete: if false;
+    }
+    match /videoconferencia_eventos/{itemId} {
+      allow read: if request.auth != null && canReadLegislative(resource.data.gabineteId);
+      allow write: if false;
+    }
+    match /legislativo_gravacoes/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow write: if false;
+    }
+    match /legislativo_transcricoes/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow write: if false;
+    }
+    match /legislativo_eventos_sessao/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow write: if false;
+    }
+    match /legislativo_jobs_transcricao/{itemId} {
+      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow write: if false;
+    }
+    match /legislativo_configuracoes/{camaraId} {
+      allow read: if request.auth != null;
+      allow create, update: if hasModuleAdminAccess('legislativo', ['Admin', 'Administrador']);
+      allow delete: if isAdminProfile() || isConfiguredRoot();
+    }
+    match /legislativo_configuracoes/{camaraId}/contadores/{counterId} {
+      allow read: if request.auth != null;
+      allow create, update: if hasModuleAdminAccess('legislativo', ['Admin', 'Administrador', 'Vereador', 'Assessor']);
+      allow delete: if isAdminProfile() || isConfiguredRoot();
+    }
 
     // Regras básicas para permitir operações autenticadas
     match /{document=**} {
       allow read, write: if request.auth != null
         && !document.matches('esic-pedidos/.*')
         && !document.matches('esic-contadores/.*')
-        && !document.matches('system-control/.*') && !document.matches('vereadores/.*') && !document.matches('solicitacoes-vereadores/.*') && !document.matches('balcao-config/.*') && !document.matches('balcao-monthly-configs/.*') && !document.matches('vereadores-agenda-config/.*') && !document.matches('gabinetes-equipe/.*') && !document.matches('gabinetes-tarefas/.*') && !document.matches('gabinetes-eventos/.*') && !document.matches('gabinetes-listas/.*') && !document.matches('gabinetes-visitantes/.*') && !document.matches('gabinetes-mensagens/.*') && !document.matches('gabinetes-demandas-historico/.*') && !document.matches('gabinetes-encaminhamentos/.*') && !document.matches('gabinetes-documentos/.*') && !document.matches('gabinetes-pastas/.*');
+        && !document.matches('system-control/.*') && !document.matches('vereadores/.*') && !document.matches('solicitacoes-vereadores/.*') && !document.matches('balcao-config/.*') && !document.matches('balcao-monthly-configs/.*') && !document.matches('vereadores-agenda-config/.*') && !document.matches('gabinetes-equipe/.*') && !document.matches('gabinetes-tarefas/.*') && !document.matches('gabinetes-eventos/.*') && !document.matches('gabinetes-listas/.*') && !document.matches('gabinetes-visitantes/.*') && !document.matches('gabinetes-mensagens/.*') && !document.matches('gabinetes-demandas-historico/.*') && !document.matches('gabinetes-encaminhamentos/.*') && !document.matches('gabinetes-documentos/.*') && !document.matches('gabinetes-pastas/.*') && !document.matches('legislativo_.*');
     }
   }
 }

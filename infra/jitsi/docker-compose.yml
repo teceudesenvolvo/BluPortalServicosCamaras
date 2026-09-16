@@ -1,0 +1,45 @@
+services:
+  prosody:
+    image: jitsi/prosody:${JITSI_IMAGE_VERSION:-stable}
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ${CONFIG}/prosody-config:/config
+      - ${CONFIG}/prosody-plugins-custom:/prosody-plugins-custom
+    networks: [jitsi]
+
+  web:
+    image: jitsi/web:${JITSI_IMAGE_VERSION:-stable}
+    restart: unless-stopped
+    env_file: .env
+    depends_on: [prosody]
+    ports:
+      - "127.0.0.1:${HTTP_PORT:-8000}:80"
+    volumes:
+      - ${CONFIG}/web:/config
+      - ${CONFIG}/web-crontabs:/var/spool/cron/crontabs
+      - ${CONFIG}/transcripts:/usr/share/jitsi-meet/transcripts
+    networks: [jitsi]
+
+  jicofo:
+    image: jitsi/jicofo:${JITSI_IMAGE_VERSION:-stable}
+    restart: unless-stopped
+    env_file: .env
+    depends_on: [prosody]
+    volumes:
+      - ${CONFIG}/jicofo:/config
+    networks: [jitsi]
+
+  jvb:
+    image: jitsi/jvb:${JITSI_IMAGE_VERSION:-stable}
+    restart: unless-stopped
+    env_file: .env
+    depends_on: [prosody]
+    ports:
+      - "${JVB_PORT:-10000}:10000/udp"
+    volumes:
+      - ${CONFIG}/jvb:/config
+    networks: [jitsi]
+
+networks:
+  jitsi:

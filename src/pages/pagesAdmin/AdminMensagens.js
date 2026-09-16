@@ -22,6 +22,8 @@ import {
     LiaUserCircleSolid,
 } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
+import { useSystemControl } from '../../contexts/SystemControlContext';
+import { canAccessModule } from '../../config/rolePermissions';
 import { auth, firestore } from '../../firebase';
 import {
     buildReadMessagesUpdate,
@@ -102,8 +104,10 @@ const getMessagePreview = (message) => {
 
 const AdminMensagens = () => {
     const navigate = useNavigate();
+    const { settings } = useSystemControl();
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [userType, setUserType] = useState('');
+    const [userEmail, setUserEmail] = useState('');
     const [loading, setLoading] = useState(true);
     const [threads, setThreads] = useState([]);
     const [activeTab, setActiveTab] = useState('');
@@ -137,6 +141,7 @@ const AdminMensagens = () => {
             const snapshot = await getDoc(userRef);
             const type = snapshot.exists() ? snapshot.data().tipo || 'Cidadão' : 'Cidadão';
             setUserType(type);
+            setUserEmail(user.email || '');
             setIsAuthReady(true);
         });
 
@@ -144,9 +149,9 @@ const AdminMensagens = () => {
     }, [navigate]);
 
     const visibleAreas = useMemo(() => {
-        if (userType === 'Admin') return MESSAGE_AREAS;
+        if (canAccessModule(settings, userType, userEmail, 'mensagens', 'admin')) return MESSAGE_AREAS;
         return MESSAGE_AREAS.filter(area => area.role === userType);
-    }, [userType]);
+    }, [settings, userEmail, userType]);
 
     const activeArea = visibleAreas.find(area => area.id === activeTab) || visibleAreas[0];
 

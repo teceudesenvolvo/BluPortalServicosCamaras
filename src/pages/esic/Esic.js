@@ -4,6 +4,7 @@ import {httpsCallable} from 'firebase/functions';
 import {functions} from '../../firebase';
 import {useAuth} from '../../contexts/FirebaseAuthContext';
 import {useSystemControl} from '../../contexts/SystemControlContext';
+import {isSystemRootEmail} from '../../config/systemModules';
 import Sidebar from '../../components/Sidebar';
 import AdminSidebar from '../../components/AdminSidebar';
 import CabinetOverlay from '../../components/CabinetOverlay';
@@ -28,6 +29,7 @@ export function EsicPublico() {
 
 export default function Esic({admin=false}) {
   const {currentUser,loading,role} = useAuth();
+  const {settings} = useSystemControl();
   const [stats,setStats]=useState({});
   const [items,setItems] = useState([]), [cursor,setCursor] = useState(null), [busy,setBusy] = useState(false), [error,setError] = useState('');
   const [status,setStatus] = useState(''), [search,setSearch] = useState(''), [detail,setDetail] = useState(null), [modal,setModal] = useState(''), [notice,setNotice] = useState('');
@@ -41,7 +43,7 @@ export default function Esic({admin=false}) {
   if(loading) return <p>Carregando…</p>;
   if(!currentUser) return <Navigate to="/login" replace state={{returnTo:admin?'/admin-esic':'/esic'}}/>;
   return <div className="dashboard-layout">{admin?<AdminSidebar/>:<Sidebar/>}<main className="dashboard-content esic-page"><div className="esic-boundary"><header className="page-header-container"><div><h1>{admin?'Central e-SIC':'Meus pedidos de informação'}</h1><p>{admin?'Organize a análise, acompanhe prazos e responda ao cidadão.':'Acompanhe seus protocolos e as respostas da Câmara.'}</p></div></header>
-    <section className="esic-panel">{admin&&<div className="esic-stats">{Object.entries(stats).map(([label,total])=><article key={label}><span>{label}</span><strong>{total}</strong></article>)}</div>}<div className="esic-actions">{!admin&&<button onClick={()=>{setDetail(null);setModal('new');}}>Novo pedido</button>}{admin&&<><button onClick={csv}>Exportar registros carregados (CSV)</button>{role==='Admin'&&<button onClick={()=>setModal('config')}>Configurar atendimento</button>}</>}</div><form className="esic-filters" onSubmit={e=>{e.preventDefault();load();}}><label>Protocolo<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="SIC-2026-000001"/></label><label>Status<select value={status} onChange={e=>setStatus(e.target.value)}><option value="">Todos</option>{statuses.map(s=><option key={s}>{s}</option>)}</select></label><button disabled={busy}>Buscar</button></form>
+    <section className="esic-panel">{admin&&<div className="esic-stats">{Object.entries(stats).map(([label,total])=><article key={label}><span>{label}</span><strong>{total}</strong></article>)}</div>}<div className="esic-actions">{!admin&&<button onClick={()=>{setDetail(null);setModal('new');}}>Novo pedido</button>}{admin&&<><button onClick={csv}>Exportar registros carregados (CSV)</button>{(['Admin','Administrador'].includes(role)||isSystemRootEmail(settings,currentUser?.email))&&<button onClick={()=>setModal('config')}>Configurar atendimento</button>}</>}</div><form className="esic-filters" onSubmit={e=>{e.preventDefault();load();}}><label>Protocolo<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="SIC-2026-000001"/></label><label>Status<select value={status} onChange={e=>setStatus(e.target.value)}><option value="">Todos</option>{statuses.map(s=><option key={s}>{s}</option>)}</select></label><button disabled={busy}>Buscar</button></form>
     {notice&&<p role="status">{notice}</p>}{error&&!modal&&<p role="alert">{error}</p>}{busy&&<p role="status">Carregando…</p>}
     {!items.length&&!busy&&<p>Nenhum pedido encontrado. {admin?'Ajuste os filtros para pesquisar.':'Registre seu primeiro pedido de informação.'}</p>}
     <div className="esic-list">{items.map(item=><button key={item.id} className="esic-record" onClick={()=>open(item.id)}><span><strong>{item.protocolo}</strong><span>{item.titulo}</span></span><span>{item.status}<small>{!['Respondido','Concluído'].includes(item.status)&&item.deadline<Date.now()?'Prazo vencido · ':''}{date(item.deadline)}</small></span></button>)}</div>{cursor&&<button disabled={busy} onClick={()=>load(cursor)}>Carregar mais 25</button>}</section></div></main>
