@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 
 // Importa o hook de autenticação e a instância do auth
 import { useAuth } from '../contexts/FirebaseAuthContext';
-import { auth, firestore } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { auth } from '../firebase';
  
 import Brasao from '../assets/logo-paraipaba.png'; // Logo redonda/brasão
 import Logo from '../assets/logo-paraipaba-azul.png'; // Logo horizontal
@@ -14,7 +13,6 @@ import { useSystemControl } from '../contexts/SystemControlContext';
 const LoginPage = () => {
     const { settings } = useSystemControl();
     const navigate = useNavigate();
-    const location = useLocation();
     const { currentUser } = useAuth(); // Monitora o estado atual do usuário
 
     const [email, setEmail] = useState('');
@@ -22,57 +20,13 @@ const LoginPage = () => {
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
 
-    // Função centralizada para redirecionar o usuário com base no seu tipo/role.
-    const redirectUser = useCallback((userType) => {
-        const returnTo = location.state?.returnTo;
-        if (typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
-            navigate(returnTo, { replace: true });
-            return;
-        }
-        switch (userType) {
-            case 'Admin':
-                navigate('/perfil', { replace: true });
-                break;
-            case 'Vereador':
-                navigate('/admin-vereadores', { replace: true });
-                break;
-            case 'Juridico':
-                navigate('/admin-juridico', { replace: true });
-                break;
-            case 'Procuradoria':
-                navigate('/admin-procuradoria', { replace: true });
-                break;
-            case 'Procon':
-                navigate('/admin-procon', { replace: true });
-                break;
-            case 'Ouvidoria':
-                navigate('/admin-ouvidoria', { replace: true });
-                break;
-            case 'Balcão':
-                navigate('/admin-balcao', { replace: true });
-                break;
-            case 'Microempreendedor':
-                navigate('/admin-microempreendedor', { replace: true });
-                break;
-            case 'Recepção':
-                navigate('/recepcao', { replace: true });
-                break;
-            default: // Cidadão ou tipo não definido
-                navigate('/dashboard', { replace: true });
-        }
-    }, [location.state, navigate]);
+    // Todos os perfis iniciam pelo dashboard após a autenticação.
+    const redirectUser = useCallback(() => navigate('/dashboard', { replace: true }), [navigate]);
 
     // Efeito para redirecionar se o usuário já estiver logado.
     useEffect(() => {
         if (currentUser) {
-            const checkUserTypeAndRedirect = async (user) => {
-                const userRef = doc(firestore, 'users', user.uid);
-                const snapshot = await getDoc(userRef);
-                const userType = snapshot.exists() ? snapshot.data().tipo : 'Cidadão';
-                redirectUser(userType);
-            };
-
-            checkUserTypeAndRedirect(currentUser);
+            redirectUser();
         }
     }, [currentUser, redirectUser]);
 

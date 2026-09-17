@@ -11,6 +11,7 @@ export const isSystemRootEmail = (settings, email) => {
 };
 
 export const SYSTEM_MODULES = [
+    { id: 'protocolo', name: 'Protocolo e Processos', description: 'Protocolos, processos administrativos, tramitação, documentos e acompanhamento.', adminPaths: ['/admin-protocolo'], userPaths: ['/protocolo'], app: true },
     { id: 'esic', name: 'e-SIC', description: 'Pedidos de acesso à informação, respostas e recursos.', adminPaths: ['/admin-esic'], userPaths: ['/esic'], app: true },
     { id: 'agendaVereadores', name: 'Gabinete Vereador', description: 'Agenda, demandas, visitantes, equipe, tarefas, eventos e relatórios dos gabinetes.', adminPaths: ['/admin-agenda-vereadores'], userPaths: ['/vereadores'], app: true },
     { id: 'legislativo', name: 'Gestão legislativa', description: 'Matérias, tramitação, pautas, sessões, comissões e documentos acessórios.', adminPaths: ['/admin-legislativo'], userPaths: [], app: true },

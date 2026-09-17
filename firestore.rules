@@ -433,13 +433,36 @@ service cloud.firestore {
     match /legislativo_comissoes/{itemId} {
       allow read: if canReadLegislative(resource.data.gabineteId);
       allow create: if isLegislativeManager(request.resource.data.gabineteId);
-      allow update: if isLegislativeManager(resource.data.gabineteId);
+      allow update: if isLegislativeManager(resource.data.gabineteId)
+        || (request.auth != null
+          && resource.data.presidentId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'alternateIds', 'updatedAt', 'editHistory']));
       allow delete: if isConfiguredRoot() || isAdminProfile();
     }
     match /legislativo_sessoes/{itemId} {
-      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow read: if resource.data.publicPanel == true || canReadLegislative(resource.data.gabineteId);
       allow create: if isLegislativeManager(request.resource.data.gabineteId);
-      allow update, delete: if isLegislativeManager(resource.data.gabineteId);
+      allow update: if isLegislativeManager(resource.data.gabineteId)
+        || (request.auth != null
+          && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', '') == 'Vereador'
+          && (
+            (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['attendanceIds', 'updatedAt'])
+              && request.resource.data.attendanceIds.toSet().difference(resource.data.attendanceIds.toSet()).hasOnly([request.auth.uid])
+              && resource.data.attendanceIds.toSet().difference(request.resource.data.attendanceIds.toSet()).hasOnly([request.auth.uid]))
+            || (resource.data.get('currentMatterPhase', '') == 'voting'
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['liveVotes', 'updatedAt'])
+              && request.resource.data.get('liveVotes', {}).diff(resource.data.get('liveVotes', {})).affectedKeys().hasOnly([request.auth.uid]))
+            || (resource.data.get('currentMatterPhase', '') == 'discussion'
+              && resource.data.attendanceIds.hasAll([request.auth.uid])
+              && resource.data.get('activeSpeakerId', '') != request.auth.uid
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['speakerTimeConcessions', 'updatedAt'])
+              && request.resource.data.get('speakerTimeConcessions', {}).diff(resource.data.get('speakerTimeConcessions', {})).affectedKeys().hasOnly([request.auth.uid])
+              && request.resource.data.speakerTimeConcessions[request.auth.uid].speakerId == resource.data.activeSpeakerId
+              && request.resource.data.speakerTimeConcessions[request.auth.uid].matterId == resource.data.currentMatterId
+              && request.resource.data.speakerTimeConcessions[request.auth.uid].seconds == 60)
+          ));
+      allow delete: if isLegislativeManager(resource.data.gabineteId);
     }
     match /legislativo_relatorias/{itemId} {
       allow read: if canReadLegislative(resource.data.gabineteId);
@@ -464,7 +487,7 @@ service cloud.firestore {
       allow update, delete: if isLegislativeManager(resource.data.gabineteId);
     }
     match /legislativo_votacoes/{itemId} {
-      allow read: if canReadLegislative(resource.data.gabineteId);
+      allow read: if resource.data.publicPanel == true || canReadLegislative(resource.data.gabineteId);
       allow create: if isLegislativeManager(request.resource.data.gabineteId)
         || hasLegislativePermission('legislative.presidency');
       allow update, delete: if isLegislativeManager(resource.data.gabineteId);

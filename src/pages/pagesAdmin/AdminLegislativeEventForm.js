@@ -12,7 +12,7 @@ import AdminSidebar from '../../components/AdminSidebar';
 
 const remoteFormats = new Set(['Remota', 'Virtual', 'Híbrida']);
 const sessionEligibleStatuses = new Set([LEGISLATIVE_STAGES.READY_FOR_AGENDA, LEGISLATIVE_STAGES.AGENDA, LEGISLATIVE_STAGES.SECOND_TURN]);
-const commissionEligibleStatuses = new Set([LEGISLATIVE_STAGES.COMMISSION, LEGISLATIVE_STAGES.RAPPORTEUR]);
+const commissionEligibleStatuses = new Set([LEGISLATIVE_STAGES.COMMISSION, LEGISLATIVE_STAGES.RAPPORTEUR, LEGISLATIVE_STAGES.COMMISSION_DELIBERATION]);
 
 const initialForm = mode => ({
   title: '',
@@ -119,6 +119,15 @@ export default function AdminLegislativeEventForm({ mode }) {
         await Promise.all(form.matterIds.map(matterId => updateDoc(doc(firestore, LEGISLATIVE_COLLECTIONS.matters, matterId), {
           status: LEGISLATIVE_STAGES.AGENDA,
           agendaSessionId: created.id,
+          updatedAt: serverTimestamp(),
+        })));
+      }
+      if (!isSession && form.matterIds.length) {
+        await Promise.all(form.matterIds.map(matterId => updateDoc(doc(firestore, LEGISLATIVE_COLLECTIONS.matters, matterId), {
+          commissionId: commission.id,
+          commissionName: commission.name || 'Comissão',
+          commissionAgendaMeetingId: created.id,
+          commissionAgendaMeetingTitle: record.title,
           updatedAt: serverTimestamp(),
         })));
       }

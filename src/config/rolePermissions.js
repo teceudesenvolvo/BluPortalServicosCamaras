@@ -1,7 +1,8 @@
 import { isSystemRootEmail } from './systemModules';
 
-export const USER_ROLES = ['Admin', 'Secretaria Legislativa', 'Vereador', 'Assessor', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor', 'Escola do Parlamento', 'Cidadão'];
+export const USER_ROLES = ['Admin', 'Administrador', 'Protocolo', 'Servidor', 'Gestor de Setor', 'Secretaria Legislativa', 'Vereador', 'Assessor', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor', 'Escola do Parlamento', 'Cidadão'];
 const STAFF_MODULES = {
+    protocolo: ['Protocolo', 'Servidor', 'Gestor de Setor', 'Secretaria Legislativa', 'Vereador', 'Assessor'],
     agendaVereadores: ['Vereador', 'Assessor'], legislativo: ['Secretaria Legislativa', 'Vereador', 'Assessor', 'Juridico'], juridico: ['Juridico'], balcao: ['Balcão'],
     microempreendedor: ['Microempreendedor'], recepcao: ['Balcão', 'Recepção', 'Microempreendedor'],
     mensagens: ['Balcão', 'Ouvidoria', 'Procuradoria'], avaliacoes: ['Balcão'],

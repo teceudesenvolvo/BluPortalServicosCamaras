@@ -5,16 +5,53 @@ import Sidebar from '../../components/Sidebar';
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../../firebase';
 import { useSystemControl } from '../../contexts/SystemControlContext';
-import { findModuleByPath } from '../../config/systemModules';
+import { SYSTEM_MODULES } from '../../config/systemModules';
+import { canAccessModule } from '../../config/rolePermissions';
 import {
-    LiaUserFriendsSolid,
-    LiaUserAstronautSolid,
-    LiaFemaleSolid,
-    LiaTvSolid,
     LiaArrowRightSolid,
     LiaBellSolid,
+    LiaIdCardSolid,
+    LiaInfoCircleSolid,
+    LiaLandmarkSolid,
+    LiaBalanceScaleLeftSolid,
+    LiaGavelSolid,
+    LiaStoreSolid,
+    LiaHandshakeSolid,
+    LiaClipboardListSolid,
+    LiaCommentsSolid,
+    LiaNewspaperSolid,
+    LiaTvSolid,
+    LiaStarSolid,
+    LiaBullhornSolid,
+    LiaFemaleSolid,
+    LiaUserTieSolid,
+    LiaUsersSolid,
+    LiaGraduationCapSolid,
     LiaShieldAltSolid,
+    LiaCogSolid,
 } from "react-icons/lia";
+
+const MODULE_PRESENTATION = {
+    esic: { icon: LiaInfoCircleSolid, accent: '#0f766e' },
+    agendaVereadores: { icon: LiaLandmarkSolid, accent: '#7c3aed' },
+    legislativo: { icon: LiaBalanceScaleLeftSolid, accent: '#0f4c81' },
+    juridico: { icon: LiaGavelSolid, accent: '#a16207' },
+    balcao: { icon: LiaStoreSolid, accent: '#025AA1' },
+    microempreendedor: { icon: LiaHandshakeSolid, accent: '#047857' },
+    recepcao: { icon: LiaClipboardListSolid, accent: '#c2410c' },
+    mensagens: { icon: LiaCommentsSolid, accent: '#0369a1' },
+    noticias: { icon: LiaNewspaperSolid, accent: '#be185d' },
+    tvCamara: { icon: LiaTvSolid, accent: '#b45309' },
+    avaliacoes: { icon: LiaStarSolid, accent: '#9333ea' },
+    ouvidoria: { icon: LiaBullhornSolid, accent: '#0f766e' },
+    procuradoria: { icon: LiaFemaleSolid, accent: '#6d28d9' },
+    vereadores: { icon: LiaUserTieSolid, accent: '#1d4ed8' },
+    piel: { icon: LiaUsersSolid, accent: '#0e7490' },
+    escolaParlamento: { icon: LiaGraduationCapSolid, accent: '#15803d' },
+    procon: { icon: LiaShieldAltSolid, accent: '#b91c1c' },
+    usuarios: { icon: LiaIdCardSolid, accent: '#475569' },
+    notificacoes: { icon: LiaCogSolid, accent: '#334155' },
+};
 
 // --- Componente: Card de Serviço no Grid ---
 const ServiceCard = ({ icon, title, description, path, navigate, accent }) => {
@@ -44,29 +81,21 @@ const getAvatarSrc = (avatarBase64) => {
 // --- Componente Principal: DashboardPage ---
 const DashboardPage = () => {
     const navigate = useNavigate(); 
-    const { currentUser: user, loading } = useAuth(); // Corrigido: usa currentUser e o renomeia para user
+    const { currentUser: user, loading, role } = useAuth(); // Corrigido: usa currentUser e o renomeia para user
     const { settings } = useSystemControl();
     
     // Estados para os dados do perfil do usuário
     const [loggedInUserData, setLoggedInUserData] = useState(null);
     const [, setLoadingLoggedInUserData] = useState(true);
     
-    // 2. Dados do Grid de Serviços (Principais)
-    // O ideal é que o path reflita o ítem do menu lateral
-    const serviceGridItems = [
-        { title: 'PROCON', description: 'Registre reclamações, acompanhe protocolos e agende atendimento presencial.', icon: <LiaShieldAltSolid />, path: '/procon', accent: '#0369a1' },
-        // { title: 'Atendimento Jurídico', icon: <LiaBalanceScaleLeftSolid />, path: '/juridico' },
-        { title: 'Balcão do Cidadão', description: 'Solicite documentos, acompanhe pedidos e agendamentos.', icon: <LiaUserFriendsSolid />, path: '/balcao', accent: '#025AA1' },
-        { title: 'Microempreendedor', description: 'Receba orientação para MEI, finanças, impostos e melhorias do negócio.', icon: <LiaUserFriendsSolid />, path: '/microempreendedor', accent: '#047857' },
-        { title: 'Ouvidoria', description: 'Envie manifestações, dúvidas, elogios e reclamações.', icon: <LiaUserAstronautSolid />, path: '/ouvidoria', accent: '#0f766e' },
-        { title: 'Procuradoria da Mulher', description: 'Acesse atendimento e acolhimento especializado.', icon: <LiaFemaleSolid />, path: '/procuradoria', accent: '#8b5cf6' },
-        { title: 'TV Câmara', description: 'Assista aos conteúdos e transmissões da Câmara.', icon: <LiaTvSolid />, path: '/tv-camara', accent: '#f59e0b' },
-        // { title: 'Vereadores', icon: <LiaUsersSolid />, path: '/vereadores' },
-        // Pode adicionar mais se necessário
-    ];
-    const visibleServiceGridItems = serviceGridItems.filter(item => {
-        const module = findModuleByPath(item.path);
-        return !module || settings.modules?.[module.id]?.portal !== false;
+    const visibleServiceGridItems = SYSTEM_MODULES.flatMap(module => {
+        const portalPath = module.userPaths[0];
+        const canOpenPortal = portalPath && canAccessModule(settings, role, user?.email, module.id, 'portal');
+        const presentation = MODULE_PRESENTATION[module.id];
+
+        if (!canOpenPortal || !presentation) return [];
+        const Icon = presentation.icon;
+        return [{ id: module.id, title: module.name, description: module.description, icon: <Icon />, path: portalPath, accent: presentation.accent }];
     });
     
     // Handler para navegação do menu lateral
@@ -164,7 +193,7 @@ const DashboardPage = () => {
                         </span>
                     </button>
                     <button type="button" className="user-dashboard-summary-card" onClick={() => navigate('/perfil')}>
-                        <LiaShieldAltSolid size={24} />
+                        <LiaIdCardSolid size={24} />
                         <span>
                             <strong>Perfil e segurança</strong>
                             <small>Atualize seus dados e preferências</small>
@@ -174,15 +203,15 @@ const DashboardPage = () => {
 
                 <div className="user-dashboard-section-heading">
                     <div>
-                        <h2>Serviços disponíveis</h2>
-                        <p>Escolha uma área para iniciar ou acompanhar seu atendimento.</p>
+                        <h2>Módulos disponíveis</h2>
+                        <p>Escolha um módulo ativo para acessar os recursos liberados para o seu perfil.</p>
                     </div>
                 </div>
 
                 <main className="services-grid-main">
                     {visibleServiceGridItems.map((item) => (
                         <ServiceCard 
-                            key={item.title}
+                            key={item.id}
                             icon={item.icon}
                             title={item.title}
                             description={item.description}

@@ -81,6 +81,7 @@ import MeusCursosEscola from './pages/pagesUser/MeusCursosEscola';
 import CursoEscolaPlayer from './pages/pagesUser/CursoEscolaPlayer';
 import LegislativoPublico from './pages/LegislativoPublico';
 import AdminAtendimentosGuiches from './pages/pagesAdmin/AdminAtendimentosGuiches';
+import LegislativeVotingPanel from './pages/LegislativeVotingPanel';
 import SystemControl from './pages/pagesAdmin/SystemControl';
 import InstallationWizard from './pages/InstallationWizard';
 import { hasRuntimeFirebaseConfig } from './firebase';
@@ -154,7 +155,10 @@ function App() {
           <Route path="/admin-vereadores" element={<ModuleRoute surface="admin"><AdminVereadores /></ModuleRoute>} />
           <Route path="/admin-agenda-vereadores" element={<ModuleRoute surface="admin"><AdminAgendaVereadores /></ModuleRoute>} />
           <Route path="/admin-legislativo" element={<ModuleRoute surface="admin"><AdminLegislativo /></ModuleRoute>} />
+          <Route path="/painel-votacao/:sessionId" element={<LegislativeVotingPanel />} />
           <Route path="/admin-legislativo/sessao/nova" element={<ModuleRoute surface="admin"><AdminLegislativeEventForm mode="session" /></ModuleRoute>} />
+          <Route path="/admin-legislativo/sessao/:unitId/controles" element={<ModuleRoute surface="admin"><AdminLegislativeUnit /></ModuleRoute>} />
+          <Route path="/admin-legislativo/:unitType/:unitId/trabalho" element={<ModuleRoute surface="admin"><AdminLegislativeUnit /></ModuleRoute>} />
           <Route path="/admin-legislativo/comissao/:commissionId/reuniao/nova" element={<ModuleRoute surface="admin"><AdminLegislativeEventForm mode="commission-meeting" /></ModuleRoute>} />
           <Route path="/admin-legislativo/comissao/:commissionId/materia/:matterId" element={<ModuleRoute surface="admin"><AdminLegislativeCommissionMatter /></ModuleRoute>} />
           <Route path="/admin-legislativo/materia/:matterId" element={<ModuleRoute surface="admin"><AdminLegislativeMatter /></ModuleRoute>} />
