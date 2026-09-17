@@ -5,6 +5,26 @@ service firebase.storage {
       return request.auth != null
         && request.auth.token.email in firestore.get(/databases/(default)/documents/system-control/portal).data.security.rootEmails;
     }
+    function hasAdministrativeModuleAccess(moduleId) {
+      let profile = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+      let control = firestore.get(/databases/(default)/documents/system-control/portal).data;
+      let role = profile.get('tipo', '');
+      return request.auth != null
+        && control.get('modules', {}).get(moduleId, {}).get('admin', false)
+        && (isConfiguredRoot()
+          || role in ['Admin', 'Administrador']
+          || control.get('security', {}).get('actionPermissions', {}).get(role, {}).get(moduleId + '.visualizar', false)
+          || control.get('security', {}).get('rolePermissions', {}).get(role, {}).get(moduleId, {}).get('admin', false));
+    }
+
+    function isAllowedAdministrativeFile() {
+      return request.resource.size < 25 * 1024 * 1024
+        && (request.resource.contentType.matches('application/pdf')
+          || request.resource.contentType.matches('image/.*')
+          || request.resource.contentType.matches('video/.*')
+          || request.resource.contentType.matches('application/msword')
+          || request.resource.contentType.matches('application/vnd\\.openxmlformats-officedocument\\..*'));
+    }
 
     match /system-control/{tenant}/{allPaths=**} {
       allow read: if true;
@@ -13,8 +33,22 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    // Os anexos administrativos devem usar caminhos versionados. O cliente
+    // autorizado pode criar um arquivo, mas não substituir nem apagar a prova
+    // documental por acesso direto ao Storage.
+    match /administrativo/{moduleId}/{entityId}/{fileName} {
+      allow read: if moduleId in ['contratos', 'almoxarifado', 'patrimonio', 'manutencao', 'frotas']
+        && hasAdministrativeModuleAccess(moduleId);
+      allow create: if moduleId in ['contratos', 'almoxarifado', 'patrimonio', 'manutencao', 'frotas']
+        && hasAdministrativeModuleAccess(moduleId)
+        && entityId.size() > 0
+        && fileName.size() > 0
+        && isAllowedAdministrativeFile();
+      allow update, delete: if false;
+    }
+
     match /{topLevel}/{allPaths=**} {
-      allow read, write: if topLevel != 'system-control' && topLevel != 'esic' && request.auth != null;
+      allow read, write: if topLevel != 'system-control' && topLevel != 'esic' && topLevel != 'administrativo' && request.auth != null;
     }
 
     match /{fileName} {

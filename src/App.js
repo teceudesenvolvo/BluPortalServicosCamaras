@@ -50,6 +50,8 @@ import Microempreendedor from './pages/pagesUser/Microempreendedor';
 import NovaMicroempreendedor from './pages/pagesUser/NovaMicroempreendedor';
 import AvaliarAtendimento from './pages/pagesUser/AvaliarAtendimento';
 import ProcessProtocol from './pages/ProcessProtocol';
+import CitizenProtocolPage from './pages/pagesUser/CitizenProtocolPage';
+import AdministrativeFieldOperations from './pages/pagesUser/AdministrativeFieldOperations';
 
 import AdminPiel from './pages/pagesAdmin/AdminPiel';
 import AdminProcon from './pages/pagesAdmin/AdminProconModule';
@@ -76,6 +78,13 @@ import AdminTvCamara from './pages/pagesAdmin/AdminTvCamara';
 import AdminMicroempreendedor from './pages/pagesAdmin/AdminMicroempreendedor';
 import AdminAvaliacoes from './pages/pagesAdmin/AdminAvaliacoes';
 import AdminDashboard from './pages/pagesAdmin/AdminDashboard';
+import ProtocolWorkspacePage from './pages/ProtocolWorkspacePage';
+import ContractsModulePage from './modules/contracts';
+import InventoryModulePage from './modules/inventory';
+import AssetsModulePage from './modules/assets';
+import MaintenanceModulePage from './modules/maintenance';
+import FleetModulePage from './modules/fleet';
+import AdministrativeReports from './pages/pagesAdmin/AdministrativeReports';
 import AdminEscolaParlamento from './pages/pagesAdmin/AdminEscolaParlamento';
 import EscolaParlamento from './pages/pagesUser/EscolaParlamento';
 import NoticiasPortal from './pages/pagesUser/NoticiasPortal';
@@ -120,7 +129,11 @@ function App() {
 
           {/* Com Login - Usuário Comum */}
           <Route path="/dashboard" element={<Painel />} />
-          <Route path="/protocolo" element={<ModuleRoute surface="portal"><ProcessProtocol /></ModuleRoute>} />
+          <Route path="/protocolo" element={<ModuleRoute surface="portal"><CitizenProtocolPage /></ModuleRoute>} />
+          <Route path="/protocolo/novo" element={<ModuleRoute surface="portal"><CitizenProtocolPage /></ModuleRoute>} />
+          <Route path="/protocolo/pendencias" element={<ModuleRoute surface="portal"><CitizenProtocolPage /></ModuleRoute>} />
+          <Route path="/protocolo/consultar" element={<ModuleRoute surface="portal"><CitizenProtocolPage /></ModuleRoute>} />
+          <Route path="/protocolo/:processId" element={<ModuleRoute surface="portal"><CitizenProtocolPage /></ModuleRoute>} />
           <Route path="/procon" element={<ModuleRoute surface="portal"><ProconPortal /></ModuleRoute>} />
           <Route path="/procon/reclamacao" element={<ModuleRoute surface="portal"><ProconReclamacao /></ModuleRoute>} />
           <Route path="/procon/agendar" element={<ModuleRoute surface="portal"><ProconAgendamento /></ModuleRoute>} />
@@ -146,11 +159,31 @@ function App() {
           <Route path="/microempreendedor" element={<ModuleRoute surface="portal"><Microempreendedor /></ModuleRoute>} />
           <Route path="/microempreendedor/novo" element={<ModuleRoute surface="portal"><NovaMicroempreendedor /></ModuleRoute>} />
           <Route path="/avaliar-atendimento/:protocolo" element={<ModuleRoute surface="portal"><AvaliarAtendimento /></ModuleRoute>} />
+          <Route path="/operacoes/:moduleId" element={<ModuleRoute surface="app"><AdministrativeFieldOperations /></ModuleRoute>} />
 
           {/* Com Login - Admin */}
           <Route path="/admin-procon" element={<ModuleRoute surface="admin"><AdminProcon /></ModuleRoute>} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/admin-protocolo" element={<ModuleRoute surface="admin"><ProcessProtocol admin /></ModuleRoute>} />
+          <Route path="/admin/protocolo" element={<ModuleRoute surface="admin"><ProcessProtocol admin /></ModuleRoute>} />
+          <Route path="/admin/protocolo/novo" element={<ModuleRoute surface="admin"><ProcessProtocol admin /></ModuleRoute>} />
+          <Route path="/admin/protocolo/*" element={<ModuleRoute surface="admin"><ProtocolWorkspacePage /></ModuleRoute>} />
+          <Route path="/admin/protocolo/processo/:processId" element={<ModuleRoute surface="admin"><ProcessProtocol admin /></ModuleRoute>} />
+          {/* Rotas estáticas precisam existir para que "novo" não seja
+              interpretado como um contractId pela rota dinâmica. */}
+          <Route path="/admin/contratos/novo" element={<ModuleRoute surface="admin"><ContractsModulePage /></ModuleRoute>} />
+          <Route path="/admin/contratos/lista" element={<ModuleRoute surface="admin"><ContractsModulePage /></ModuleRoute>} />
+          <Route path="/admin/contratos/meus" element={<ModuleRoute surface="admin"><ContractsModulePage /></ModuleRoute>} />
+          <Route path="/admin/contratos/fiscalizacoes" element={<ModuleRoute surface="admin"><ContractsModulePage /></ModuleRoute>} />
+          <Route path="/admin/contratos/ocorrencias" element={<ModuleRoute surface="admin"><ContractsModulePage /></ModuleRoute>} />
+          <Route path="/admin/contratos/obrigacoes" element={<ModuleRoute surface="admin"><ContractsModulePage /></ModuleRoute>} />
+          <Route path="/admin/contratos/:contractId" element={<ModuleRoute surface="admin"><ContractsModulePage /></ModuleRoute>} />
+          <Route path="/admin/contratos/*" element={<ModuleRoute surface="admin"><ContractsModulePage /></ModuleRoute>} />
+          <Route path="/admin/almoxarifado/*" element={<ModuleRoute surface="admin"><InventoryModulePage /></ModuleRoute>} />
+          <Route path="/admin/patrimonio/*" element={<ModuleRoute surface="admin"><AssetsModulePage /></ModuleRoute>} />
+          <Route path="/admin/manutencao/*" element={<ModuleRoute surface="admin"><MaintenanceModulePage /></ModuleRoute>} />
+          <Route path="/admin/frotas/*" element={<ModuleRoute surface="admin"><FleetModulePage /></ModuleRoute>} />
+          <Route path="/admin-relatorios" element={<ModuleRoute surface="admin"><AdministrativeReports /></ModuleRoute>} />
           <Route path="/admin-juridico" element={<ModuleRoute surface="admin"><AdminJuridico /></ModuleRoute>} />
           <Route path="/admin-noticias" element={<ModuleRoute surface="admin"><AdminNoticiasSite /></ModuleRoute>} />
           <Route path="/admin-balcao" element={<ModuleRoute surface="admin"><AdminBalcao /></ModuleRoute>} />

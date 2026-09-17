@@ -29,6 +29,11 @@ import {
     LiaGraduationCapSolid,
     LiaShieldAltSolid,
     LiaCogSolid,
+    LiaFileContractSolid,
+    LiaBoxesSolid,
+    LiaCouchSolid,
+    LiaToolsSolid,
+    LiaCarSideSolid,
 } from "react-icons/lia";
 
 const MODULE_PRESENTATION = {
@@ -51,6 +56,11 @@ const MODULE_PRESENTATION = {
     procon: { icon: LiaShieldAltSolid, accent: '#b91c1c' },
     usuarios: { icon: LiaIdCardSolid, accent: '#475569' },
     notificacoes: { icon: LiaCogSolid, accent: '#334155' },
+    contratos: { icon: LiaFileContractSolid, accent: '#0f766e' },
+    almoxarifado: { icon: LiaBoxesSolid, accent: '#b45309' },
+    patrimonio: { icon: LiaCouchSolid, accent: '#7c3aed' },
+    manutencao: { icon: LiaToolsSolid, accent: '#c2410c' },
+    frotas: { icon: LiaCarSideSolid, accent: '#0369a1' },
 };
 
 // --- Componente: Card de Serviço no Grid ---
@@ -90,7 +100,9 @@ const DashboardPage = () => {
     
     const visibleServiceGridItems = SYSTEM_MODULES.flatMap(module => {
         const portalPath = module.userPaths[0];
-        const canOpenPortal = portalPath && canAccessModule(settings, role, user?.email, module.id, 'portal');
+        const administrativeFieldModule = ['contratos', 'almoxarifado', 'patrimonio', 'manutencao', 'frotas'].includes(module.id);
+        const surface = administrativeFieldModule ? 'app' : 'portal';
+        const canOpenPortal = portalPath && canAccessModule(settings, role, user?.email, module.id, surface);
         const presentation = MODULE_PRESENTATION[module.id];
 
         if (!canOpenPortal || !presentation) return [];

@@ -1,7 +1,7 @@
 import { useAuth } from '../contexts/FirebaseAuthContext';
 import { canAccessModule } from '../config/rolePermissions';
 import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Logo from '../assets/logo-paraipaba.png';
 import {
     LiaHomeSolid,
@@ -20,6 +20,7 @@ import {
     LiaFileAltSolid,
     LiaHeadsetSolid,
     LiaNewspaperSolid,
+    LiaClipboardListSolid,
 } from "react-icons/lia";
 import { useSystemControl } from '../contexts/SystemControlContext';
 import { findModuleByPath } from '../config/systemModules';
@@ -40,6 +41,7 @@ const SidebarItem = ({ icon, title, path, isActive, onClick }) => (
 // --- Componente Principal: Sidebar ---
 const Sidebar = ({ onItemClick }) => {
     const location = useLocation(); // Hook para obter a rota atual
+    const navigate = useNavigate();
     const [isHovered, setIsHovered] = useState(false);
     const [isMobileExpanded, setIsMobileExpanded] = useState(false);
     const { settings } = useSystemControl();
@@ -49,6 +51,7 @@ const Sidebar = ({ onItemClick }) => {
     const menuItems = [
         { title: 'Início', icon: <LiaHomeSolid />, path: '/dashboard' },
         { title: 'Balcão do Cidadão', icon: <LiaStoreSolid />, path: '/balcao' },
+        { title: 'Protocolos', icon: <LiaClipboardListSolid />, path: '/protocolo' },
         { title: 'Ouvidoria', icon: <LiaHeadsetSolid />, path: '/ouvidoria' },
         { title: 'e-SIC', icon: <LiaFileAltSolid />, path: '/esic' },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/procuradoria' },
@@ -67,13 +70,20 @@ const Sidebar = ({ onItemClick }) => {
         return !module || canAccessModule(settings, role, currentUser?.email, module.id, 'portal');
     });
     const menuGroups = [
-        { title: 'Atendimento', paths: ['/dashboard', '/balcao', '/ouvidoria', '/esic', '/procuradoria', '/procon', '/microempreendedor'] },
+        { title: 'Atendimento', paths: ['/dashboard', '/balcao', '/protocolo', '/ouvidoria', '/esic', '/procuradoria', '/procon', '/microempreendedor'] },
         { title: 'Conteúdo e formação', paths: ['/escola-parlamento', '/escola-parlamento/meus-cursos', '/tv-camara', '/noticias', '/vereadores'] },
         { title: 'Minha conta', paths: ['/mensagens', '/perfil'] },
     ].map(group => ({ ...group, items: visibleMenuItems.filter(item => group.paths.includes(item.path)) }));
 
     const handleItemClick = (path) => {
-        onItemClick(path);
+        // Algumas telas reutilizam o menu sem informar um callback. Nesse
+        // caso, a própria barra realiza a navegação padrão sem interromper a
+        // interface com uma exceção.
+        if (typeof onItemClick === 'function') {
+            onItemClick(path);
+        } else {
+            navigate(path);
+        }
         setIsMobileExpanded(false);
     };
 

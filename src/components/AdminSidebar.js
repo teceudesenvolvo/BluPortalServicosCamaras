@@ -25,6 +25,12 @@ import {
     LiaUserTieSolid,
     LiaLandmarkSolid,
     LiaHomeSolid,
+    LiaFileContractSolid,
+    LiaBoxesSolid,
+    LiaArchiveSolid,
+    LiaToolsSolid,
+    LiaCarSolid,
+    LiaFileDownloadSolid,
 } from "react-icons/lia";
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, firestore } from '../firebase';
@@ -138,7 +144,13 @@ const AdminSidebar = () => {
 
     const allMenuItems = [
         { title: 'Dashboard', icon: <LiaHomeSolid />, path: '/admin-dashboard', roles: ['Admin', 'Administrador', 'Protocolo', 'Servidor', 'Gestor de Setor', 'Secretaria Legislativa', 'Vereador', 'Assessor', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor', 'Escola do Parlamento'] },
-        { title: 'Protocolo e processos', icon: <LiaClipboardListSolid />, path: '/admin-protocolo', roles: ['Admin', 'Administrador', 'Protocolo', 'Servidor', 'Gestor de Setor', 'Secretaria Legislativa', 'Vereador', 'Assessor'] },
+        { title: 'Protocolo e processos', icon: <LiaClipboardListSolid />, path: '/admin/protocolo', roles: ['Admin', 'Administrador', 'Protocolo', 'Servidor', 'Gestor de Setor', 'Secretaria Legislativa', 'Vereador', 'Assessor'] },
+        { title: 'Fiscalização de Contratos', icon: <LiaFileContractSolid />, path: '/admin/contratos', roles: ['Admin', 'Administrador', 'Fiscal de Contrato', 'Gestor de Contrato', 'Gestor de Setor'] },
+        { title: 'Almoxarifado', icon: <LiaBoxesSolid />, path: '/admin/almoxarifado', roles: ['Admin', 'Administrador', 'Almoxarifado', 'Gestor de Setor'] },
+        { title: 'Patrimônio', icon: <LiaArchiveSolid />, path: '/admin/patrimonio', roles: ['Admin', 'Administrador', 'Patrimônio', 'Gestor de Setor'] },
+        { title: 'Manutenção Patrimonial', icon: <LiaToolsSolid />, path: '/admin/manutencao', roles: ['Admin', 'Administrador', 'Manutenção', 'Gestor de Setor'] },
+        { title: 'Gestão de Frotas', icon: <LiaCarSolid />, path: '/admin/frotas', roles: ['Admin', 'Administrador', 'Frotas', 'Gestor de Setor'] },
+        { title: 'Relatórios administrativos', icon: <LiaFileDownloadSolid />, path: '/admin-relatorios', roles: ['Admin', 'Administrador'] },
         // { title: 'Atendimentos Jurídicos', icon: <LiaGavelSolid />, path: '/admin-juridico', roles: ['Admin', 'Juridico'] },
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/admin-balcao', roles: ['Admin', 'Balcão'] },
         { title: 'Recepção', icon: <LiaClipboardListSolid />, path: '/recepcao', roles: ['Admin', 'Balcão', 'Recepção', 'Microempreendedor'] },
@@ -186,8 +198,8 @@ const AdminSidebar = () => {
         return false;
     });
     const menuGroups = [
-        { title: 'Atendimento', paths: ['/admin-dashboard', '/admin-protocolo', '/admin-balcao', '/recepcao', '/admin-mensagens', '/admin-ouvidoria', '/admin-esic', '/admin-procuradoria', '/admin-procon', '/admin-microempreendedor'] },
-        { title: 'Gestão institucional', paths: ['/admin-escola-parlamento', '/admin-avaliacoes', '/admin-vereadores', '/admin-agenda-vereadores', '/admin-legislativo', '/admin-piel', '/admin-noticias', '/admin-tv-camara'] },
+        { title: 'Atendimento', paths: ['/admin-dashboard', '/admin/protocolo', '/admin-balcao', '/recepcao', '/admin-mensagens', '/admin-ouvidoria', '/admin-esic', '/admin-procuradoria', '/admin-procon', '/admin-microempreendedor'] },
+        { title: 'Gestão institucional', paths: ['/admin/contratos', '/admin/almoxarifado', '/admin/patrimonio', '/admin/manutencao', '/admin/frotas', '/admin-relatorios', '/admin-escola-parlamento', '/admin-avaliacoes', '/admin-vereadores', '/admin-agenda-vereadores', '/admin-legislativo', '/admin-piel', '/admin-noticias', '/admin-tv-camara'] },
         { title: 'Sistema', paths: ['/controle-sistema', '/admin-users', '/admin-notifications', '/perfil'] },
     ].map(group => ({ ...group, items: visibleMenuItems.filter(item => group.paths.includes(item.path)) }));
 
@@ -239,7 +251,7 @@ const AdminSidebar = () => {
                 {loadingRoles ? (
                     <div style={{ padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>Carregando...</div>
                 ) : (
-                    menuGroups.map(group => group.items.length > 0 && <section className="sidebar-menu-group" key={group.title}><span className="sidebar-group-title">{group.title}</span>{group.items.map(item => <AdminSidebarItem badge={item.path === '/admin-mensagens' ? unreadMessagesCount : 0} key={item.title} icon={item.icon} title={item.title} path={item.path} isActive={location.pathname === item.path} onClick={handleItemClick} />)}</section>)
+                    menuGroups.map(group => group.items.length > 0 && <section className="sidebar-menu-group" key={group.title}><span className="sidebar-group-title">{group.title}</span>{group.items.map(item => <AdminSidebarItem badge={item.path === '/admin-mensagens' ? unreadMessagesCount : 0} key={item.title} icon={item.icon} title={item.title} path={item.path} isActive={location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)} onClick={handleItemClick} />)}</section>)
                 )}
             </div>
             <div className="sidebar-app-download">

@@ -11,7 +11,12 @@ export const isSystemRootEmail = (settings, email) => {
 };
 
 export const SYSTEM_MODULES = [
-    { id: 'protocolo', name: 'Protocolo e Processos', description: 'Protocolos, processos administrativos, tramitação, documentos e acompanhamento.', adminPaths: ['/admin-protocolo'], userPaths: ['/protocolo'], app: true },
+    { id: 'protocolo', name: 'Protocolo e Processos', description: 'Protocolos, processos administrativos, tramitação, documentos e acompanhamento.', adminPaths: ['/admin/protocolo', '/admin-protocolo'], userPaths: ['/protocolo'], app: true },
+    { id: 'contratos', name: 'Fiscalização de Contratos', description: 'Execução contratual, fiscalização, medições, ocorrências, obrigações e alertas.', adminPaths: ['/admin/contratos'], userPaths: ['/operacoes/contratos'], app: true, enabledByDefault: false },
+    { id: 'almoxarifado', name: 'Almoxarifado', description: 'Produtos, depósitos, entradas, requisições e movimentações de estoque.', adminPaths: ['/admin/almoxarifado'], userPaths: ['/operacoes/almoxarifado'], app: true, enabledByDefault: false },
+    { id: 'patrimonio', name: 'Patrimônio', description: 'Bens, movimentações, responsabilidade, identificação e inventários patrimoniais.', adminPaths: ['/admin/patrimonio'], userPaths: ['/operacoes/patrimonio'], app: true, enabledByDefault: false },
+    { id: 'manutencao', name: 'Manutenção Patrimonial', description: 'Chamados, ordens de serviço e manutenção preventiva e corretiva.', adminPaths: ['/admin/manutencao'], userPaths: ['/operacoes/manutencao'], app: true, enabledByDefault: false },
+    { id: 'frotas', name: 'Gestão de Frotas', description: 'Veículos, motoristas, abastecimentos, documentos, manutenção e custos.', adminPaths: ['/admin/frotas'], userPaths: ['/operacoes/frotas'], app: true, enabledByDefault: false },
     { id: 'esic', name: 'e-SIC', description: 'Pedidos de acesso à informação, respostas e recursos.', adminPaths: ['/admin-esic'], userPaths: ['/esic'], app: true },
     { id: 'agendaVereadores', name: 'Gabinete Vereador', description: 'Agenda, demandas, visitantes, equipe, tarefas, eventos e relatórios dos gabinetes.', adminPaths: ['/admin-agenda-vereadores'], userPaths: ['/vereadores'], app: true },
     { id: 'legislativo', name: 'Gestão legislativa', description: 'Matérias, tramitação, pautas, sessões, comissões e documentos acessórios.', adminPaths: ['/admin-legislativo'], userPaths: [], app: true },
@@ -33,8 +38,10 @@ export const SYSTEM_MODULES = [
     { id: 'notificacoes', name: 'Notificações', description: 'Histórico e entrega de notificações.', adminPaths: ['/admin-notifications'], userPaths: [], app: true },
 ];
 
+export const ADMINISTRATIVE_MODULE_IDS = ['contratos', 'almoxarifado', 'patrimonio', 'manutencao', 'frotas'];
+
 export const buildDefaultModuleSettings = () => Object.fromEntries(
-    SYSTEM_MODULES.map(module => [module.id, { admin: true, portal: true, app: module.app }]),
+    SYSTEM_MODULES.map(module => [module.id, { admin: module.enabledByDefault !== false, portal: module.enabledByDefault !== false, app: module.app && module.enabledByDefault !== false }]),
 );
 
 export const DEFAULT_CMS_SETTINGS = {

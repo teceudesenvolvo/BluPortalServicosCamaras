@@ -215,8 +215,32 @@ service cloud.firestore {
       let control = exists(/databases/$(database)/documents/system-control/portal)
         ? get(/databases/$(database)/documents/system-control/portal).data : {};
       return request.auth != null
-        && control.get('modules', {}).get(moduleId, {}).get('admin', true)
+        && control.get('modules', {}).get(moduleId, {}).get('admin', false)
         && (isConfiguredRoot() || control.get('security', {}).get('rolePermissions', {}).get(role, {}).get(moduleId, {}).get('admin', role in defaults));
+    }
+    function hasAdministrativePermission(moduleId, action, defaults) {
+      let role = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', '');
+      let control = exists(/databases/$(database)/documents/system-control/portal)
+        ? get(/databases/$(database)/documents/system-control/portal).data : {};
+      let permission = moduleId + '.' + action;
+      return request.auth != null
+        && control.get('modules', {}).get(moduleId, {}).get('admin', false)
+        && (isConfiguredRoot()
+          || role in ['Admin', 'Administrador']
+          || control.get('security', {}).get('actionPermissions', {}).get(role, {}).get(permission, role in defaults));
+    }
+
+    function canReadAdministrativeAudit() {
+      return (resource.data.moduleId == 'contratos'
+          && hasAdministrativePermission('contratos', 'gerenciar', ['Gestor de Contrato']))
+        || (resource.data.moduleId == 'almoxarifado'
+          && hasAdministrativePermission('almoxarifado', 'gerenciar', ['Almoxarifado']))
+        || (resource.data.moduleId == 'patrimonio'
+          && hasAdministrativePermission('patrimonio', 'gerenciar', ['Patrimônio']))
+        || (resource.data.moduleId == 'manutencao'
+          && hasAdministrativePermission('manutencao', 'gerenciar', ['Manutenção']))
+        || (resource.data.moduleId == 'frotas'
+          && hasAdministrativePermission('frotas', 'gerenciar', ['Frotas']));
     }
 
     function isReceptionStaff() {
@@ -585,7 +609,7 @@ service cloud.firestore {
       allow read: if canOperateProtocol() || (request.auth != null && resource.data.requesterId == request.auth.uid);
       allow write: if false;
       match /{subcollection}/{documentId} {
-        allow read: if canOperateProtocol() || (request.auth != null && get(/databases/$(database)/documents/processes/$(processId)).data.requesterId == request.auth.uid && resource.data.get('visibility', 'internal') == 'public');
+        allow read: if canOperateProtocol() || (request.auth != null && get(/databases/$(database)/documents/processes/$(processId)).data.requesterId == request.auth.uid && (subcollection == 'pendingItems' || resource.data.get('visibility', 'internal') == 'public'));
         allow write: if false;
       }
     }
@@ -594,15 +618,81 @@ service cloud.firestore {
       allow write: if canOperateProtocol();
     }
     match /processFlows/{flowId} { allow read: if canOperateProtocol(); allow write: if canOperateProtocol(); }
+    match /documentTemplates/{templateId} { allow read, write: if canOperateProtocol(); }
+    match /processEvents/{eventId} { allow read: if canOperateProtocol(); allow write: if false; }
     match /protocolSettings/{settingId} { allow read: if request.auth != null; allow write: if canOperateProtocol(); }
     match /processCounters/{year} { allow read, write: if false; }
+
+    // Fundação dos módulos administrativos. As mutações de domínio ficam
+    // reservadas às Cloud Functions para que numeração, estoque e auditoria
+    // sejam gravados de forma atômica.
+    match /departments/{departmentId} {
+      allow read: if request.auth != null;
+      allow write: if isConfiguredRoot() || isAdminProfile();
+    }
+    match /administrativeCounters/{counterId} {
+      allow read, write: if false;
+    }
+    match /administrativeAuditLogs/{eventId} {
+      allow read: if request.auth != null && canReadAdministrativeAudit();
+      allow write: if false;
+    }
+    match /administrativeExports/{exportId} {
+      allow read: if request.auth != null && resource.data.requestedBy == request.auth.uid;
+      allow write: if false;
+    }
+    match /contracts/{recordId} {
+      allow read: if hasAdministrativePermission('contratos', 'visualizar', ['Fiscal de Contrato', 'Gestor de Contrato', 'Gestor de Setor']);
+      allow write: if false;
+      match /{document=**} {
+        allow read: if hasAdministrativePermission('contratos', 'visualizar', ['Fiscal de Contrato', 'Gestor de Contrato', 'Gestor de Setor']);
+        allow write: if false;
+      }
+    }
+    match /{collectionName}/{recordId} {
+      allow read: if collectionName in ['inventoryProducts', 'inventoryWarehouses', 'inventoryBatches', 'inventoryMovements', 'materialRequests']
+        && hasAdministrativePermission('almoxarifado', 'visualizar', ['Almoxarifado', 'Gestor de Setor']);
+      allow write: if false;
+    }
+    match /materialRequests/{recordId}/{document=**} {
+      allow read: if hasAdministrativePermission('almoxarifado', 'visualizar', ['Almoxarifado', 'Gestor de Setor']);
+      allow write: if false;
+    }
+    match /{collectionName}/{recordId} {
+      allow read: if collectionName in ['assets', 'assetMovements', 'assetInventories', 'assetEvents']
+        && hasAdministrativePermission('patrimonio', 'visualizar', ['Patrimônio', 'Gestor de Setor']);
+      allow write: if false;
+    }
+    match /assetInventories/{recordId}/{document=**} {
+      allow read: if hasAdministrativePermission('patrimonio', 'visualizar', ['Patrimônio', 'Gestor de Setor']);
+      allow write: if false;
+    }
+    match /{collectionName}/{recordId} {
+      allow read: if collectionName in ['maintenanceTickets', 'maintenanceWorkOrders', 'maintenancePlans', 'maintenanceSchedules']
+        && hasAdministrativePermission('manutencao', 'visualizar', ['Manutenção', 'Gestor de Setor']);
+      allow write: if false;
+    }
+    match /maintenanceWorkOrders/{recordId}/{document=**} {
+      allow read: if hasAdministrativePermission('manutencao', 'visualizar', ['Manutenção', 'Gestor de Setor']);
+      allow write: if false;
+    }
+    match /{collectionName}/{recordId} {
+      allow read: if collectionName in ['fleetVehicles', 'fleetDrivers', 'fleetFuelings', 'fleetMaintenance', 'fleetTires', 'fleetDocuments', 'fleetIncidents', 'fleetFines', 'fleetEvents']
+        && hasAdministrativePermission('frotas', 'visualizar', ['Frotas', 'Gestor de Setor']);
+      allow write: if false;
+    }
 
     // Regras básicas para permitir operações autenticadas
     match /{document=**} {
       allow read, write: if request.auth != null
-        && !document.matches('processes/.*') && !document.matches('processTypes/.*') && !document.matches('processFlows/.*') && !document.matches('protocolSettings/.*') && !document.matches('processCounters/.*') && !document.matches('esic-pedidos/.*')
+        && !document.matches('processes/.*') && !document.matches('processTypes/.*') && !document.matches('processFlows/.*') && !document.matches('documentTemplates/.*') && !document.matches('processEvents/.*') && !document.matches('protocolSettings/.*') && !document.matches('processCounters/.*') && !document.matches('esic-pedidos/.*')
         && !document.matches('esic-contadores/.*')
-        && !document.matches('system-control/.*') && !document.matches('vereadores/.*') && !document.matches('solicitacoes-vereadores/.*') && !document.matches('balcao-config/.*') && !document.matches('balcao-monthly-configs/.*') && !document.matches('vereadores-agenda-config/.*') && !document.matches('gabinetes-equipe/.*') && !document.matches('gabinetes-tarefas/.*') && !document.matches('gabinetes-eventos/.*') && !document.matches('gabinetes-listas/.*') && !document.matches('gabinetes-visitantes/.*') && !document.matches('gabinetes-mensagens/.*') && !document.matches('gabinetes-demandas-historico/.*') && !document.matches('gabinetes-encaminhamentos/.*') && !document.matches('gabinetes-documentos/.*') && !document.matches('gabinetes-pastas/.*') && !document.matches('legislativo_.*');
+        && !document.matches('system-control/.*') && !document.matches('vereadores/.*') && !document.matches('solicitacoes-vereadores/.*') && !document.matches('balcao-config/.*') && !document.matches('balcao-monthly-configs/.*') && !document.matches('vereadores-agenda-config/.*') && !document.matches('gabinetes-equipe/.*') && !document.matches('gabinetes-tarefas/.*') && !document.matches('gabinetes-eventos/.*') && !document.matches('gabinetes-listas/.*') && !document.matches('gabinetes-visitantes/.*') && !document.matches('gabinetes-mensagens/.*') && !document.matches('gabinetes-demandas-historico/.*') && !document.matches('gabinetes-encaminhamentos/.*') && !document.matches('gabinetes-documentos/.*') && !document.matches('gabinetes-pastas/.*') && !document.matches('legislativo_.*')
+        && !document.matches('departments/.*') && !document.matches('administrativeCounters/.*') && !document.matches('administrativeAuditLogs/.*') && !document.matches('administrativeExports/.*')
+        && !document.matches('contracts/.*') && !document.matches('inventoryProducts/.*') && !document.matches('inventoryWarehouses/.*') && !document.matches('inventoryBatches/.*') && !document.matches('inventoryMovements/.*') && !document.matches('materialRequests/.*')
+        && !document.matches('assets/.*') && !document.matches('assetMovements/.*') && !document.matches('assetInventories/.*') && !document.matches('assetEvents/.*')
+        && !document.matches('maintenanceTickets/.*') && !document.matches('maintenanceWorkOrders/.*') && !document.matches('maintenancePlans/.*') && !document.matches('maintenanceSchedules/.*')
+        && !document.matches('fleetVehicles/.*') && !document.matches('fleetDrivers/.*') && !document.matches('fleetFuelings/.*') && !document.matches('fleetMaintenance/.*') && !document.matches('fleetTires/.*') && !document.matches('fleetDocuments/.*') && !document.matches('fleetIncidents/.*') && !document.matches('fleetFines/.*') && !document.matches('fleetEvents/.*');
     }
   }
 }

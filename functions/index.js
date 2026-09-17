@@ -17,6 +17,7 @@ const {
 } = require("./documentReadyAutomation");
 admin.initializeApp();
 Object.assign(exports, require("./videoConference"));
+Object.assign(exports, require("./administrative"));
 
 const youtubeClientId = defineSecret("YOUTUBE_CLIENT_ID");
 const youtubeClientSecret = defineSecret("YOUTUBE_CLIENT_SECRET");
@@ -94,7 +95,10 @@ const notifyCabinet = async ({
   return recipients.length;
 };
 
-exports.notificarNovaDemandaGabinete = onDocumentCreated(
+// Use a distinct export name because the deployed project already contains an
+// HTTPS function named `notificarNovaDemandaGabinete`. Firebase does not allow
+// changing a function's trigger type in place.
+exports.notificarNovaDemandaGabineteFirestore = onDocumentCreated(
     "solicitacoes-vereadores/{requestId}",
     async (event) => {
       const requestData = event.data?.data() || {};
@@ -2282,7 +2286,33 @@ exports.esic = require("./esic").esic;
 // Motor único para o módulo de Protocolo. A numeração, os eventos e a
 // auditoria ficam no servidor; não há tenantId porque cada Firebase é uma
 // instalação independente da Câmara.
-exports.processCommand = onCall(async (request) => {
+// Estas Functions não precisam de CPU dedicada: limitar instâncias evita que
+// a criação delas concorra com as Functions legadas pela cota regional.
+const protocolRuntime = {
+  cors: true,
+  // Callable IAM is managed on Cloud Run; onCall ignores the invoker option
+  // in this SDK. processCommand validates request.auth before any operation.
+  region: "us-central1",
+  memory: "256MiB",
+  cpu: "gcf_gen1",
+  concurrency: 1,
+  maxInstances: 1,
+};
+
+const removeUndefined = (value) => {
+  if (Array.isArray(value)) return value.map(removeUndefined);
+  if (value === null || typeof value !== "object") return value;
+  const prototype = Object.getPrototypeOf(value);
+  const plainObject = prototype === Object.prototype || prototype === null;
+  if (!plainObject) return value;
+  return Object.fromEntries(
+      Object.entries(value)
+          .filter(([, item]) => item !== undefined)
+          .map(([key, item]) => [key, removeUndefined(item)]),
+  );
+};
+
+const processCommandHandler = async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Autenticação necessária.");
   const db = admin.firestore();
   const input = request.data || {};
@@ -2290,9 +2320,15 @@ exports.processCommand = onCall(async (request) => {
   const role = user.data()?.tipo || "Cidadão";
   const privileged = ["Admin", "Administrador", "Protocolo", "Servidor", "Gestor de Setor", "Secretaria Legislativa", "Vereador", "Assessor"].includes(role);
   const now = admin.firestore.FieldValue.serverTimestamp();
-  const event = async (processRef, action, visibility = "internal", detail = "") => {
-    const entry = {action, visibility, detail, userId: request.auth.uid, userName: user.data()?.name || request.auth.token.email || "Usuário", createdAt: now};
-    await Promise.all([processRef.collection("timeline").add(entry), processRef.collection("auditLogs").add({...entry, userAgent: request.rawRequest?.headers?.["user-agent"] || ""})]);
+  const actor = {userId: request.auth.uid, userName: user.data()?.name || user.data()?.nome || request.auth.token.email || "Usuário"};
+  const event = async (processRef, action, visibility = "internal", detail = "", extra = {}) => {
+    const entry = {...actor, action, visibility, detail, createdAt: now, ...extra};
+    const batch = db.batch();
+    batch.set(processRef.collection("timeline").doc(), entry);
+    batch.set(processRef.collection("auditLogs").doc(), {...entry, origin: "processCommand", userAgent: request.rawRequest?.headers?.["user-agent"] || "", ip: request.rawRequest?.ip || ""});
+    batch.set(db.collection("processEvents").doc(), {...entry, processId: processRef.id});
+    if (["PROCESS_RECEIVED", "PROCESS_FORWARDED"].includes(action)) batch.set(processRef.collection("movements").doc(), entry);
+    await batch.commit();
   };
 
   if (input.action === "create") {
@@ -2300,20 +2336,37 @@ exports.processCommand = onCall(async (request) => {
     const subject = String(input.subject || "").trim();
     if (!typeId || !subject) throw new HttpsError("invalid-argument", "Informe tipo e assunto.");
     const type = await db.collection("processTypes").doc(typeId).get();
-    if (!type.exists || type.data()?.active === false) throw new HttpsError("failed-precondition", "Tipo de processo indisponível.");
+    if (!type.exists || type.data()?.active === false) {
+      throw new HttpsError("failed-precondition", "Tipo de processo indisponível.");
+    }
+    const typeData = type.data() || {};
+    const [numberingDoc, deadlinesDoc] = await Promise.all([
+      db.collection("protocolSettings").doc("numbering").get(),
+      db.collection("protocolSettings").doc("deadlines").get(),
+    ]);
+    const numbering = numberingDoc.data() || {};
+    const deadlineSettings = deadlinesDoc.data() || {};
     const origin = input.origin === "presencial" || input.origin === "interno" ? input.origin : "digital";
-    if ((origin !== "digital" && !privileged) || (origin === "digital" && type.data()?.allowCitizenOpen === false && !privileged)) throw new HttpsError("permission-denied", "Sem permissão para esta abertura.");
+    if ((origin !== "digital" && !privileged) ||
+      (origin === "digital" && typeData.allowCitizenOpen === false && !privileged)) {
+      throw new HttpsError("permission-denied", "Sem permissão para esta abertura.");
+    }
     const year = new Date().getFullYear();
     const result = await db.runTransaction(async (tx) => {
-      const counter = db.collection("processCounters").doc(String(year));
+      const counter = db.collection("processCounters").doc(numbering.restart === "never" ? "global" : String(year));
       const count = await tx.get(counter);
       const sequence = (count.data()?.sequence || 0) + 1;
       const processRef = db.collection("processes").doc();
       tx.set(counter, {sequence, updatedAt: now}, {merge: true});
-      tx.set(processRef, {protocolNumber: `${year}.${String(sequence).padStart(6, "0")}`, year, sequence, typeId, typeName: type.data().name, subject, description: String(input.description || ""), requesterId: input.requesterId || request.auth.uid, requesterType: input.requesterType || (privileged && origin !== "digital" ? "presencial" : "cidadao"), origin, status: "Protocolado", currentDepartmentId: type.data().initialDepartmentId || "protocolo", confidentiality: type.data().accessLevel || "Restrito", priority: input.priority || "normal", createdBy: request.auth.uid, createdAt: now, updatedAt: now, metadata: input.metadata || {}});
+      const digits = Math.min(12, Math.max(3, Number(numbering.digits || 6)));
+      const number = String(numbering.format || "{ANO}.{SEQUENCIAL}").replace("{ANO}", String(year)).replace("{SEQUENCIAL}", String(sequence).padStart(digits, "0"));
+      const initialDepartment = input.destinationId || typeData.initialDepartmentId || "protocolo";
+      const defaultDays = Number(typeData.defaultDeadlineDays ?? deadlineSettings.defaultDays ?? 0);
+      const deadlineAt = input.deadlineAt ? admin.firestore.Timestamp.fromDate(new Date(input.deadlineAt)) : defaultDays > 0 ? admin.firestore.Timestamp.fromMillis(Date.now() + defaultDays * 86400000) : null;
+      tx.set(processRef, removeUndefined({protocolNumber: number, year, sequence, typeId, typeName: String(typeData.name || typeData.nome || "Processo"), subject, description: String(input.description || ""), requesterId: input.requesterId || request.auth.uid, requesterName: String(input.requesterName || input.metadata?.requesterName || user.data()?.name || user.data()?.nome || "Interessado"), requesterDocument: String(input.requesterDocument || input.metadata?.requesterDocument || ""), requesterEmail: String(input.requesterEmail || input.metadata?.requesterEmail || ""), requesterPhone: String(input.requesterPhone || input.metadata?.requesterPhone || ""), requesterType: input.requesterType || (privileged && origin !== "digital" ? "presencial" : "cidadao"), origin, status: "awaiting_receipt", currentDepartmentId: initialDepartment, currentResponsibleId: input.currentResponsibleId || "", accessLevel: input.accessLevel || input.confidentiality || typeData.accessLevel || "restricted", priority: input.priority === "urgent" ? "urgent" : "normal", deadlineAt, authenticationCode: processRef.id.slice(0, 6).toUpperCase() + String(sequence).padStart(6, "0"), createdBy: request.auth.uid, createdAt: now, updatedAt: now, metadata: input.metadata || {}}));
       return processRef;
     });
-    await event(result, "Protocolado", "public", "Processo criado.");
+    await event(result, "PROCESS_CREATED", "public", "Processo protocolado e encaminhado ao setor inicial.");
     return {id: result.id, protocolNumber: (await result.get()).data().protocolNumber};
   }
 
@@ -2322,13 +2375,75 @@ exports.processCommand = onCall(async (request) => {
   if (!process.exists) throw new HttpsError("not-found", "Processo não encontrado.");
   if (!privileged && process.data().requesterId !== request.auth.uid) throw new HttpsError("permission-denied", "Acesso não autorizado.");
   if (input.action === "answerPending" && process.data().requesterId === request.auth.uid) {
-    await event(processRef, "Pendência respondida", "public", String(input.detail || "")); return {ok: true};
+    const pendingRef = processRef.collection("pendingItems").doc(String(input.pendingId || ""));
+    if (input.pendingId) await pendingRef.set({status: "answered", answer: String(input.detail || ""), answeredAt: now, answeredBy: request.auth.uid}, {merge: true});
+    await processRef.update({status: "in_progress", updatedAt: now});
+    await event(processRef, "PENDING_ANSWERED", "public", String(input.detail || "")); return {ok: true};
+  }
+  if (input.action === "document" && process.data().requesterId === request.auth.uid) {
+    if (input.accessLevel && input.accessLevel !== "public") throw new HttpsError("permission-denied", "O cidadão só pode anexar documentos públicos ao próprio processo.");
+    const {action: ignoredAction, processId: ignoredProcessId, ...record} = input;
+    void ignoredAction; void ignoredProcessId;
+    await processRef.collection("documents").add({...record, accessLevel: "public", authorId: request.auth.uid, authorName: process.data().requesterName || actor.userName, status: "active", createdAt: now});
+    await processRef.update({updatedAt: now});
+    await event(processRef, "DOCUMENT_UPLOADED", "public", String(input.name || "Documento anexado"));
+    return {ok: true};
   }
   if (!privileged) throw new HttpsError("permission-denied", "Operação administrativa necessária.");
-  const actions = {move: ["Em tramitação", "Encaminhado"], document: [process.data().status, "Documento anexado"], dispatch: ["Em análise", "Despacho realizado"], pending: ["Aguardando cidadão", "Complementação solicitada"], complete: ["Concluído", "Processo concluído"], archive: ["Arquivado", "Processo arquivado"], reopen: ["Em tramitação", "Processo reaberto"], event: [process.data().status, "Evento registrado"]};
+  const actions = {receive: ["in_progress", "PROCESS_RECEIVED"], move: ["awaiting_receipt", "PROCESS_FORWARDED"], document: [process.data().status, "DOCUMENT_UPLOADED"], dispatch: ["in_progress", "DISPATCH_CREATED"], pending: ["awaiting_citizen", "PENDING_CREATED"], complete: ["completed", "PROCESS_COMPLETED"], archive: ["archived", "PROCESS_ARCHIVED"], reopen: ["in_progress", "PROCESS_REOPENED"], suspend: ["suspended", "PROCESS_SUSPENDED"], cancel: ["cancelled", "PROCESS_CANCELLED"], signature: [process.data().status, "SIGNATURE_REQUESTED"], relationship: [process.data().status, "PROCESS_RELATED"], update: [process.data().status, "PROCESS_UPDATED"], event: [process.data().status, "EVENT_REGISTERED"]};
   if (!actions[input.action]) throw new HttpsError("invalid-argument", "Ação inválida.");
   const [status, label] = actions[input.action];
-  await processRef.update({status, updatedAt: now, ...(input.destinationId ? {currentDepartmentId: input.destinationId} : {})});
-  await event(processRef, label, input.visibility === "public" ? "public" : "internal", String(input.detail || ""));
+  const updates = {status, updatedAt: now};
+  if (input.destinationId) updates.currentDepartmentId = String(input.destinationId);
+  if (input.responsibleId !== undefined) updates.currentResponsibleId = String(input.responsibleId || "");
+  if (input.priority) updates.priority = input.priority === "urgent" ? "urgent" : "normal";
+  if (input.accessLevel) updates.accessLevel = input.accessLevel;
+  if (input.deadlineAt) updates.deadlineAt = admin.firestore.Timestamp.fromDate(new Date(input.deadlineAt));
+  if (input.action === "receive") {
+    updates.receivedAt = now; updates.receivedBy = request.auth.uid;
+  }
+  if (input.action === "complete") {
+    updates.completedAt = now; updates.completion = {result: input.result || "completed", detail: String(input.detail || "")};
+  }
+  if (input.action === "archive") {
+    updates.archivedAt = now; updates.archive = {classification: input.classification || "", note: String(input.detail || ""), userId: request.auth.uid};
+  }
+  await processRef.update(updates);
+  const childCollections = {document: "documents", dispatch: "dispatches", pending: "pendingItems", signature: "signatures", relationship: "relationships"};
+  if (childCollections[input.action]) {
+    const {action: ignoredAction, processId: ignoredProcessId, ...record} = input;
+    void ignoredAction; void ignoredProcessId;
+    await processRef.collection(childCollections[input.action]).add({...record, authorId: request.auth.uid, authorName: actor.userName, status: input.action === "signature" ? "awaiting_signature" : input.action === "pending" ? "open" : "active", createdAt: now});
+  }
+  await event(processRef, label, input.visibility === "public" ? "public" : "internal", String(input.detail || input.note || ""), {fromDepartmentId: process.data().currentDepartmentId || "", toDepartmentId: input.destinationId || ""});
   return {ok: true};
+};
+
+exports.processCommand = onCall(protocolRuntime, async (request) => {
+  try {
+    return await processCommandHandler(request);
+  } catch (error) {
+    console.error("Erro em processCommand", {
+      action: request.data?.action || "",
+      userId: request.auth?.uid || "",
+      message: error?.message || String(error),
+      stack: error?.stack || "",
+    });
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "Não foi possível registrar o protocolo.");
+  }
+});
+
+// Consulta pública limitada: exige número e código de autenticação e nunca
+// devolve dados pessoais, documentos ou observações internas.
+exports.publicProcessLookup = onCall(protocolRuntime, async (request) => {
+  const protocolNumber = String(request.data?.protocolNumber || "").trim();
+  const authenticationCode = String(request.data?.authenticationCode || "").trim().toUpperCase();
+  if (!protocolNumber || !authenticationCode) throw new HttpsError("invalid-argument", "Informe número e código de autenticação.");
+  const snapshot = await admin.firestore().collection("processes").where("protocolNumber", "==", protocolNumber).limit(1).get();
+  if (snapshot.empty) throw new HttpsError("not-found", "Protocolo não encontrado.");
+  const process = snapshot.docs[0];
+  if (process.data().authenticationCode !== authenticationCode) throw new HttpsError("permission-denied", "Código de autenticação inválido.");
+  const data = process.data();
+  return {id: process.id, protocolNumber: data.protocolNumber, subject: data.subject, typeName: data.typeName || "Processo", status: data.status, createdAt: data.createdAt || null, completedAt: data.completedAt || null};
 });

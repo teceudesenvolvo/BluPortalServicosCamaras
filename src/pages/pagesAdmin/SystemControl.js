@@ -99,7 +99,7 @@ const SystemControl = () => {
         {saved && <div className="system-save-feedback"><LiaCheckCircleSolid /> Configurações salvas e distribuídas para o portal.</div>}
         {saveError && <div className="system-upload-error">{saveError}</div>}
 
-        {activeTab === 'permissions' && <SystemRolePermissions settings={current} onChange={value => update('security', 'rolePermissions', value)} />}
+        {activeTab === 'permissions' && <SystemRolePermissions settings={current} onRolePermissionsChange={value => update('security', 'rolePermissions', value)} onActionPermissionsChange={value => update('security', 'actionPermissions', value)} />}
         {activeTab === 'general' && <>
             <section className="system-control-summary"><article><LiaCogSolid /><div><strong>{SYSTEM_MODULES.length}</strong><span>Módulos configuráveis</span></div></article><article><LiaUserCogSolid /><div><strong>{SYSTEM_MODULES.filter(item => current.modules[item.id]?.admin !== false).length}</strong><span>Ativos no admin</span></div></article><article><LiaMobileSolid /><div><strong>{SYSTEM_MODULES.filter(item => current.modules[item.id]?.app && item.app).length}</strong><span>Ativos no aplicativo</span></div></article></section>
             <SettingsCard title="Identificação da Câmara" description="Esses dados formam a identidade do tenant e permitem reutilizar o projeto em outros municípios."><div className="system-fields-grid">{TENANT_FIELDS.map(([field,label]) => <Field key={field} label={label} value={current.tenant[field]} onChange={value => update('tenant', field, value)} />)}</div></SettingsCard>
