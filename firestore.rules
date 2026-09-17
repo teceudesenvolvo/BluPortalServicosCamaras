@@ -575,10 +575,32 @@ service cloud.firestore {
       allow delete: if isAdminProfile() || isConfiguredRoot();
     }
 
+    // Processos administrativos: o cidadão lê apenas os seus; operações e
+    // documentos são gravados exclusivamente pelas Cloud Functions.
+    function canOperateProtocol() {
+      return request.auth != null
+        && hasModuleAdminAccess('protocolo', ['Protocolo', 'Servidor', 'Gestor de Setor', 'Secretaria Legislativa', 'Vereador', 'Assessor']);
+    }
+    match /processes/{processId} {
+      allow read: if canOperateProtocol() || (request.auth != null && resource.data.requesterId == request.auth.uid);
+      allow write: if false;
+      match /{subcollection}/{documentId} {
+        allow read: if canOperateProtocol() || (request.auth != null && get(/databases/$(database)/documents/processes/$(processId)).data.requesterId == request.auth.uid && resource.data.get('visibility', 'internal') == 'public');
+        allow write: if false;
+      }
+    }
+    match /processTypes/{typeId} {
+      allow read: if request.auth != null;
+      allow write: if canOperateProtocol();
+    }
+    match /processFlows/{flowId} { allow read: if canOperateProtocol(); allow write: if canOperateProtocol(); }
+    match /protocolSettings/{settingId} { allow read: if request.auth != null; allow write: if canOperateProtocol(); }
+    match /processCounters/{year} { allow read, write: if false; }
+
     // Regras básicas para permitir operações autenticadas
     match /{document=**} {
       allow read, write: if request.auth != null
-        && !document.matches('esic-pedidos/.*')
+        && !document.matches('processes/.*') && !document.matches('processTypes/.*') && !document.matches('processFlows/.*') && !document.matches('protocolSettings/.*') && !document.matches('processCounters/.*') && !document.matches('esic-pedidos/.*')
         && !document.matches('esic-contadores/.*')
         && !document.matches('system-control/.*') && !document.matches('vereadores/.*') && !document.matches('solicitacoes-vereadores/.*') && !document.matches('balcao-config/.*') && !document.matches('balcao-monthly-configs/.*') && !document.matches('vereadores-agenda-config/.*') && !document.matches('gabinetes-equipe/.*') && !document.matches('gabinetes-tarefas/.*') && !document.matches('gabinetes-eventos/.*') && !document.matches('gabinetes-listas/.*') && !document.matches('gabinetes-visitantes/.*') && !document.matches('gabinetes-mensagens/.*') && !document.matches('gabinetes-demandas-historico/.*') && !document.matches('gabinetes-encaminhamentos/.*') && !document.matches('gabinetes-documentos/.*') && !document.matches('gabinetes-pastas/.*') && !document.matches('legislativo_.*');
     }

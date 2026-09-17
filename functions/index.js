@@ -2277,3 +2277,58 @@ exports.cleanupExpiredRequests = onSchedule(
     });
 
 exports.esic = require("./esic").esic;
+
+/* eslint-disable max-len */
+// Motor único para o módulo de Protocolo. A numeração, os eventos e a
+// auditoria ficam no servidor; não há tenantId porque cada Firebase é uma
+// instalação independente da Câmara.
+exports.processCommand = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Autenticação necessária.");
+  const db = admin.firestore();
+  const input = request.data || {};
+  const user = await db.collection("users").doc(request.auth.uid).get();
+  const role = user.data()?.tipo || "Cidadão";
+  const privileged = ["Admin", "Administrador", "Protocolo", "Servidor", "Gestor de Setor", "Secretaria Legislativa", "Vereador", "Assessor"].includes(role);
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const event = async (processRef, action, visibility = "internal", detail = "") => {
+    const entry = {action, visibility, detail, userId: request.auth.uid, userName: user.data()?.name || request.auth.token.email || "Usuário", createdAt: now};
+    await Promise.all([processRef.collection("timeline").add(entry), processRef.collection("auditLogs").add({...entry, userAgent: request.rawRequest?.headers?.["user-agent"] || ""})]);
+  };
+
+  if (input.action === "create") {
+    const typeId = String(input.typeId || "").trim();
+    const subject = String(input.subject || "").trim();
+    if (!typeId || !subject) throw new HttpsError("invalid-argument", "Informe tipo e assunto.");
+    const type = await db.collection("processTypes").doc(typeId).get();
+    if (!type.exists || type.data()?.active === false) throw new HttpsError("failed-precondition", "Tipo de processo indisponível.");
+    const origin = input.origin === "presencial" || input.origin === "interno" ? input.origin : "digital";
+    if ((origin !== "digital" && !privileged) || (origin === "digital" && type.data()?.allowCitizenOpen === false && !privileged)) throw new HttpsError("permission-denied", "Sem permissão para esta abertura.");
+    const year = new Date().getFullYear();
+    const result = await db.runTransaction(async (tx) => {
+      const counter = db.collection("processCounters").doc(String(year));
+      const count = await tx.get(counter);
+      const sequence = (count.data()?.sequence || 0) + 1;
+      const processRef = db.collection("processes").doc();
+      tx.set(counter, {sequence, updatedAt: now}, {merge: true});
+      tx.set(processRef, {protocolNumber: `${year}.${String(sequence).padStart(6, "0")}`, year, sequence, typeId, typeName: type.data().name, subject, description: String(input.description || ""), requesterId: input.requesterId || request.auth.uid, requesterType: input.requesterType || (privileged && origin !== "digital" ? "presencial" : "cidadao"), origin, status: "Protocolado", currentDepartmentId: type.data().initialDepartmentId || "protocolo", confidentiality: type.data().accessLevel || "Restrito", priority: input.priority || "normal", createdBy: request.auth.uid, createdAt: now, updatedAt: now, metadata: input.metadata || {}});
+      return processRef;
+    });
+    await event(result, "Protocolado", "public", "Processo criado.");
+    return {id: result.id, protocolNumber: (await result.get()).data().protocolNumber};
+  }
+
+  const processRef = db.collection("processes").doc(String(input.processId || ""));
+  const process = await processRef.get();
+  if (!process.exists) throw new HttpsError("not-found", "Processo não encontrado.");
+  if (!privileged && process.data().requesterId !== request.auth.uid) throw new HttpsError("permission-denied", "Acesso não autorizado.");
+  if (input.action === "answerPending" && process.data().requesterId === request.auth.uid) {
+    await event(processRef, "Pendência respondida", "public", String(input.detail || "")); return {ok: true};
+  }
+  if (!privileged) throw new HttpsError("permission-denied", "Operação administrativa necessária.");
+  const actions = {move: ["Em tramitação", "Encaminhado"], document: [process.data().status, "Documento anexado"], dispatch: ["Em análise", "Despacho realizado"], pending: ["Aguardando cidadão", "Complementação solicitada"], complete: ["Concluído", "Processo concluído"], archive: ["Arquivado", "Processo arquivado"], reopen: ["Em tramitação", "Processo reaberto"], event: [process.data().status, "Evento registrado"]};
+  if (!actions[input.action]) throw new HttpsError("invalid-argument", "Ação inválida.");
+  const [status, label] = actions[input.action];
+  await processRef.update({status, updatedAt: now, ...(input.destinationId ? {currentDepartmentId: input.destinationId} : {})});
+  await event(processRef, label, input.visibility === "public" ? "public" : "internal", String(input.detail || ""));
+  return {ok: true};
+});

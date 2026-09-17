@@ -13,7 +13,7 @@ import { useSystemControl } from '../contexts/SystemControlContext';
 const LoginPage = () => {
     const { settings } = useSystemControl();
     const navigate = useNavigate();
-    const { currentUser } = useAuth(); // Monitora o estado atual do usuário
+    const { currentUser, role, roleLoading } = useAuth();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -21,14 +21,14 @@ const LoginPage = () => {
     const [loading, setLoading] = useState(false);
 
     // Todos os perfis iniciam pelo dashboard após a autenticação.
-    const redirectUser = useCallback(() => navigate('/dashboard', { replace: true }), [navigate]);
+    const redirectUser = useCallback(() => navigate(role && role !== 'Cidadão' ? '/admin-dashboard' : '/dashboard', { replace: true }), [navigate, role]);
 
     // Efeito para redirecionar se o usuário já estiver logado.
     useEffect(() => {
-        if (currentUser) {
+        if (currentUser && !roleLoading) {
             redirectUser();
         }
-    }, [currentUser, redirectUser]);
+    }, [currentUser, redirectUser, roleLoading]);
 
     // Evita renderizar o formulário de login se o usuário já estiver logado e o redirecionamento estiver prestes a acontecer.
     if (currentUser) {

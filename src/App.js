@@ -49,6 +49,7 @@ import TvCamara from './pages/pagesUser/TvCamara';
 import Microempreendedor from './pages/pagesUser/Microempreendedor';
 import NovaMicroempreendedor from './pages/pagesUser/NovaMicroempreendedor';
 import AvaliarAtendimento from './pages/pagesUser/AvaliarAtendimento';
+import ProcessProtocol from './pages/ProcessProtocol';
 
 import AdminPiel from './pages/pagesAdmin/AdminPiel';
 import AdminProcon from './pages/pagesAdmin/AdminProconModule';
@@ -74,6 +75,7 @@ import PainelAtendimento from './pages/pagesAdmin/PainelAtendimento';
 import AdminTvCamara from './pages/pagesAdmin/AdminTvCamara';
 import AdminMicroempreendedor from './pages/pagesAdmin/AdminMicroempreendedor';
 import AdminAvaliacoes from './pages/pagesAdmin/AdminAvaliacoes';
+import AdminDashboard from './pages/pagesAdmin/AdminDashboard';
 import AdminEscolaParlamento from './pages/pagesAdmin/AdminEscolaParlamento';
 import EscolaParlamento from './pages/pagesUser/EscolaParlamento';
 import NoticiasPortal from './pages/pagesUser/NoticiasPortal';
@@ -118,6 +120,7 @@ function App() {
 
           {/* Com Login - Usuário Comum */}
           <Route path="/dashboard" element={<Painel />} />
+          <Route path="/protocolo" element={<ModuleRoute surface="portal"><ProcessProtocol /></ModuleRoute>} />
           <Route path="/procon" element={<ModuleRoute surface="portal"><ProconPortal /></ModuleRoute>} />
           <Route path="/procon/reclamacao" element={<ModuleRoute surface="portal"><ProconReclamacao /></ModuleRoute>} />
           <Route path="/procon/agendar" element={<ModuleRoute surface="portal"><ProconAgendamento /></ModuleRoute>} />
@@ -146,6 +149,8 @@ function App() {
 
           {/* Com Login - Admin */}
           <Route path="/admin-procon" element={<ModuleRoute surface="admin"><AdminProcon /></ModuleRoute>} />
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/admin-protocolo" element={<ModuleRoute surface="admin"><ProcessProtocol admin /></ModuleRoute>} />
           <Route path="/admin-juridico" element={<ModuleRoute surface="admin"><AdminJuridico /></ModuleRoute>} />
           <Route path="/admin-noticias" element={<ModuleRoute surface="admin"><AdminNoticiasSite /></ModuleRoute>} />
           <Route path="/admin-balcao" element={<ModuleRoute surface="admin"><AdminBalcao /></ModuleRoute>} />

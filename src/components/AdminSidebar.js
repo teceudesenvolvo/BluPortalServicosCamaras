@@ -23,7 +23,8 @@ import {
     LiaHandshakeSolid,
     LiaGraduationCapSolid,
     LiaUserTieSolid,
-    LiaLandmarkSolid
+    LiaLandmarkSolid,
+    LiaHomeSolid,
 } from "react-icons/lia";
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, firestore } from '../firebase';
@@ -136,6 +137,8 @@ const AdminSidebar = () => {
     }, [settings, userEmail, userType]);
 
     const allMenuItems = [
+        { title: 'Dashboard', icon: <LiaHomeSolid />, path: '/admin-dashboard', roles: ['Admin', 'Administrador', 'Protocolo', 'Servidor', 'Gestor de Setor', 'Secretaria Legislativa', 'Vereador', 'Assessor', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor', 'Escola do Parlamento'] },
+        { title: 'Protocolo e processos', icon: <LiaClipboardListSolid />, path: '/admin-protocolo', roles: ['Admin', 'Administrador', 'Protocolo', 'Servidor', 'Gestor de Setor', 'Secretaria Legislativa', 'Vereador', 'Assessor'] },
         // { title: 'Atendimentos Jurídicos', icon: <LiaGavelSolid />, path: '/admin-juridico', roles: ['Admin', 'Juridico'] },
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/admin-balcao', roles: ['Admin', 'Balcão'] },
         { title: 'Recepção', icon: <LiaClipboardListSolid />, path: '/recepcao', roles: ['Admin', 'Balcão', 'Recepção', 'Microempreendedor'] },
@@ -183,7 +186,7 @@ const AdminSidebar = () => {
         return false;
     });
     const menuGroups = [
-        { title: 'Atendimento', paths: ['/admin-balcao', '/recepcao', '/admin-mensagens', '/admin-ouvidoria', '/admin-esic', '/admin-procuradoria', '/admin-procon', '/admin-microempreendedor'] },
+        { title: 'Atendimento', paths: ['/admin-dashboard', '/admin-protocolo', '/admin-balcao', '/recepcao', '/admin-mensagens', '/admin-ouvidoria', '/admin-esic', '/admin-procuradoria', '/admin-procon', '/admin-microempreendedor'] },
         { title: 'Gestão institucional', paths: ['/admin-escola-parlamento', '/admin-avaliacoes', '/admin-vereadores', '/admin-agenda-vereadores', '/admin-legislativo', '/admin-piel', '/admin-noticias', '/admin-tv-camara'] },
         { title: 'Sistema', paths: ['/controle-sistema', '/admin-users', '/admin-notifications', '/perfil'] },
     ].map(group => ({ ...group, items: visibleMenuItems.filter(item => group.paths.includes(item.path)) }));
