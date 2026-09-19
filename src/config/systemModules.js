@@ -17,6 +17,7 @@ export const SYSTEM_MODULES = [
     { id: 'patrimonio', name: 'Patrimônio', description: 'Bens, movimentações, responsabilidade, identificação e inventários patrimoniais.', adminPaths: ['/admin/patrimonio'], userPaths: ['/operacoes/patrimonio'], app: true, enabledByDefault: false },
     { id: 'manutencao', name: 'Manutenção Patrimonial', description: 'Chamados, ordens de serviço e manutenção preventiva e corretiva.', adminPaths: ['/admin/manutencao'], userPaths: ['/operacoes/manutencao'], app: true, enabledByDefault: false },
     { id: 'frotas', name: 'Gestão de Frotas', description: 'Veículos, motoristas, abastecimentos, documentos, manutenção e custos.', adminPaths: ['/admin/frotas'], userPaths: ['/operacoes/frotas'], app: true, enabledByDefault: false },
+    { id: 'relatorios', name: 'Relatórios administrativos', description: 'Consultas e exportações dos módulos administrativos ativos.', adminPaths: ['/admin-relatorios'], userPaths: [], app: false, enabledByDefault: false },
     { id: 'esic', name: 'e-SIC', description: 'Pedidos de acesso à informação, respostas e recursos.', adminPaths: ['/admin-esic'], userPaths: ['/esic'], app: true },
     { id: 'agendaVereadores', name: 'Gabinete Vereador', description: 'Agenda, demandas, visitantes, equipe, tarefas, eventos e relatórios dos gabinetes.', adminPaths: ['/admin-agenda-vereadores'], userPaths: ['/vereadores'], app: true },
     { id: 'legislativo', name: 'Gestão legislativa', description: 'Matérias, tramitação, pautas, sessões, comissões e documentos acessórios.', adminPaths: ['/admin-legislativo'], userPaths: [], app: true },
@@ -40,11 +41,29 @@ export const SYSTEM_MODULES = [
 
 export const ADMINISTRATIVE_MODULE_IDS = ['contratos', 'almoxarifado', 'patrimonio', 'manutencao', 'frotas'];
 
+export const APP_HOME_MODULE_IDS = ['protocolo', 'balcao', 'ouvidoria', 'esic', 'procuradoria', 'procon', 'microempreendedor', 'escolaParlamento', 'tvCamara', 'noticias', 'vereadores', 'piel', 'mensagens', 'avaliacoes'];
+export const DEFAULT_APP_HOME_MODULES = ['protocolo', 'balcao', 'ouvidoria', 'procuradoria', 'tvCamara'];
+// A barra inferior mantém Início e Perfil fixos. Estes são os três slots
+// intermediários que a Câmara pode escolher no controle de módulos.
+export const APP_BOTTOM_BAR_OPTIONS = [
+    { id: 'servicos', name: 'Serviços', path: '/dashboard', staticPage: true },
+    { id: 'licitacoes', name: 'Licitações', path: '/legislativo-publico', staticPage: true },
+    ...['balcao', 'legislativo', 'protocolo', 'ouvidoria', 'esic', 'procuradoria', 'procon', 'microempreendedor', 'escolaParlamento', 'tvCamara', 'noticias', 'vereadores', 'piel', 'mensagens', 'avaliacoes'].map(id => ({
+        id,
+        name: SYSTEM_MODULES.find(module => module.id === id)?.name || id,
+        moduleId: id,
+    })),
+];
+export const APP_BOTTOM_BAR_MODULE_IDS = APP_BOTTOM_BAR_OPTIONS.map(option => option.id);
+export const DEFAULT_APP_BOTTOM_BAR_MODULES = ['servicos', 'licitacoes', 'mensagens'];
+
 export const buildDefaultModuleSettings = () => Object.fromEntries(
     SYSTEM_MODULES.map(module => [module.id, { admin: module.enabledByDefault !== false, portal: module.enabledByDefault !== false, app: module.app && module.enabledByDefault !== false }]),
 );
 
 export const DEFAULT_CMS_SETTINGS = {
+    appHomeModules: DEFAULT_APP_HOME_MODULES,
+    appBottomBarModules: DEFAULT_APP_BOTTOM_BAR_MODULES,
     security: { rootEmails: INITIAL_SYSTEM_ROOT_EMAILS },
     tenant: { name: 'Câmara Municipal de Paraipaba', shortName: 'Câmara de Paraipaba', slug: 'paraipaba', city: 'Paraipaba', state: 'CE', portalTitle: 'Portal de Serviços', address: 'Av. Domingos Barroso, 350 - Monte Alverne', postalCode: '62685-000', phone: '', email: '', website: '' },
     design: { primaryColor: '#025AA1', secondaryColor: '#0284C7', accentColor: '#F59E0B', backgroundColor: '#F3F8FE', textColor: '#10233F', borderRadius: 14, fontFamily: 'Inter, system-ui, sans-serif' },

@@ -1,0 +1,22 @@
+.system-app-home-config {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #dbe7f2;
+}
+
+.system-app-home-config h3 { margin: 0 0 6px; color: #17324f; }
+.system-app-home-config p { margin: 0 0 16px; color: #61758e; }
+.system-app-home-slots { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.system-app-home-slots label { display: grid; gap: 7px; min-width: 0; color: #526a88; font-size: .8rem; font-weight: 800; }
+.system-app-home-slots select { width: 100%; min-width: 0; min-height: 44px; padding: 8px; border: 1px solid #cbd9e6; border-radius: 8px; background: #fff; color: #17324f; font: inherit; }
+.system-app-home-slots input { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; padding: 8px; border: 1px solid #cbd9e6; border-radius: 8px; background: #f2f6fa; color: #61758e; font: inherit; }
+
+@media (max-width: 900px) { .system-app-home-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .system-app-home-slots { grid-template-columns: 1fr; } }
+
+[data-theme="dark"] .system-app-home-config { border-color: rgba(125, 190, 232, .18); }
+[data-theme="dark"] .system-app-home-config h3 { color: #eaf4fd; }
+[data-theme="dark"] .system-app-home-config p,
+[data-theme="dark"] .system-app-home-slots label { color: #a8bed0; }
+[data-theme="dark"] .system-app-home-slots select { background: #10283e; border-color: #385573; color: #eaf4fd; }
+[data-theme="dark"] .system-app-home-slots input { background: #162f46; border-color: #385573; color: #a8bed0; }

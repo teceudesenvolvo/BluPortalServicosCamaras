@@ -5,7 +5,7 @@ import Sidebar from '../../components/Sidebar';
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../../firebase';
 import { useSystemControl } from '../../contexts/SystemControlContext';
-import { SYSTEM_MODULES } from '../../config/systemModules';
+import { APP_HOME_MODULE_IDS, DEFAULT_APP_HOME_MODULES, SYSTEM_MODULES } from '../../config/systemModules';
 import { canAccessModule } from '../../config/rolePermissions';
 import {
     LiaArrowRightSolid,
@@ -61,6 +61,7 @@ const MODULE_PRESENTATION = {
     patrimonio: { icon: LiaCouchSolid, accent: '#7c3aed' },
     manutencao: { icon: LiaToolsSolid, accent: '#c2410c' },
     frotas: { icon: LiaCarSideSolid, accent: '#0369a1' },
+    protocolo: { icon: LiaClipboardListSolid, accent: '#075da2' },
 };
 
 // --- Componente: Card de Serviço no Grid ---
@@ -98,7 +99,14 @@ const DashboardPage = () => {
     const [loggedInUserData, setLoggedInUserData] = useState(null);
     const [, setLoadingLoggedInUserData] = useState(true);
     
-    const visibleServiceGridItems = SYSTEM_MODULES.flatMap(module => {
+    const configuredHomeModules = Array.isArray(settings.appHomeModules)
+        ? settings.appHomeModules
+        : DEFAULT_APP_HOME_MODULES;
+    const visibleServiceGridItems = configuredHomeModules
+        .filter((id, index, list) => APP_HOME_MODULE_IDS.includes(id) && list.indexOf(id) === index)
+        .map(id => SYSTEM_MODULES.find(module => module.id === id))
+        .filter(Boolean)
+        .flatMap(module => {
         const portalPath = module.userPaths[0];
         const administrativeFieldModule = ['contratos', 'almoxarifado', 'patrimonio', 'manutencao', 'frotas'].includes(module.id);
         const surface = administrativeFieldModule ? 'app' : 'portal';
@@ -215,8 +223,8 @@ const DashboardPage = () => {
 
                 <div className="user-dashboard-section-heading">
                     <div>
-                        <h2>Módulos disponíveis</h2>
-                        <p>Escolha um módulo ativo para acessar os recursos liberados para o seu perfil.</p>
+                        <h2>Serviços em destaque</h2>
+                        <p>Serviços definidos pela Câmara para a Home e liberados para o seu perfil.</p>
                     </div>
                 </div>
 
@@ -232,6 +240,7 @@ const DashboardPage = () => {
                             navigate={navigate}
                         />
                     ))}
+                    {!visibleServiceGridItems.length && <p className="dashboard-empty-services">Nenhum serviço foi configurado para a Home.</p>}
                 </main>
                 
                 <footer className="dashboard-footer">

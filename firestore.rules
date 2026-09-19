@@ -119,6 +119,19 @@ service cloud.firestore {
         && (request.auth.uid == userId || isConfiguredRoot() || isAdminProfile());
     }
 
+    match /login-activities/{activityId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && !('revoked' in request.resource.data)
+        && request.resource.data.keys().hasOnly([
+          'flavorId', 'userId', 'userEmail', 'deviceName', 'modelName',
+          'osName', 'osVersion', 'platform', 'appVersion', 'createdAt'
+        ]);
+      allow update, delete: if false;
+    }
+
     match /balcao-config/{documentId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && (documentId == 'bookedSlots' || hasModuleAdminAccess('balcao', ['Admin', 'Balcão']));
@@ -686,7 +699,7 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if request.auth != null
         && !document.matches('processes/.*') && !document.matches('processTypes/.*') && !document.matches('processFlows/.*') && !document.matches('documentTemplates/.*') && !document.matches('processEvents/.*') && !document.matches('protocolSettings/.*') && !document.matches('processCounters/.*') && !document.matches('esic-pedidos/.*')
-        && !document.matches('esic-contadores/.*')
+        && !document.matches('esic-contadores/.*') && !document.matches('login-activities/.*')
         && !document.matches('system-control/.*') && !document.matches('vereadores/.*') && !document.matches('solicitacoes-vereadores/.*') && !document.matches('balcao-config/.*') && !document.matches('balcao-monthly-configs/.*') && !document.matches('vereadores-agenda-config/.*') && !document.matches('gabinetes-equipe/.*') && !document.matches('gabinetes-tarefas/.*') && !document.matches('gabinetes-eventos/.*') && !document.matches('gabinetes-listas/.*') && !document.matches('gabinetes-visitantes/.*') && !document.matches('gabinetes-mensagens/.*') && !document.matches('gabinetes-demandas-historico/.*') && !document.matches('gabinetes-encaminhamentos/.*') && !document.matches('gabinetes-documentos/.*') && !document.matches('gabinetes-pastas/.*') && !document.matches('legislativo_.*')
         && !document.matches('departments/.*') && !document.matches('administrativeCounters/.*') && !document.matches('administrativeAuditLogs/.*') && !document.matches('administrativeExports/.*')
         && !document.matches('contracts/.*') && !document.matches('inventoryProducts/.*') && !document.matches('inventoryWarehouses/.*') && !document.matches('inventoryBatches/.*') && !document.matches('inventoryMovements/.*') && !document.matches('materialRequests/.*')

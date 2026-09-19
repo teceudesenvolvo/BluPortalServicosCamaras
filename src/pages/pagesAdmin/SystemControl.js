@@ -6,9 +6,10 @@ import SystemRolePermissions from '../../components/SystemRolePermissions';
 import AdminSidebar from '../../components/AdminSidebar';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
+import './SystemControlAppHome.css';
 import SystemCollectionsManager from '../../components/SystemCollectionsManager';
 import { auth, firestore } from '../../firebase';
-import { buildDefaultModuleSettings, DEFAULT_CMS_SETTINGS, normalizeRootEmails, SYSTEM_MODULES } from '../../config/systemModules';
+import { APP_BOTTOM_BAR_MODULE_IDS, APP_BOTTOM_BAR_OPTIONS, APP_HOME_MODULE_IDS, buildDefaultModuleSettings, DEFAULT_APP_BOTTOM_BAR_MODULES, DEFAULT_APP_HOME_MODULES, DEFAULT_CMS_SETTINGS, normalizeRootEmails, SYSTEM_MODULES } from '../../config/systemModules';
 import { useSystemControl } from '../../contexts/SystemControlContext';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { DEFAULT_LEGISLATIVE_CONFIGURATION } from '../../services/LegislativeProcessService';
@@ -86,6 +87,14 @@ const SystemControl = () => {
         try {
             const rootEmails = normalizeRootEmails(current.security?.rootEmails);
             if (!rootEmails.length) throw new Error('Informe pelo menos um usuário root válido.');
+            const homeModules = current.appHomeModules || DEFAULT_APP_HOME_MODULES;
+            if (!Array.isArray(homeModules) || homeModules.length !== 5 || new Set(homeModules).size !== 5 || homeModules.some(id => !APP_HOME_MODULE_IDS.includes(id) || current.modules[id]?.app === false)) {
+                throw new Error('Escolha cinco módulos diferentes e ativos no aplicativo para a página inicial.');
+            }
+            const bottomBarModules = current.appBottomBarModules || DEFAULT_APP_BOTTOM_BAR_MODULES;
+            if (!Array.isArray(bottomBarModules) || bottomBarModules.length !== 3 || new Set(bottomBarModules).size !== 3 || bottomBarModules.some(id => !APP_BOTTOM_BAR_MODULE_IDS.includes(id) || (APP_BOTTOM_BAR_OPTIONS.find(option => option.id === id)?.moduleId && current.modules[APP_BOTTOM_BAR_OPTIONS.find(option => option.id === id).moduleId]?.app === false))) {
+                throw new Error('Escolha três módulos diferentes e ativos para os atalhos intermediários da barra inferior.');
+            }
             await setDoc(doc(firestore, 'system-control', 'portal'), { ...current, security: { ...current.security, rootEmails }, schemaVersion: 1, updatedAt: serverTimestamp(), updatedBy: auth.currentUser?.email || '' }, { merge: true });
             setDraft(null); setSaved(true);
         } catch (error) {
@@ -107,7 +116,45 @@ const SystemControl = () => {
             <section className="data-card system-global-card"><div><h2>Funcionamento geral</h2><p>Defina um aviso de manutenção compartilhado com o portal e o aplicativo.</p></div><Switch checked={Boolean(current.maintenance)} onChange={value => updateGlobal('maintenance', value)} label="Modo manutenção" /><textarea value={current.maintenanceMessage || ''} onChange={event => updateGlobal('maintenanceMessage', event.target.value)} placeholder="Mensagem exibida durante a manutenção" rows="2" /></section>
         </>}
 
-        {activeTab === 'modules' && <section className="data-card system-modules-card"><SectionHeader title="Páginas e módulos" description="Desative uma superfície para ocultar atalhos e impedir o acesso pela rota. Use a engrenagem para definir parâmetros próprios de cada módulo." /><div className="system-module-head"><span>Módulo</span><span>Admin</span><span>Portal</span><span>Aplicativo</span><span aria-label="Configurações"><LiaCogSolid /></span></div><div className="system-module-list">{SYSTEM_MODULES.map(module => <article key={module.id}><div><strong>{module.name}</strong><small>{module.description}</small></div>{['admin','portal','app'].map(surface => <Switch key={surface} compact disabled={surface === 'app' && !module.app} checked={surface === 'app' && !module.app ? false : current.modules[module.id]?.[surface] !== false} onChange={value => update('modules', module.id, { ...current.modules[module.id], [surface]: value })} />)}<button type="button" className="btn-secondary system-module-config-button" aria-label={`Configurar ${module.name}`} title={`Configurar ${module.name}`} onClick={() => setModuleConfigId(module.id)}><LiaCogSolid /></button></article>)}</div></section>}
+        {activeTab === 'modules' && <section className="data-card system-modules-card">
+            <SectionHeader title="Páginas e módulos" description="Desative uma superfície para ocultar atalhos e impedir o acesso pela rota. Use a engrenagem para definir parâmetros próprios de cada módulo." />
+            <div className="system-module-head"><span>Módulo</span><span>Admin</span><span>Portal</span><span>Aplicativo</span><span aria-label="Configurações"><LiaCogSolid /></span></div>
+            <div className="system-module-list">{SYSTEM_MODULES.map(module => <article key={module.id}><div><strong>{module.name}</strong><small>{module.description}</small></div>{['admin','portal','app'].map(surface => <Switch key={surface} compact disabled={surface === 'app' && !module.app} checked={surface === 'app' && !module.app ? false : current.modules[module.id]?.[surface] !== false} onChange={value => update('modules', module.id, { ...current.modules[module.id], [surface]: value })} />)}<button type="button" className="btn-secondary system-module-config-button" aria-label={`Configurar ${module.name}`} title={`Configurar ${module.name}`} onClick={() => setModuleConfigId(module.id)}><LiaCogSolid /></button></article>)}</div>
+            <div className="system-app-home-config">
+                <h3>Serviços da Home do aplicativo</h3>
+                <p>Escolha cinco serviços ativos. A posição define a ordem exibida na Home do aplicativo e no painel inicial.</p>
+                <div className="system-app-home-slots">{Array.from({ length: 5 }, (_, index) => <label key={index}>
+                    <span>{index + 1}º atalho</span>
+                    <select value={(current.appHomeModules || DEFAULT_APP_HOME_MODULES)[index] || ''} onChange={event => {
+                        const next = [...(current.appHomeModules || DEFAULT_APP_HOME_MODULES)];
+                        next[index] = event.target.value;
+                        updateGlobal('appHomeModules', next);
+                    }}>
+                        <option value="">Selecione um módulo</option>
+                        {APP_HOME_MODULE_IDS.map(id => <option key={id} value={id} disabled={current.modules[id]?.app === false || ((current.appHomeModules || DEFAULT_APP_HOME_MODULES).includes(id) && (current.appHomeModules || DEFAULT_APP_HOME_MODULES)[index] !== id)}>{SYSTEM_MODULES.find(module => module.id === id)?.name || id}</option>)}
+                    </select>
+                </label>)}</div>
+            </div>
+            <div className="system-app-home-config">
+                <h3>Atalhos da barra inferior do aplicativo</h3>
+                <p>Início e Perfil são fixos. Escolha os três atalhos intermediários exibidos entre eles, na ordem desejada.</p>
+                <div className="system-app-home-slots system-app-bottom-bar-slots">
+                    <label><span>1º item · fixo</span><input value="Início" disabled /></label>
+                    {Array.from({ length: 3 }, (_, index) => <label key={index}>
+                        <span>{index + 2}º item</span>
+                        <select value={(current.appBottomBarModules || DEFAULT_APP_BOTTOM_BAR_MODULES)[index] || ''} onChange={event => {
+                            const next = [...(current.appBottomBarModules || DEFAULT_APP_BOTTOM_BAR_MODULES)];
+                            next[index] = event.target.value;
+                            updateGlobal('appBottomBarModules', next);
+                        }}>
+                            <option value="">Selecione um módulo</option>
+                            {APP_BOTTOM_BAR_OPTIONS.map(option => <option key={option.id} value={option.id} disabled={(option.moduleId && current.modules[option.moduleId]?.app === false) || ((current.appBottomBarModules || DEFAULT_APP_BOTTOM_BAR_MODULES).includes(option.id) && (current.appBottomBarModules || DEFAULT_APP_BOTTOM_BAR_MODULES)[index] !== option.id)}>{option.name}</option>)}
+                        </select>
+                    </label>)}
+                    <label><span>5º item · fixo</span><input value="Perfil" disabled /></label>
+                </div>
+            </div>
+        </section>}
 
         {activeTab === 'design' && <SettingsCard title="Design e cores" description="Tema visual aplicado globalmente por variáveis CSS."><div className="system-design-layout"><div className="system-fields-grid colors">{DESIGN_FIELDS.map(([field,label]) => <label key={field} className="system-field"><span>{label}</span><div className="system-color-field"><input type="color" value={current.design[field]} onChange={event => update('design',field,event.target.value)} /><input value={current.design[field]} onChange={event => update('design',field,event.target.value)} /></div></label>)}<Field label="Arredondamento dos componentes" type="number" value={current.design.borderRadius} onChange={value => update('design','borderRadius',Number(value))} /><Field label="Família tipográfica" value={current.design.fontFamily} onChange={value => update('design','fontFamily',value)} /></div><div className="system-theme-preview" style={{ '--preview-primary': current.design.primaryColor, '--preview-secondary': current.design.secondaryColor, '--preview-accent': current.design.accentColor, '--preview-bg': current.design.backgroundColor, '--preview-text': current.design.textColor, '--preview-radius': `${current.design.borderRadius}px` }}><span>Pré-visualização</span><h3>{current.tenant.portalTitle}</h3><p>Identidade visual da {current.tenant.shortName}.</p><button>Botão principal</button><b>Informação em destaque</b></div></div></SettingsCard>}
 
