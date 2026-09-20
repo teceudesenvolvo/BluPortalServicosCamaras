@@ -17,6 +17,7 @@ const STAFF_MODULES = {
 export const defaultRolePermission = (role, moduleId, surface) => {
     if (['Admin', 'Administrador'].includes(role)) return true;
     if (surface === 'portal') return true;
+    if (surface === 'adminApp') return Boolean(STAFF_MODULES[moduleId]?.includes(role));
     return Boolean(STAFF_MODULES[moduleId]?.includes(role));
 };
 export const rolePermission = (settings, role, moduleId, surface) => {

@@ -111,6 +111,38 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // Cadastro operacional de beneficiários. Os registros podem conter CPF,
+    // telefone e outros dados pessoais; somente a gestão autenticada do
+    // Balcão/administradores deve consultar ou alterar a coleção.
+    match /beneficiarios/{documentId} {
+      allow read, create, update, delete: if isConfiguredRoot()
+        || isAdminProfile()
+        || hasModuleAdminAccess('balcao', ['Balcão', 'Recepção', 'Recepcao']);
+    }
+
+    // O aplicativo armazena os beneficiários do cidadão na coleção legada
+    // `balcao` (com type == "beneficiario"). O cidadão só pode consultar e
+    // alterar os próprios registros; a equipe autorizada do Balcão mantém a
+    // visão administrativa.
+    match /balcao/{documentId} {
+      allow read: if request.auth != null && (
+        isConfiguredRoot()
+        || isAdminProfile()
+        || hasModuleAdminAccess('balcao', ['Balcão', 'Recepção', 'Recepcao'])
+        || resource.data.userId == request.auth.uid
+      );
+      allow create: if request.auth != null && (
+        hasModuleAdminAccess('balcao', ['Balcão', 'Recepção', 'Recepcao'])
+        || request.resource.data.userId == request.auth.uid
+      );
+      allow update, delete: if request.auth != null && (
+        isConfiguredRoot()
+        || isAdminProfile()
+        || hasModuleAdminAccess('balcao', ['Balcão', 'Recepção', 'Recepcao'])
+        || resource.data.userId == request.auth.uid
+      );
+    }
+
     match /users/{userId} {
       allow read: if request.auth != null
         && (request.auth.uid == userId || isConfiguredRoot() || isAdminProfile() || isLegislativeSecretariat());

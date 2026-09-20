@@ -43,6 +43,14 @@ export const ADMINISTRATIVE_MODULE_IDS = ['contratos', 'almoxarifado', 'patrimon
 
 export const APP_HOME_MODULE_IDS = ['protocolo', 'balcao', 'ouvidoria', 'esic', 'procuradoria', 'procon', 'microempreendedor', 'escolaParlamento', 'tvCamara', 'noticias', 'vereadores', 'piel', 'mensagens', 'avaliacoes'];
 export const DEFAULT_APP_HOME_MODULES = ['protocolo', 'balcao', 'ouvidoria', 'procuradoria', 'tvCamara'];
+export const APP_HOME_SHORTCUT_OPTIONS = [
+    { id: 'novaSolicitacao', name: 'Criar solicitação', screen: 'BalcaoCidadao', moduleId: 'balcao' },
+    { id: 'minhasSolicitacoes', name: 'Minhas solicitações', screen: 'MeusAtendimentos' },
+    { id: 'mensagens', name: 'Mensagens', screen: 'Mensagens', moduleId: 'mensagens' },
+    { id: 'tvCamara', name: 'TV Câmara', screen: 'TvCamara', moduleId: 'tvCamara' },
+    { id: 'noticias', name: 'Notícias', screen: 'Noticias', moduleId: 'noticias' },
+];
+export const DEFAULT_APP_HOME_SHORTCUTS = ['novaSolicitacao', 'minhasSolicitacoes', 'mensagens', 'tvCamara'];
 // A barra inferior mantém Início e Perfil fixos. Estes são os três slots
 // intermediários que a Câmara pode escolher no controle de módulos.
 export const APP_BOTTOM_BAR_OPTIONS = [
@@ -56,19 +64,40 @@ export const APP_BOTTOM_BAR_OPTIONS = [
 ];
 export const APP_BOTTOM_BAR_MODULE_IDS = APP_BOTTOM_BAR_OPTIONS.map(option => option.id);
 export const DEFAULT_APP_BOTTOM_BAR_MODULES = ['servicos', 'licitacoes', 'mensagens'];
+export const DEFAULT_PNCP_ORG_CNPJ = '35076017000107';
+export const buildProcurementApiUrl = (config = {}) => String(config.url || '').replaceAll('{cnpj}', String(config.organizationCnpj || '').replace(/\D/g, ''));
+
+// Destinos administrativos usados pelo aplicativo. A Home e a BottomBar
+// continuam sendo configuráveis; somente o destino muda conforme o perfil.
+export const DEFAULT_MOBILE_ROLE_ROUTES = {
+    Admin: { balcao: 'AdminBalcao', ouvidoria: 'AdminOuvidoria', procuradoria: 'AdminProcuradoria', mensagens: 'AdminMensagens', noticias: 'AdminNoticias', avaliacoes: 'AdminAvaliacoes', vereadores: 'AdminVereadores', agendaVereadores: 'AdminGabinete', legislativo: 'AdminLegislativo', esic: 'AdminEsic', protocolo: 'AdminProtocolo', microempreendedor: 'AdminMicroempreendedor', juridico: 'AdminJuridico', piel: 'AdminPiel', escolaParlamento: 'AdminEscolaParlamento', procon: 'AdminProcon' },
+    Administrador: { balcao: 'AdminBalcao', ouvidoria: 'AdminOuvidoria', procuradoria: 'AdminProcuradoria', mensagens: 'AdminMensagens', noticias: 'AdminNoticias', avaliacoes: 'AdminAvaliacoes', vereadores: 'AdminVereadores', agendaVereadores: 'AdminGabinete', legislativo: 'AdminLegislativo', esic: 'AdminEsic', protocolo: 'AdminProtocolo', microempreendedor: 'AdminMicroempreendedor', juridico: 'AdminJuridico', piel: 'AdminPiel', escolaParlamento: 'AdminEscolaParlamento', procon: 'AdminProcon' },
+    Balcão: { balcao: 'AdminBalcao', mensagens: 'AdminMensagens', avaliacoes: 'AdminAvaliacoes' },
+    Ouvidoria: { ouvidoria: 'AdminOuvidoria', mensagens: 'AdminMensagens', esic: 'AdminEsic' },
+    Procuradoria: { procuradoria: 'AdminProcuradoria', mensagens: 'AdminMensagens' },
+    Vereador: { vereadores: 'AdminVereadores', agendaVereadores: 'AdminGabinete', legislativo: 'AdminLegislativo' },
+    Assessor: { agendaVereadores: 'AdminGabinete', legislativo: 'AdminLegislativo' },
+    Protocolo: { protocolo: 'AdminProtocolo', mensagens: 'AdminMensagens' },
+    'Secretaria Legislativa': { legislativo: 'AdminLegislativo', protocolo: 'AdminProtocolo', mensagens: 'AdminMensagens' },
+    Microempreendedor: { microempreendedor: 'AdminMicroempreendedor', mensagens: 'AdminMensagens' },
+    Procon: { procon: 'AdminProcon', mensagens: 'AdminMensagens' },
+    Juridico: { juridico: 'AdminJuridico', mensagens: 'AdminMensagens' },
+    'Escola do Parlamento': { escolaParlamento: 'AdminEscolaParlamento', mensagens: 'AdminMensagens' },
+};
 
 export const buildDefaultModuleSettings = () => Object.fromEntries(
-    SYSTEM_MODULES.map(module => [module.id, { admin: module.enabledByDefault !== false, portal: module.enabledByDefault !== false, app: module.app && module.enabledByDefault !== false }]),
+    SYSTEM_MODULES.map(module => [module.id, { admin: module.enabledByDefault !== false, portal: module.enabledByDefault !== false, app: module.app && module.enabledByDefault !== false, adminApp: module.app && module.enabledByDefault !== false }]),
 );
 
 export const DEFAULT_CMS_SETTINGS = {
     appHomeModules: DEFAULT_APP_HOME_MODULES,
+    appHomeShortcuts: DEFAULT_APP_HOME_SHORTCUTS,
     appBottomBarModules: DEFAULT_APP_BOTTOM_BAR_MODULES,
-    security: { rootEmails: INITIAL_SYSTEM_ROOT_EMAILS },
+    security: { rootEmails: INITIAL_SYSTEM_ROOT_EMAILS, roleRoutes: DEFAULT_MOBILE_ROLE_ROUTES },
     tenant: { name: 'Câmara Municipal de Paraipaba', shortName: 'Câmara de Paraipaba', slug: 'paraipaba', city: 'Paraipaba', state: 'CE', portalTitle: 'Portal de Serviços', address: 'Av. Domingos Barroso, 350 - Monte Alverne', postalCode: '62685-000', phone: '', email: '', website: '' },
     design: { primaryColor: '#025AA1', secondaryColor: '#0284C7', accentColor: '#F59E0B', backgroundColor: '#F3F8FE', textColor: '#10233F', borderRadius: 14, fontFamily: 'Inter, system-ui, sans-serif' },
     branding: { logoUrl: '', compactLogoUrl: '', faviconUrl: '', loginCoverUrl: '', logoAlt: 'Câmara Municipal' },
-    integrations: { functionsBaseUrl: '', publicApiUrl: '', youtubeApiUrl: '', appDownloadUrl: 'https://servicos.camaraparaipaba.ce.gov.br/download-app', privacyUrl: '', supportEmail: '', androidStoreUrl: '', iosStoreUrl: '', legislativeApi: { enabled: false, provider: 'sapl', url: '', responsePath: '', fields: { id: 'id', name: 'nome', cargo: 'nome_parlamentar', party: 'partido.sigla', photo: 'foto', email: 'email', userId: 'userId' } } },
+    integrations: { functionsBaseUrl: '', publicApiUrl: '', youtubeApiUrl: '', appDownloadUrl: 'https://servicos.camaraparaipaba.ce.gov.br/download-app', privacyUrl: '', supportEmail: '', androidStoreUrl: '', iosStoreUrl: '', legislativeApi: { enabled: false, provider: 'sapl', url: '', responsePath: '', fields: { id: 'id', name: 'nome', cargo: 'nome_parlamentar', party: 'partido.sigla', photo: 'foto', email: 'email', userId: 'userId' } }, procurementApi: { enabled: false, provider: 'PNCP', organizationCnpj: DEFAULT_PNCP_ORG_CNPJ, url: 'https://pncp.gov.br/api/consulta/v1/orgaos/{cnpj}/compras', responsePath: '', fields: { id: 'numeroControlePNCP', number: 'numeroCompra', object: 'objetoCompra', supplier: 'nomeRazaoSocialFornecedor', value: 'valorTotalEstimado', status: 'situacaoCompraNome', startDate: 'dataAberturaProposta', endDate: 'dataEncerramentoProposta', detailUrl: 'linkSistemaOrigem' } } },
     email: { enabled: true, provider: 'cloudflare', domain: '', senderName: '', senderEmail: '', replyTo: '', functionsEndpoint: '', routingAddress: '', dnsVerified: false },
     notificationTemplates: {
         welcome: { label: 'Boas-vindas', enabled: true, channels: { email: true, push: true }, subject: 'Bem-vindo ao Portal de Serviços', body: '<p>Olá, <strong>{{nome}}</strong>! Seu cadastro foi criado com sucesso.</p>' },
