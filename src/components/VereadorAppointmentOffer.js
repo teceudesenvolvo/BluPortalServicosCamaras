@@ -22,17 +22,17 @@ export default function VereadorAppointmentOffer({ request, review = false, onSa
                 if (!uid) throw new Error('Entre novamente para continuar.');
                 if (action !== 'book') {
                     if (data.dadosSolicitacao?.vereadorId !== uid) throw new Error('Somente o vereador escolhido pode analisar este motivo.');
-                    if (!['Aguardando Análise', 'Aguardando Confirmação', 'Datas Liberadas'].includes(data.status)) throw new Error('Esta solicitação já foi processada.');
+                    if (!['Aguardando Análise', 'Aguardando Confirmação', 'Agendamento Liberado', 'Datas Liberadas'].includes(data.status)) throw new Error('Esta solicitação já foi processada.');
                     if (action === 'approve' && (!slots.length || slots.some(s => !isFutureCouncilSlot(s)))) throw new Error('Informe datas e horários futuros para todas as opções.');
                     if (action === 'reject' && !reason.trim()) throw new Error('Informe o motivo da recusa.');
-                    tx.update(ref, { status: action === 'approve' ? 'Datas Liberadas' : 'Recusado', horariosOferecidos: action === 'approve' ? slots.filter((s, i) => slots.findIndex(other => other.date === s.date && other.time === s.time) === i) : [], aprovadoPor: action === 'approve' ? uid : null, analisadoPor: uid, parecerVereador: reason.trim(), analisadoEm: new Date(), ultimaAtualizacao: new Date() });
+                    tx.update(ref, { status: action === 'approve' ? 'Agendamento Liberado' : 'Recusado', horariosOferecidos: action === 'approve' ? slots.filter((s, i) => slots.findIndex(other => other.date === s.date && other.time === s.time) === i) : [], aprovadoPor: action === 'approve' ? uid : null, analisadoPor: uid, parecerVereador: reason.trim(), analisadoEm: new Date(), ultimaAtualizacao: new Date() });
                 } else {
                     if (data.userId !== uid) {
                         const profile = await tx.get(doc(firestore, 'users', uid));
                         const control = await tx.get(doc(firestore, 'system-control', 'portal'));
                         if (!canAccessModule(control.data() || {}, profile.data()?.tipo, auth.currentUser.email, 'recepcao', 'admin')) throw new Error('Somente o solicitante ou a recepção pode escolher o horário.');
                     }
-                    if (data.status !== 'Datas Liberadas' || data.aprovadoPor !== data.dadosSolicitacao?.vereadorId || !data.horariosOferecidos?.some(s => s.date === slot.date && s.time === slot.time) || !isFutureCouncilSlot(slot)) throw new Error('Horário indisponível. Atualize a solicitação.');
+                    if (!['Agendamento Liberado', 'Datas Liberadas'].includes(data.status) || data.aprovadoPor !== data.dadosSolicitacao?.vereadorId || !data.horariosOferecidos?.some(s => s.date === slot.date && s.time === slot.time) || !isFutureCouncilSlot(slot)) throw new Error('Horário indisponível. Atualize a solicitação.');
                     const slotsRef = doc(firestore, `vereadores-agenda-config/${data.dadosSolicitacao.vereadorId}/agenda/bookedSlots`);
                     const booked = await tx.get(slotsRef);
                     const times = booked.data()?.[slot.date] || [];
@@ -45,7 +45,7 @@ export default function VereadorAppointmentOffer({ request, review = false, onSa
         } catch (err) { setError(err.message); } finally { setBusy(false); }
     };
     return <section className="data-card">
-        <h3>{review ? 'Analisar motivo e liberar datas' : 'Escolha um horário liberado pelo vereador'}</h3>
+        <h3>{review ? 'Analisar motivo e liberar agendamento' : 'Escolha um horário liberado pelo vereador'}</h3>
         {error && <p role="alert">{error}</p>}
         {review ? <>
             <p>{request.dadosSolicitacao?.descricao}</p>

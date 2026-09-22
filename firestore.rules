@@ -115,9 +115,22 @@ service cloud.firestore {
     // telefone e outros dados pessoais; somente a gestão autenticada do
     // Balcão/administradores deve consultar ou alterar a coleção.
     match /beneficiarios/{documentId} {
-      allow read, create, update, delete: if isConfiguredRoot()
+      allow read: if request.auth != null && (
+        isConfiguredRoot()
         || isAdminProfile()
-        || hasModuleAdminAccess('balcao', ['Balcão', 'Recepção', 'Recepcao']);
+        || hasModuleAdminAccess('balcao', ['Balcão', 'Recepção', 'Recepcao'])
+        || resource.data.userId == request.auth.uid
+      );
+      allow create: if request.auth != null && (
+        hasModuleAdminAccess('balcao', ['Balcão', 'Recepção', 'Recepcao'])
+        || request.resource.data.userId == request.auth.uid
+      );
+      allow update, delete: if request.auth != null && (
+        isConfiguredRoot()
+        || isAdminProfile()
+        || hasModuleAdminAccess('balcao', ['Balcão', 'Recepção', 'Recepcao'])
+        || resource.data.userId == request.auth.uid
+      );
     }
 
     // O aplicativo armazena os beneficiários do cidadão na coleção legada
@@ -361,11 +374,11 @@ service cloud.firestore {
       allow update: if request.auth != null && (
         // Somente o parlamentar destinatário aceita o motivo e oferece horários.
         (resource.data.dadosSolicitacao.vereadorId == request.auth.uid
-          && resource.data.status in ['Aguardando Análise', 'Aguardando Confirmação', 'Datas Liberadas']
-          && request.resource.data.status in ['Datas Liberadas', 'Recusado']
+          && resource.data.status in ['Aguardando Análise', 'Aguardando Confirmação', 'Agendamento Liberado', 'Datas Liberadas']
+          && request.resource.data.status in ['Agendamento Liberado', 'Datas Liberadas', 'Recusado']
           && (request.resource.data.status == 'Recusado' || request.resource.data.aprovadoPor == request.auth.uid)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'horariosOferecidos', 'aprovadoPor', 'analisadoPor', 'parecerVereador', 'analisadoEm', 'ultimaAtualizacao']))
-        || (resource.data.status == 'Datas Liberadas'
+        || (resource.data.status in ['Agendamento Liberado', 'Datas Liberadas']
           && resource.data.aprovadoPor == resource.data.dadosSolicitacao.vereadorId
           && (resource.data.userId == request.auth.uid || isReceptionStaff())
           && request.resource.data.status == 'Agendado'
@@ -648,7 +661,9 @@ service cloud.firestore {
     // documentos são gravados exclusivamente pelas Cloud Functions.
     function canOperateProtocol() {
       return request.auth != null
-        && hasModuleAdminAccess('protocolo', ['Protocolo', 'Servidor', 'Gestor de Setor', 'Secretaria Legislativa', 'Vereador', 'Assessor']);
+        && (isConfiguredRoot()
+          || isAdminProfile()
+          || hasModuleAdminAccess('protocolo', ['Admin', 'Administrador', 'Protocolo', 'Servidor', 'Gestor de Setor', 'Secretaria Legislativa', 'Vereador', 'Assessor']));
     }
     match /processes/{processId} {
       allow read: if canOperateProtocol() || (request.auth != null && resource.data.requesterId == request.auth.uid);

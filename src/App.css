@@ -228,6 +228,18 @@ body{
 /* Avaliação do atendimento e ranking administrativo */
 .service-rating-field { border: 0; padding: 0; margin: 18px 0 24px; }
 .service-rating-field legend { margin-bottom: 10px; color: #334155; font-weight: 800; }
+.service-reviews-details { margin-top: 20px; padding: 24px; }
+.service-reviews-section-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; }
+.service-reviews-section-heading h2 { margin:0; color:#153454; }
+.service-reviews-section-heading p { margin:5px 0 0; color:#647b95; }
+.service-reviews-section-heading > strong { min-width:42px; padding:9px 12px; border-radius:999px; background:#e8f3fb; color:#075d96; text-align:center; }
+.service-comments-list { display:grid; gap:12px; }
+.service-comments-list article { padding:16px; border:1px solid #dbe7f2; border-radius:14px; background:rgba(248,251,255,.8); }
+.service-comment-meta { display:flex; justify-content:space-between; gap:12px; color:#173554; }
+.service-comment-meta span, .service-comments-list small { color:#71869c; font-size:.82rem; }
+.service-comments-list p { margin:10px 0 8px; color:#405d78; line-height:1.5; white-space:pre-wrap; }
+.service-all-reviews-table-wrap { overflow:auto; }
+.service-all-reviews-table-wrap table { min-width:760px; }
 .service-rating-stars { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .service-rating-stars button { width: 46px; height: 46px; border: 1px solid #cbd5e1; border-radius: 12px; background: #fff; color: #cbd5e1; display: grid; place-items: center; font-size: 1.55rem; cursor: pointer; transition: transform .16s ease, color .16s ease, background .16s ease; }
 .service-rating-stars button:hover { transform: translateY(-2px); }

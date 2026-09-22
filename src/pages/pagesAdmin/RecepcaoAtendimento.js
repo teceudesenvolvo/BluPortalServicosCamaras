@@ -527,7 +527,7 @@ const RecepcaoAtendimento = () => {
             const snapshots = await Promise.all(availableAppointmentCollections.map(async (item) => {
                 const snapshot = await getDocs(query(
                     collection(firestore, item.name),
-                    where('status', 'in', item.sector === 'Vereadores' ? ['Agendado', 'Datas Liberadas'] : ['Agendado']),
+                    where('status', 'in', item.sector === 'Vereadores' ? ['Agendado', 'Agendamento Liberado', 'Datas Liberadas'] : ['Agendado']),
                     limit(500)
                 ));
                 return snapshot.docs.map(docSnap => ({
@@ -1116,7 +1116,7 @@ const RecepcaoAtendimento = () => {
                             {getBeneficiaryName(appointment) && getRequesterName(appointment) !== getBeneficiaryName(appointment) && <p>Solicitante: {getRequesterName(appointment) || 'Não informado'}</p>}
                             <p>Setor: {appointment.setorAtendimento || selectedSector}</p>
                             <p>Status: {appointment.status || 'Sem status'}</p>
-                            {appointment.collectionName === 'solicitacoes-vereadores' && appointment.status === 'Datas Liberadas' && <VereadorAppointmentOffer key={appointment.id} request={appointment} onSaved={handleFindAppointment} />}
+                            {appointment.collectionName === 'solicitacoes-vereadores' && ['Agendamento Liberado', 'Datas Liberadas'].includes(appointment.status) && <VereadorAppointmentOffer key={appointment.id} request={appointment} onSaved={handleFindAppointment} />}
                             <p>Data: {getAppointmentDate(appointment) || 'Não informado'}</p>
                             <p>Horário: {getAppointmentTime(appointment) || 'Não informado'}</p>
                             {appointmentLateToday && (

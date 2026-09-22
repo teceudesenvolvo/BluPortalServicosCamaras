@@ -83,6 +83,7 @@ const AdminAvaliacoes = () => {
             service: average(serviceTotal, filteredReviews.length),
         };
     }, [filteredReviews]);
+    const comments = useMemo(() => filteredReviews.filter(item => item.comentario?.trim()), [filteredReviews]);
 
     return (
         <div className="dashboard-layout">
@@ -130,6 +131,14 @@ const AdminAvaliacoes = () => {
                             </table>
                         </div>
                     )}
+                </section>
+                <section className="service-reviews-panel service-reviews-details">
+                    <header className="service-reviews-section-heading"><div><h2>Comentários dos cidadãos</h2><p>Leia os comentários associados a cada avaliação.</p></div><strong>{comments.length}</strong></header>
+                    {comments.length === 0 ? <div className="service-reviews-state">Nenhum comentário no período selecionado.</div> : <div className="service-comments-list">{comments.map(item => <article key={item.id}><div className="service-comment-meta"><strong>{item.atendenteNome || 'Atendente não identificado'}</strong><span>{toDate(item.updatedAt || item.createdAt)?.toLocaleString('pt-BR') || 'Data não informada'}</span></div><p>{item.comentario}</p><small>{item.assunto || item.servico || item.protocolo || 'Atendimento'}</small></article>)}</div>}
+                </section>
+                <section className="service-reviews-panel service-reviews-details">
+                    <header className="service-reviews-section-heading"><div><h2>Todas as avaliações</h2><p>Lista completa por atendente, nota e serviço.</p></div><strong>{filteredReviews.length}</strong></header>
+                    {filteredReviews.length === 0 ? <div className="service-reviews-state">Nenhuma avaliação no período selecionado.</div> : <div className="service-all-reviews-table-wrap"><table className="service-ranking-table"><thead><tr><th>Data</th><th>Atendente</th><th>Atendimento</th><th>Serviço</th><th>Comentário</th><th>Referência</th></tr></thead><tbody>{filteredReviews.map(item => <tr key={item.id}><td>{toDate(item.updatedAt || item.createdAt)?.toLocaleDateString('pt-BR') || '—'}</td><td><strong>{item.atendenteNome || 'Não identificado'}</strong><small>{item.setor || ''}</small></td><td>{formatScore(Number(item.notaAtendimento || item.nota || 0))}</td><td>{formatScore(Number(item.notaServico || item.nota || 0))}</td><td>{item.comentario?.trim() || 'Sem comentário'}</td><td>{item.protocolo || item.assunto || item.servico || '—'}</td></tr>)}</tbody></table></div>}
                 </section>
             </main>
         </div>

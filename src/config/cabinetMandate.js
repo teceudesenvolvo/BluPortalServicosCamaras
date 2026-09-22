@@ -1,6 +1,7 @@
 export const DEMAND_STATUSES = [
   'RECEBIDA',
   'EM ANÁLISE',
+  'Agendamento Liberado',
   'EM ATENDIMENTO',
   'ENCAMINHADA',
   'AGUARDANDO RESPOSTA DO ÓRGÃO',
@@ -21,6 +22,7 @@ export const DEMAND_CATEGORIES = [
 export const statusLabel = status => {
   const labels = {
     RECEBIDA: 'Solicitação recebida',
+    'Agendamento Liberado': 'Agendamento liberado pelo gabinete',
     'EM ANÁLISE': 'Em análise pelo gabinete',
     'EM ATENDIMENTO': 'Em atendimento',
     ENCAMINHADA: 'Encaminhada ao órgão responsável',

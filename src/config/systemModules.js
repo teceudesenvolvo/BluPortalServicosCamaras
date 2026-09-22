@@ -24,7 +24,7 @@ export const SYSTEM_MODULES = [
     { id: 'juridico', name: 'Atendimento Jurídico', description: 'Orientações e solicitações jurídicas.', adminPaths: ['/admin-juridico'], userPaths: ['/juridico'], app: true },
     { id: 'balcao', name: 'Balcão do Cidadão', description: 'Solicitações, agenda e atendimento nos guichês.', adminPaths: ['/admin-balcao'], userPaths: ['/balcao'], app: true },
     { id: 'microempreendedor', name: 'Microempreendedor', description: 'Assessoria e solicitações para empreendedores.', adminPaths: ['/admin-microempreendedor'], userPaths: ['/microempreendedor'], app: true },
-    { id: 'recepcao', name: 'Recepção', description: 'Cadastro presencial, confirmação e encaminhamento.', adminPaths: ['/recepcao'], userPaths: [], app: false },
+    { id: 'recepcao', name: 'Recepção', description: 'Cadastro presencial, confirmação e encaminhamento.', adminPaths: ['/recepcao'], userPaths: [], app: true },
     { id: 'mensagens', name: 'Mensagens', description: 'Comunicação entre cidadãos e equipes.', adminPaths: ['/admin-mensagens'], userPaths: ['/mensagens'], app: true },
     { id: 'noticias', name: 'Notícias', description: 'Publicação de notícias no portal e aplicativo.', adminPaths: ['/admin-noticias'], userPaths: ['/noticias'], app: true },
     { id: 'tvCamara', name: 'TV Câmara', description: 'Vídeos, transmissões e integração com YouTube.', adminPaths: ['/admin-tv-camara'], userPaths: ['/tv-camara'], app: true },
@@ -39,7 +39,7 @@ export const SYSTEM_MODULES = [
     { id: 'notificacoes', name: 'Notificações', description: 'Histórico e entrega de notificações.', adminPaths: ['/admin-notifications'], userPaths: [], app: true },
 ];
 
-export const ADMINISTRATIVE_MODULE_IDS = ['contratos', 'almoxarifado', 'patrimonio', 'manutencao', 'frotas'];
+export const ADMINISTRATIVE_MODULE_IDS = ['contratos', 'almoxarifado', 'patrimonio', 'manutencao', 'frotas', 'recepcao'];
 
 export const APP_HOME_MODULE_IDS = ['protocolo', 'balcao', 'ouvidoria', 'esic', 'procuradoria', 'procon', 'microempreendedor', 'escolaParlamento', 'tvCamara', 'noticias', 'vereadores', 'piel', 'mensagens', 'avaliacoes'];
 export const DEFAULT_APP_HOME_MODULES = ['protocolo', 'balcao', 'ouvidoria', 'procuradoria', 'tvCamara'];
