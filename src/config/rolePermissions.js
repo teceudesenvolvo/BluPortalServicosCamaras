@@ -13,6 +13,8 @@ const STAFF_MODULES = {
     mensagens: ['Balcão', 'Ouvidoria', 'Procuradoria'], avaliacoes: ['Balcão'],
     esic: ['Ouvidoria'], ouvidoria: ['Ouvidoria'], procuradoria: ['Procuradoria'], vereadores: ['Vereador'], procon: ['Procon'],
     escolaParlamento: ['Escola do Parlamento'],
+    whatsapp: ['Admin', 'Administrador'],
+    email: ['Admin', 'Administrador'],
 };
 export const defaultRolePermission = (role, moduleId, surface) => {
     if (['Admin', 'Administrador'].includes(role)) return true;
@@ -35,6 +37,7 @@ export const ADMINISTRATIVE_PERMISSIONS = {
     patrimonio: ['visualizar', 'criar', 'movimentar', 'inventariar', 'baixar', 'gerenciar', 'configurar'],
     manutencao: ['visualizar', 'solicitar', 'executar', 'validar', 'gerenciar', 'configurar'],
     frotas: ['visualizar', 'registrar', 'movimentar', 'gerenciar', 'configurar'],
+    whatsapp: ['visualizar', 'configurar', 'gerenciar_mensagens', 'gerenciar_fluxos', 'responder'],
 };
 
 const ACTION_ROLE_DEFAULTS = {
@@ -43,6 +46,7 @@ const ACTION_ROLE_DEFAULTS = {
     patrimonio: ['Patrimônio', 'Gestor de Setor'],
     manutencao: ['Manutenção', 'Gestor de Setor'],
     frotas: ['Frotas', 'Gestor de Setor'],
+    whatsapp: ['Admin', 'Administrador'],
 };
 
 export const defaultActionPermission = (role, permission) => {

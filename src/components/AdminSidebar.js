@@ -15,6 +15,7 @@ import {
     LiaClipboardListSolid,
     LiaNewspaperSolid,
     LiaCommentsSolid,
+    LiaEnvelopeSolid,
     LiaTvSolid,
     LiaStarSolid,
     LiaCogSolid,
@@ -155,6 +156,8 @@ const AdminSidebar = () => {
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/admin-balcao', roles: ['Admin', 'Balcão'] },
         { title: 'Recepção', icon: <LiaClipboardListSolid />, path: '/recepcao', roles: ['Admin', 'Balcão', 'Recepção', 'Microempreendedor'] },
         { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/admin-mensagens', roles: ['Admin', 'Administrador', 'Balcão', 'Ouvidoria', 'Procuradoria'] },
+        { title: 'Chatbot WhatsApp', icon: <LiaCommentsSolid />, path: '/admin-whatsapp', roles: ['Admin', 'Administrador'] },
+        { title: 'E-mail institucional', icon: <LiaEnvelopeSolid />, path: '/admin-mail', roles: ['Admin', 'Administrador'] },
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/admin-ouvidoria', roles: ['Admin', 'Ouvidoria'] },
         { title: 'e-SIC', icon: <LiaFileAltSolid />, path: '/admin-esic', roles: ['Admin', 'Administrador', 'Ouvidoria'] },
         { title: 'Procuradoria da Mulher', icon: <LiaFemaleSolid />, path: '/admin-procuradoria', roles: ['Admin', 'Procuradoria'] },
@@ -198,9 +201,9 @@ const AdminSidebar = () => {
         return false;
     });
     const menuGroups = [
-        { title: 'Atendimento', paths: ['/admin-dashboard', '/admin/protocolo', '/admin-balcao', '/recepcao', '/admin-mensagens', '/admin-ouvidoria', '/admin-esic', '/admin-procuradoria', '/admin-procon', '/admin-microempreendedor'] },
+        { title: 'Atendimento', paths: ['/admin-dashboard', '/admin/protocolo', '/admin-balcao', '/recepcao', '/admin-mensagens', '/admin-whatsapp', '/admin-ouvidoria', '/admin-esic', '/admin-procuradoria', '/admin-procon', '/admin-microempreendedor'] },
         { title: 'Gestão institucional', paths: ['/admin/contratos', '/admin/almoxarifado', '/admin/patrimonio', '/admin/manutencao', '/admin/frotas', '/admin-relatorios', '/admin-escola-parlamento', '/admin-avaliacoes', '/admin-vereadores', '/admin-agenda-vereadores', '/admin-legislativo', '/admin-piel', '/admin-noticias', '/admin-tv-camara'] },
-        { title: 'Sistema', paths: ['/controle-sistema', '/admin-users', '/admin-notifications', '/perfil'] },
+        { title: 'Sistema', paths: ['/controle-sistema', '/admin-users', '/admin-notifications', '/admin-mail', '/perfil'] },
     ].map(group => ({ ...group, items: visibleMenuItems.filter(item => group.paths.includes(item.path)) }));
 
     const handleItemClick = (path) => {

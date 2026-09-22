@@ -47,6 +47,11 @@ service firebase.storage {
       allow update, delete: if false;
     }
 
+    match /institutional-email/{accountId}/{messageId}/{fileName} {
+      allow read, write: if isConfiguredRoot() || (request.auth != null
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.tipo in ['Admin', 'Administrador']);
+    }
+
     match /{topLevel}/{allPaths=**} {
       allow read, write: if topLevel != 'system-control' && topLevel != 'esic' && topLevel != 'administrativo' && request.auth != null;
     }

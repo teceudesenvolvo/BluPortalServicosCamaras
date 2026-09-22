@@ -31,7 +31,7 @@ const AdminMail = () => {
     const fetchEmails = useCallback(async (cursor = null) => {
         setLoading(true);
         try {
-            const mailRef = collection(firestore, 'mail');
+            const mailRef = collection(firestore, 'institutionalEmails');
             let q = query(mailRef, orderBy('timestamp', 'desc'), limit(itemsPerPage));
             
             if (cursor) {

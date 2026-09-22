@@ -72,6 +72,7 @@ import AdminUsers from './pages/pagesAdmin/AdminUsers';
 import AdminMail from './pages/pagesAdmin/AdminMail';
 import AdminNotifications from './pages/pagesAdmin/AdminNotifications';
 import AdminMensagens from './pages/pagesAdmin/AdminMensagens';
+import AdminWhatsApp from './pages/pagesAdmin/AdminWhatsApp';
 import RecepcaoAtendimento from './pages/pagesAdmin/RecepcaoAtendimento';
 import PainelAtendimento from './pages/pagesAdmin/PainelAtendimento';
 import AdminTvCamara from './pages/pagesAdmin/AdminTvCamara';
@@ -205,9 +206,10 @@ function App() {
           <Route path="/admin-piel" element={<ModuleRoute surface="admin"><AdminPiel /></ModuleRoute>} />
           <Route path="/admin-balcao/agendamentos" element={<ModuleRoute surface="admin"><AdminBalcaoAgendamentos /></ModuleRoute>} />
           <Route path="/admin-balcao/atendimentos-guiches" element={<ModuleRoute surface="admin"><AdminAtendimentosGuiches /></ModuleRoute>} />
-          <Route path="/admin-mail" element={<AdminMail />} />
+          <Route path="/admin-mail" element={<ModuleRoute surface="admin"><AdminMail /></ModuleRoute>} />
           <Route path="/admin-notifications" element={<AdminNotifications />} />
           <Route path="/admin-mensagens" element={<ModuleRoute surface="admin"><AdminMensagens /></ModuleRoute>} />
+          <Route path="/admin-whatsapp" element={<ModuleRoute surface="admin"><AdminWhatsApp /></ModuleRoute>} />
           <Route path="/admin-tv-camara" element={<ModuleRoute surface="admin"><AdminTvCamara /></ModuleRoute>} />
           <Route path="/admin-microempreendedor" element={<ModuleRoute surface="admin"><AdminMicroempreendedor /></ModuleRoute>} />
           <Route path="/admin-avaliacoes" element={<ModuleRoute surface="admin"><AdminAvaliacoes /></ModuleRoute>} />

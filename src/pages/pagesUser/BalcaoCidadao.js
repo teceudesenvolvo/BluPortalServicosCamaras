@@ -45,6 +45,18 @@ const getTodayDateInputValue = () => {
     return `${year}-${month}-${day}`;
 };
 
+const isValidAppointmentDate = (value) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return false;
+    const [year, month, day] = value.split('-').map(Number);
+    const currentYear = new Date().getFullYear();
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    return parsed.getUTCFullYear() === year
+        && parsed.getUTCMonth() === month - 1
+        && parsed.getUTCDate() === day
+        && year >= currentYear
+        && year <= currentYear + 2;
+};
+
 // Componente para Agendamento
 const AgendamentoSection = ({ solicitacaoId, onScheduled }) => {
     const [formData, setFormData] = useState({ appointmentDate: '', appointmentTime: '' });
@@ -555,6 +567,9 @@ const BalcaoCidadao = () => {
         const bookedSlotRef = doc(firestore, 'balcao-config', 'bookedSlots');
 
         try {
+            if (!isValidAppointmentDate(date)) {
+                throw new Error('Informe uma data válida dentro dos próximos dois anos.');
+            }
             if (date < getTodayDateInputValue()) {
                 throw new Error("Não é possível agendar para uma data anterior a hoje.");
             }

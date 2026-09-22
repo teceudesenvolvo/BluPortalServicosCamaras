@@ -683,6 +683,29 @@ service cloud.firestore {
     match /protocolSettings/{settingId} { allow read: if request.auth != null; allow write: if canOperateProtocol(); }
     match /processCounters/{year} { allow read, write: if false; }
 
+    // Chatbot WhatsApp: somente administradores configurados gerenciam a
+    // integração, mensagens automáticas e fluxos.
+    function canManageWhatsapp() {
+      return request.auth != null
+        && (isConfiguredRoot() || isAdminProfile()
+          || hasModuleAdminAccess('whatsapp', ['Admin', 'Administrador']));
+    }
+    match /whatsappSettings/{settingId} { allow read, write: if canManageWhatsapp(); }
+    match /whatsappAutomaticMessages/{messageId} { allow read, write: if canManageWhatsapp(); }
+    match /whatsappFlows/{flowId} { allow read, write: if canManageWhatsapp(); }
+    match /whatsappConversations/{conversationId} {
+      allow read, update: if canManageWhatsapp();
+      allow create, delete: if false;
+    }
+    match /whatsappMessages/{messageId} {
+      allow read: if canManageWhatsapp();
+      allow create: if canManageWhatsapp() && request.resource.data.direction == 'outbound';
+      allow update, delete: if false;
+    }
+    match /institutionalEmails/{messageId} {
+      allow read, write: if isConfiguredRoot() || isAdminProfile();
+    }
+
     // Fundação dos módulos administrativos. As mutações de domínio ficam
     // reservadas às Cloud Functions para que numeração, estoque e auditoria
     // sejam gravados de forma atômica.
@@ -752,7 +775,8 @@ service cloud.firestore {
         && !document.matches('contracts/.*') && !document.matches('inventoryProducts/.*') && !document.matches('inventoryWarehouses/.*') && !document.matches('inventoryBatches/.*') && !document.matches('inventoryMovements/.*') && !document.matches('materialRequests/.*')
         && !document.matches('assets/.*') && !document.matches('assetMovements/.*') && !document.matches('assetInventories/.*') && !document.matches('assetEvents/.*')
         && !document.matches('maintenanceTickets/.*') && !document.matches('maintenanceWorkOrders/.*') && !document.matches('maintenancePlans/.*') && !document.matches('maintenanceSchedules/.*')
-        && !document.matches('fleetVehicles/.*') && !document.matches('fleetDrivers/.*') && !document.matches('fleetFuelings/.*') && !document.matches('fleetMaintenance/.*') && !document.matches('fleetTires/.*') && !document.matches('fleetDocuments/.*') && !document.matches('fleetIncidents/.*') && !document.matches('fleetFines/.*') && !document.matches('fleetEvents/.*');
+        && !document.matches('fleetVehicles/.*') && !document.matches('fleetDrivers/.*') && !document.matches('fleetFuelings/.*') && !document.matches('fleetMaintenance/.*') && !document.matches('fleetTires/.*') && !document.matches('fleetDocuments/.*') && !document.matches('fleetIncidents/.*') && !document.matches('fleetFines/.*') && !document.matches('fleetEvents/.*')
+        && !document.matches('whatsappSettings/.*') && !document.matches('whatsappAutomaticMessages/.*') && !document.matches('whatsappFlows/.*') && !document.matches('whatsappConversations/.*') && !document.matches('whatsappMessages/.*');
     }
   }
 }

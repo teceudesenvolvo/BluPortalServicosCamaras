@@ -21,6 +21,61 @@ Object.assign(exports, require("./administrative"));
 
 const youtubeClientId = defineSecret("YOUTUBE_CLIENT_ID");
 const youtubeClientSecret = defineSecret("YOUTUBE_CLIENT_SECRET");
+const whatsappAccessTokenSecretName = "WHATSAPP_ACCESS_TOKEN";
+const whatsappVerifyTokenSecretName = "WHATSAPP_VERIFY_TOKEN";
+
+exports.saveWhatsAppCredentials = onCall(
+    {cors: true}, async (request) => {
+      if (!request.auth) {
+        throw new HttpsError(
+            "unauthenticated", "Autenticação necessária.");
+      }
+      const user = await admin.firestore().collection("users")
+          .doc(request.auth.uid).get();
+      const data = user.data() || {};
+      if (!["Admin", "Administrador"].includes(data.tipo)) {
+        throw new HttpsError(
+            "permission-denied",
+            "Apenas administradores podem configurar o WhatsApp.");
+      }
+      const accessToken = String(request.data?.accessToken || "").trim();
+      const verifyToken = String(request.data?.verifyToken || "").trim();
+      if (!accessToken && !verifyToken) {
+        throw new HttpsError(
+            "invalid-argument", "Informe pelo menos um token.");
+      }
+      const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+      const client = getSecretManagerClient();
+      const saveSecret = async (name, value) => {
+        if (!value) return;
+        const parent = `projects/${projectId}`;
+        const secret = `${parent}/secrets/${name}`;
+        try {
+          await client.getSecret({name: secret});
+        } catch (error) {
+          if (error.code !== 5) throw error;
+          await client.createSecret({
+            parent, secretId: name, secret: {replication: {automatic: {}}},
+          });
+        }
+        await client.addSecretVersion({
+          parent: secret, payload: {data: Buffer.from(value, "utf8")},
+        });
+      };
+      await saveSecret(whatsappAccessTokenSecretName, accessToken);
+      await saveSecret(whatsappVerifyTokenSecretName, verifyToken);
+      await admin.firestore().collection("whatsappSettings").doc("config").set({
+        tokenConfigured: Boolean(accessToken),
+        verifyTokenConfigured: Boolean(verifyToken),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: request.auth.uid,
+      }, {merge: true});
+      return {
+        saved: true,
+        tokenConfigured: Boolean(accessToken),
+        verifyTokenConfigured: Boolean(verifyToken),
+      };
+    });
 
 let secretManagerClient;
 let loggingClient;

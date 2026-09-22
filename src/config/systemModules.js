@@ -26,6 +26,8 @@ export const SYSTEM_MODULES = [
     { id: 'microempreendedor', name: 'Microempreendedor', description: 'Assessoria e solicitações para empreendedores.', adminPaths: ['/admin-microempreendedor'], userPaths: ['/microempreendedor'], app: true },
     { id: 'recepcao', name: 'Recepção', description: 'Cadastro presencial, confirmação e encaminhamento.', adminPaths: ['/recepcao'], userPaths: [], app: true },
     { id: 'mensagens', name: 'Mensagens', description: 'Comunicação entre cidadãos e equipes.', adminPaths: ['/admin-mensagens'], userPaths: ['/mensagens'], app: true },
+    { id: 'email', name: 'E-mail institucional', description: 'Contas, caixa de entrada, envio, recebimento, spam e lixeira do domínio institucional.', adminPaths: ['/admin-mail'], userPaths: [], app: false, enabledByDefault: false },
+    { id: 'whatsapp', name: 'Chatbot WhatsApp', description: 'Mensagens automáticas, fluxos de atendimento e conversas recebidas pelo WhatsApp.', adminPaths: ['/admin-whatsapp'], userPaths: [], app: false, enabledByDefault: false },
     { id: 'noticias', name: 'Notícias', description: 'Publicação de notícias no portal e aplicativo.', adminPaths: ['/admin-noticias'], userPaths: ['/noticias'], app: true },
     { id: 'tvCamara', name: 'TV Câmara', description: 'Vídeos, transmissões e integração com YouTube.', adminPaths: ['/admin-tv-camara'], userPaths: ['/tv-camara'], app: true },
     { id: 'avaliacoes', name: 'Avaliações', description: 'Avaliação dos atendimentos realizados.', adminPaths: ['/admin-avaliacoes'], userPaths: ['/avaliar-atendimento'], app: true },
@@ -81,6 +83,7 @@ export const DEFAULT_MOBILE_ROLE_ROUTES = {
     'Secretaria Legislativa': { legislativo: 'AdminLegislativo', protocolo: 'AdminProtocolo', mensagens: 'AdminMensagens' },
     Microempreendedor: { microempreendedor: 'AdminMicroempreendedor', mensagens: 'AdminMensagens' },
     Procon: { procon: 'AdminProcon', mensagens: 'AdminMensagens' },
+    WhatsApp: { whatsapp: 'AdminWhatsApp' },
     Juridico: { juridico: 'AdminJuridico', mensagens: 'AdminMensagens' },
     'Escola do Parlamento': { escolaParlamento: 'AdminEscolaParlamento', mensagens: 'AdminMensagens' },
 };
@@ -98,7 +101,7 @@ export const DEFAULT_CMS_SETTINGS = {
     design: { primaryColor: '#025AA1', secondaryColor: '#0284C7', accentColor: '#F59E0B', backgroundColor: '#F3F8FE', textColor: '#10233F', borderRadius: 14, fontFamily: 'Inter, system-ui, sans-serif' },
     branding: { logoUrl: '', compactLogoUrl: '', faviconUrl: '', loginCoverUrl: '', logoAlt: 'Câmara Municipal' },
     integrations: { functionsBaseUrl: '', publicApiUrl: '', youtubeApiUrl: '', appDownloadUrl: 'https://servicos.camaraparaipaba.ce.gov.br/download-app', privacyUrl: '', supportEmail: '', androidStoreUrl: '', iosStoreUrl: '', legislativeApi: { enabled: false, provider: 'sapl', url: '', responsePath: '', fields: { id: 'id', name: 'nome', cargo: 'nome_parlamentar', party: 'partido.sigla', photo: 'foto', email: 'email', userId: 'userId' } }, procurementApi: { enabled: false, provider: 'PNCP', organizationCnpj: DEFAULT_PNCP_ORG_CNPJ, url: 'https://pncp.gov.br/api/consulta/v1/orgaos/{cnpj}/compras', responsePath: '', fields: { id: 'numeroControlePNCP', number: 'numeroCompra', object: 'objetoCompra', supplier: 'nomeRazaoSocialFornecedor', value: 'valorTotalEstimado', status: 'situacaoCompraNome', startDate: 'dataAberturaProposta', endDate: 'dataEncerramentoProposta', detailUrl: 'linkSistemaOrigem' } } },
-    email: { enabled: true, provider: 'cloudflare', domain: '', senderName: '', senderEmail: '', replyTo: '', functionsEndpoint: '', routingAddress: '', dnsVerified: false },
+    email: { enabled: false, provider: 'cloudflare', domain: '', senderName: '', senderEmail: '', replyTo: '', functionsEndpoint: '', routingAddress: '', smtpHost: '', smtpPort: '587', dnsVerified: false },
     notificationTemplates: {
         welcome: { label: 'Boas-vindas', enabled: true, channels: { email: true, push: true }, subject: 'Bem-vindo ao Portal de Serviços', body: '<p>Olá, <strong>{{nome}}</strong>! Seu cadastro foi criado com sucesso.</p>' },
         appointmentConfirmed: { label: 'Agendamento confirmado', enabled: true, channels: { email: true, push: true }, subject: 'Agendamento confirmado', body: '<p>Seu atendimento para <strong>{{data}}</strong> às <strong>{{horario}}</strong> foi confirmado.</p>' },
