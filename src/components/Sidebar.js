@@ -21,6 +21,7 @@ import {
     LiaHeadsetSolid,
     LiaNewspaperSolid,
     LiaClipboardListSolid,
+    LiaFileContractSolid,
 } from "react-icons/lia";
 import { useSystemControl } from '../contexts/SystemControlContext';
 import { findModuleByPath } from '../config/systemModules';
@@ -62,16 +63,24 @@ const Sidebar = ({ onItemClick }) => {
         { title: 'TV Câmara', icon: <LiaTvSolid />, path: '/tv-camara' },
         { title: 'Notícias da Câmara', icon: <LiaNewspaperSolid />, path: '/noticias' },
         { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/mensagens' },
+        { title: 'Portal do fornecedor', icon: <LiaFileContractSolid />, path: '/fornecedor', supplierOnly: true },
         { title: 'Vereadores', icon: <LiaLandmarkSolid />, path: '/vereadores' },
         { title: 'Perfil', icon: <LiaUser />, path: '/perfil' },
     ];
     const visibleMenuItems = menuItems.filter(item => {
+        if (item.supplierOnly) {
+            const supplierRole = ['empresa', 'fornecedor'].includes(String(role || '').trim().toLowerCase());
+            return supplierRole
+                && settings.modules?.contratos?.admin === true
+                && settings.modules?.contratos?.portal !== false;
+        }
         const module = findModuleByPath(item.path);
         return !module || canAccessModule(settings, role, currentUser?.email, module.id, 'portal');
     });
     const menuGroups = [
         { title: 'Atendimento', paths: ['/dashboard', '/balcao', '/protocolo', '/ouvidoria', '/esic', '/procuradoria', '/procon', '/microempreendedor'] },
         { title: 'Conteúdo e formação', paths: ['/escola-parlamento', '/escola-parlamento/meus-cursos', '/tv-camara', '/noticias', '/vereadores'] },
+        { title: 'Relacionamento', paths: ['/fornecedor'] },
         { title: 'Minha conta', paths: ['/mensagens', '/perfil'] },
     ].map(group => ({ ...group, items: visibleMenuItems.filter(item => group.paths.includes(item.path)) }));
 

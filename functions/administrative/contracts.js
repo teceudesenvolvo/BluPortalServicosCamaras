@@ -120,6 +120,62 @@ const addContractRecord = ({collectionName, action, status, valueField = null}) 
   return {id: child.id, ok: true};
 };
 
+const reviewSupplierSignature = async ({db, request, actor, payload}) => {
+  const contractId = text(payload.contractId, "o contrato", true);
+  const documentId = text(payload.documentId, "o documento", true);
+  const returnId = text(payload.returnId, "a via assinada", true);
+  const decision = text(payload.decision, "a decisão", true);
+  if (!["accept", "request_resubmission"].includes(decision)) {
+    throw new HttpsError("invalid-argument", "Decisão inválida.");
+  }
+  const note = text(payload.note, "a observação");
+  const contractRef = db.collection("contracts").doc(contractId);
+  const documentRef = contractRef.collection("documents").doc(documentId);
+  const returnRef = documentRef.collection("supplierReturns").doc(returnId);
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  await db.runTransaction(async (transaction) => {
+    const [contractSnapshot, documentSnapshot, returnSnapshot] = await Promise.all([
+      transaction.get(contractRef), transaction.get(documentRef),
+      transaction.get(returnRef),
+    ]);
+    if (!contractSnapshot.exists || !documentSnapshot.exists || !returnSnapshot.exists) {
+      throw new HttpsError("not-found", "Documento ou via assinada não encontrado.");
+    }
+    const signatureDocument = documentSnapshot.data();
+    const signedReturn = returnSnapshot.data();
+    if (!signatureDocument.requiresSupplierSignature ||
+      signedReturn.supplierCnpj !== contractSnapshot.data().supplierDocument) {
+      throw new HttpsError("failed-precondition", "A via não pertence a este fluxo de assinatura.");
+    }
+    const accepted = decision === "accept";
+    const returnUpdates = {
+      status: accepted ? "accepted" : "resubmission_requested",
+      reviewedAt: now,
+      reviewedBy: actor.userId,
+      reviewedByName: actor.name,
+      reviewNote: note,
+    };
+    const documentUpdates = {
+      signatureStatus: accepted ? "signed" : "awaiting_supplier",
+      supplierUploadAllowed: !accepted,
+      lastSupplierReturnId: returnId,
+      signatureReviewedAt: now,
+      updatedAt: now,
+    };
+    transaction.update(returnRef, returnUpdates);
+    transaction.update(documentRef, documentUpdates);
+    addAuditToTransaction({
+      db, transaction, timestamp: now, actor, moduleId: "contratos",
+      action: accepted ? "SUPPLIER_SIGNATURE_ACCEPTED" : "SUPPLIER_SIGNATURE_RESUBMISSION_REQUESTED",
+      entityType: "contract_document", entityId: documentId,
+      before: {signatureStatus: signatureDocument.signatureStatus,
+        returnStatus: signedReturn.status},
+      after: {...documentUpdates, ...returnUpdates, note}, request,
+    });
+  });
+  return {id: documentId, ok: true};
+};
+
 const contractHandlers = {
   create: {permission: "contratos.criar", execute: createContract},
   update: {permission: "contratos.editar", execute: updateContract},
@@ -129,6 +185,7 @@ const contractHandlers = {
   addMeasurement: {permission: "contratos.atestar", execute: addContractRecord({collectionName: "measurements", action: "MEASUREMENT_CREATED", status: "awaiting_review", valueField: "measuredValue"})},
   addObligation: {permission: "contratos.gerenciar", execute: addContractRecord({collectionName: "obligations", action: "OBLIGATION_CREATED", status: "active"})},
   addDocument: {permission: "contratos.editar", execute: addContractRecord({collectionName: "documents", action: "CONTRACT_DOCUMENT_ADDED", status: "active"})},
+  reviewSupplierSignature: {permission: "contratos.editar", execute: reviewSupplierSignature},
 };
 
 module.exports = {contractHandlers, createContract, updateContract};

@@ -1,9 +1,10 @@
 import { ADMINISTRATIVE_MODULE_IDS, isSystemRootEmail } from './systemModules';
 
-export const USER_ROLES = ['Admin', 'Administrador', 'Protocolo', 'Servidor', 'Gestor de Setor', 'Fiscal de Contrato', 'Gestor de Contrato', 'Almoxarifado', 'Patrimônio', 'Manutenção', 'Frotas', 'Secretaria Legislativa', 'Vereador', 'Assessor', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor', 'Escola do Parlamento', 'Cidadão'];
+export const USER_ROLES = ['Admin', 'Administrador', 'Protocolo', 'Servidor', 'Gestor de Setor', 'Fiscal de Contrato', 'Gestor de Contrato', 'Fornecedor', 'Empresa', 'Almoxarifado', 'Patrimônio', 'Manutenção', 'Frotas', 'Secretaria Legislativa', 'Vereador', 'Assessor', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor', 'Escola do Parlamento', 'Cidadão'];
 const STAFF_MODULES = {
     protocolo: ['Protocolo', 'Servidor', 'Gestor de Setor', 'Secretaria Legislativa', 'Vereador', 'Assessor'],
     contratos: ['Fiscal de Contrato', 'Gestor de Contrato', 'Gestor de Setor'],
+    fornecedores: ['Empresa', 'Fornecedor'],
     almoxarifado: ['Almoxarifado', 'Gestor de Setor'],
     patrimonio: ['Patrimônio', 'Gestor de Setor'],
     manutencao: ['Manutenção', 'Gestor de Setor'],

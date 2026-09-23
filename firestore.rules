@@ -725,12 +725,129 @@ service cloud.firestore {
       allow write: if false;
     }
     match /contracts/{recordId} {
-      allow read: if hasAdministrativePermission('contratos', 'visualizar', ['Fiscal de Contrato', 'Gestor de Contrato', 'Gestor de Setor']);
+      allow read: if hasAdministrativePermission('contratos', 'visualizar', ['Fiscal de Contrato', 'Gestor de Contrato', 'Gestor de Setor'])
+        || (request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo in ['Empresa', 'Fornecedor']
+          && resource.data.supplierDocument == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.cnpj);
       allow write: if false;
+      match /documents/{documentId} {
+        allow read: if hasAdministrativePermission(
+          'contratos', 'visualizar',
+          ['Fiscal de Contrato', 'Gestor de Contrato', 'Gestor de Setor'])
+          || (request.auth != null
+            && get(/databases/$(database)/documents/users/$(request.auth.uid))
+              .data.get('tipo', '') in ['Empresa', 'Fornecedor']
+            && get(/databases/$(database)/documents/contracts/$(recordId))
+              .data.get('supplierDocument', '')
+                == get(/databases/$(database)/documents/users/$(request.auth.uid))
+                  .data.get('cnpj', ''));
+        allow write: if false;
+        match /supplierReturns/{returnId} {
+          allow read: if hasAdministrativePermission(
+            'contratos', 'visualizar',
+            ['Fiscal de Contrato', 'Gestor de Contrato', 'Gestor de Setor'])
+            || (request.auth != null
+              && get(/databases/$(database)/documents/users/$(request.auth.uid))
+                .data.get('tipo', '') in ['Empresa', 'Fornecedor']
+              && get(/databases/$(database)/documents/contracts/$(recordId))
+                .data.get('supplierDocument', '')
+                  == get(/databases/$(database)/documents/users/$(request.auth.uid))
+                    .data.get('cnpj', ''));
+          allow create: if request.auth != null
+            && request.resource.data.supplierId == request.auth.uid
+            && get(/databases/$(database)/documents/users/$(request.auth.uid))
+              .data.get('tipo', '') in ['Empresa', 'Fornecedor']
+            && get(/databases/$(database)/documents/contracts/$(recordId))
+              .data.get('supplierDocument', '')
+                == get(/databases/$(database)/documents/users/$(request.auth.uid))
+                  .data.get('cnpj', '')
+            && get(/databases/$(database)/documents/contracts/$(recordId)/documents/$(documentId))
+              .data.get('requiresSupplierSignature', false) == true
+            && get(/databases/$(database)/documents/contracts/$(recordId)/documents/$(documentId))
+              .data.get('supplierUploadAllowed', false) == true
+            && get(/databases/$(database)/documents/contracts/$(recordId)/documents/$(documentId))
+              .data.get('signatureStatus', '') in ['awaiting_supplier', 'resubmission_requested']
+            && request.resource.data.sourceDocumentId == documentId
+            && request.resource.data.supplierCnpj
+              == get(/databases/$(database)/documents/users/$(request.auth.uid))
+                .data.get('cnpj', '')
+            && request.resource.data.fileUrl is string
+            && request.resource.data.fileName is string;
+          allow update, delete: if false;
+        }
+      }
+      match /occurrences/{occurrenceId} {
+        allow read: if hasAdministrativePermission(
+          'contratos', 'visualizar',
+          ['Fiscal de Contrato', 'Gestor de Contrato', 'Gestor de Setor'])
+          || (request.auth != null
+            && resource.data.get('supplierVisible', false) == true
+            && get(/databases/$(database)/documents/users/$(request.auth.uid))
+              .data.get('tipo', '') in ['Empresa', 'Fornecedor']
+            && get(/databases/$(database)/documents/contracts/$(recordId))
+              .data.get('supplierDocument', '')
+                == get(/databases/$(database)/documents/users/$(request.auth.uid))
+                  .data.get('cnpj', ''));
+        allow write: if false;
+      }
       match /{document=**} {
         allow read: if hasAdministrativePermission('contratos', 'visualizar', ['Fiscal de Contrato', 'Gestor de Contrato', 'Gestor de Setor']);
         allow write: if false;
       }
+    }
+    match /supplierSubmissions/{submissionId} {
+      allow create: if request.auth != null
+        && request.resource.data.supplierId == request.auth.uid
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo in ['Empresa', 'Fornecedor'];
+      allow read: if isConfiguredRoot() || isAdminProfile()
+        || hasAdministrativePermission(
+          'contratos', 'visualizar', ['Fiscal de Contrato', 'Gestor de Contrato'])
+        || (request.auth != null && resource.data.supplierId == request.auth.uid);
+      allow update: if isConfiguredRoot() || isAdminProfile();
+      allow delete: if false;
+    }
+    match /supplierDocuments/{documentId} {
+      allow create: if request.auth != null
+        && request.resource.data.supplierId == request.auth.uid
+        && (request.resource.data.type != 'tax_clearance'
+          || (request.resource.data.certificateType is string
+            && request.resource.data.issuedAt is string
+            && request.resource.data.validUntil is string))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.get('tipo', '') in ['Empresa', 'Fornecedor'];
+      allow read: if isConfiguredRoot() || isAdminProfile()
+        || hasAdministrativePermission(
+          'contratos', 'visualizar', ['Fiscal de Contrato', 'Gestor de Contrato'])
+        || (request.auth != null
+          && resource.data.supplierId == request.auth.uid);
+      allow update: if isConfiguredRoot() || isAdminProfile();
+      allow delete: if false;
+    }
+    match /supplierCharges/{chargeId} {
+      allow create: if request.auth != null
+        && request.resource.data.supplierId == request.auth.uid
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && request.resource.data.reference is string
+        && get(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.get('tipo', '') in ['Empresa', 'Fornecedor'];
+      allow read: if (request.auth != null
+          && resource.data.supplierId == request.auth.uid)
+        || isConfiguredRoot() || isAdminProfile()
+        || hasAdministrativePermission(
+          'contratos', 'visualizar', ['Fiscal de Contrato', 'Gestor de Contrato']);
+      allow update: if isConfiguredRoot() || isAdminProfile();
+      allow delete: if false;
+    }
+    match /supplierRequests/{requestId} {
+      allow read: if isConfiguredRoot() || isAdminProfile()
+        || hasAdministrativePermission(
+          'contratos', 'visualizar', ['Fiscal de Contrato', 'Gestor de Contrato'])
+        || (request.auth != null
+          && resource.data.supplierId == request.auth.uid);
+      allow create, update: if isConfiguredRoot() || isAdminProfile()
+        || hasAdministrativePermission(
+          'contratos', 'editar', ['Fiscal de Contrato', 'Gestor de Contrato']);
+      allow delete: if false;
     }
     match /{collectionName}/{recordId} {
       allow read: if collectionName in ['inventoryProducts', 'inventoryWarehouses', 'inventoryBatches', 'inventoryMovements', 'materialRequests']

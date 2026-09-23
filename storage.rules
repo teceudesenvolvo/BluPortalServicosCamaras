@@ -17,6 +17,16 @@ service firebase.storage {
           || control.get('security', {}).get('rolePermissions', {}).get(role, {}).get(moduleId, {}).get('admin', false));
     }
 
+    function isContractSupplier(contractId) {
+      let profile = firestore.get(
+        /databases/(default)/documents/users/$(request.auth.uid)).data;
+      let contract = firestore.get(
+        /databases/(default)/documents/contracts/$(contractId)).data;
+      return request.auth != null
+        && profile.get('tipo', '') in ['Empresa', 'Fornecedor']
+        && contract.get('supplierDocument', '') == profile.get('cnpj', '');
+    }
+
     function isAllowedAdministrativeFile() {
       return request.resource.size < 25 * 1024 * 1024
         && (request.resource.contentType.matches('application/pdf')
@@ -51,9 +61,37 @@ service firebase.storage {
       allow read, write: if isConfiguredRoot() || (request.auth != null
         && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.tipo in ['Admin', 'Administrador']);
     }
+    match /contracts/{contractId}/documents/{fileName} {
+      allow read: if hasAdministrativeModuleAccess('contratos')
+        || isContractSupplier(contractId);
+      allow create: if hasAdministrativeModuleAccess('contratos')
+        && request.resource.size < 20 * 1024 * 1024
+        && (request.resource.contentType.matches('application/pdf')
+          || request.resource.contentType.matches('image/.*'));
+      allow update, delete: if false;
+    }
+    match /fornecedores/{supplierId}/{fileName=**} {
+      allow read: if request.auth != null
+        && (request.auth.uid == supplierId || isConfiguredRoot()
+          || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.tipo in ['Admin', 'Administrador', 'Fiscal de Contrato', 'Gestor de Contrato']);
+      allow create: if request.auth != null
+        && (request.auth.uid == supplierId || isConfiguredRoot()
+          || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.tipo in ['Admin', 'Administrador', 'Fiscal de Contrato', 'Gestor de Contrato'])
+        && request.resource.size < 20 * 1024 * 1024
+        && (request.resource.contentType.matches('application/pdf')
+          || request.resource.contentType.matches('application/xml')
+          || request.resource.contentType.matches('text/xml')
+          || request.resource.contentType.matches('image/.*'));
+      allow update, delete: if false;
+    }
 
     match /{topLevel}/{allPaths=**} {
-      allow read, write: if topLevel != 'system-control' && topLevel != 'esic' && topLevel != 'administrativo' && request.auth != null;
+      allow read, write: if topLevel != 'system-control'
+        && topLevel != 'esic'
+        && topLevel != 'administrativo'
+        && topLevel != 'fornecedores'
+        && topLevel != 'contracts'
+        && request.auth != null;
     }
 
     match /{fileName} {

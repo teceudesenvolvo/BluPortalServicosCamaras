@@ -182,8 +182,16 @@ const AdminSidebar = () => {
         const isSystemOwner = isSystemRootEmail(settings, userEmail);
         if (item.path === '/controle-sistema') return isSystemOwner;
 
+        // O acesso administrativo ao e-mail exige tanto perfil root quanto
+        // módulo habilitado no Controle do Sistema.
+        if (item.path === '/admin-mail') {
+            return isSystemOwner && canAccessModule(
+                settings, userType, userEmail, 'email', 'admin',
+            );
+        }
+
         // Itens de infraestrutura aparecem apenas para os usuários root configurados no CMS.
-        const systemPaths = ['/admin-mail', '/admin-notifications'];
+        const systemPaths = ['/admin-notifications'];
         if (systemPaths.includes(item.path)) {
             return isSystemOwner;
         }

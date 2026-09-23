@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { LiaChartPieSolid, LiaClipboardCheckSolid, LiaExclamationTriangleSolid, LiaFileContractSolid, LiaPlusSolid, LiaSearchSolid, LiaTasksSolid, LiaUserCheckSolid } from 'react-icons/lia';
+import { LiaChartPieSolid, LiaClipboardCheckSolid, LiaExclamationTriangleSolid, LiaFileContractSolid, LiaPlusSolid, LiaSearchSolid, LiaTasksSolid, LiaTimesSolid, LiaUserCheckSolid } from 'react-icons/lia';
 import { firestore, storage } from '../../firebase';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { AdministrativeCommandService, AdministrativeDataTable, AdministrativeEmptyState, AdministrativeModuleLayout, PermissionGate } from '../administrative-core';
@@ -15,6 +15,9 @@ const NAVIGATION = [
         { label: 'Meus contratos', path: '/admin/contratos/meus', icon: LiaUserCheckSolid },
         { label: 'Novo contrato', path: '/admin/contratos/novo', icon: LiaPlusSolid },
     ] },
+    { label: 'RELACIONAMENTO', items: [
+        { label: 'Documentos das empresas', path: '/admin/contratos/fornecedores', icon: LiaFileContractSolid },
+    ] },
     { label: 'EXECUÇÃO', items: [
         { label: 'Fiscalizações', path: '/admin/contratos/fiscalizacoes', icon: LiaClipboardCheckSolid },
         { label: 'Ocorrências', path: '/admin/contratos/ocorrencias', icon: LiaExclamationTriangleSolid },
@@ -23,6 +26,15 @@ const NAVIGATION = [
 ];
 
 const STATUS = { active: 'Ativo', suspended: 'Suspenso', closed: 'Encerrado' };
+const SUPPLIER_CERTIFICATE_LABELS = {
+    federal: 'Certidão conjunta federal (RFB/PGFN)',
+    state: 'Certidão negativa estadual',
+    municipal: 'Certidão negativa municipal',
+    fgts: 'Certificado de Regularidade do FGTS (CRF)',
+    labor: 'Certidão Negativa de Débitos Trabalhistas (CNDT)',
+    bankruptcy: 'Certidão de falência e recuperação judicial',
+    other: 'Outra certidão negativa',
+};
 const money = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const toDate = value => value?.toDate?.() || (value ? new Date(value) : null);
 const dateLabel = value => { const date = toDate(value); return date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString('pt-BR') : '—'; };
@@ -92,6 +104,104 @@ function ContractList({ contracts, mine = false }) {
         <div className="administrative-section-heading"><div><h2>{mine ? 'Meus contratos' : 'Todos os contratos'}</h2><p>{rows.length} registro(s) encontrado(s).</p></div></div>
         <div className="administrative-filters"><label><span>Buscar</span><div className="input-with-icon"><LiaSearchSolid /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Número, fornecedor ou objeto" /></div></label><label><span>Situação</span><select value={status} onChange={event => setStatus(event.target.value)}><option value="">Todas</option>{Object.entries(STATUS).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label></div>
         <ContractsTable rows={rows} />
+    </section>;
+}
+
+function SupplierDocuments() {
+    const { currentUser } = useAuth();
+    const [collections, setCollections] = useState({ supplierDocuments: [], supplierSubmissions: [], supplierCharges: [], supplierRequests: [] });
+    const [tab, setTab] = useState('documents');
+    const [contracts, setContracts] = useState([]);
+    const staff = useStaff();
+    const [requestModal, setRequestModal] = useState(false);
+    const [requestForm, setRequestForm] = useState({ supplierId: '', contractId: '', type: 'service_order', identifier: '', title: '', description: '', amount: '', file: null });
+    const [requestState, setRequestState] = useState({ saving: false, error: '', success: '' });
+    useEffect(() => {
+        const sources = ['supplierDocuments', 'supplierSubmissions', 'supplierCharges', 'supplierRequests'];
+        const unsubscribers = sources.map(name => onSnapshot(collection(firestore, name), snapshot => {
+            setCollections(current => ({ ...current, [name]: snapshot.docs.map(item => ({ id: item.id, ...item.data() })) }));
+        }, () => setCollections(current => ({ ...current, [name]: [] }))));
+        return () => unsubscribers.forEach(unsubscribe => unsubscribe());
+    }, []);
+    useEffect(() => onSnapshot(collection(firestore, 'contracts'), snapshot => {
+        setContracts(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
+    }, () => setContracts([])), []);
+    const companies = staff.filter(item => ['Empresa', 'Fornecedor'].includes(item.tipo) && item.cnpj);
+    const selectedCompany = companies.find(item => item.id === requestForm.supplierId);
+    const companyContracts = contracts.filter(item => item.supplierDocument === selectedCompany?.cnpj);
+    const updateRequest = (key, value) => setRequestForm(current => ({ ...current, [key]: value }));
+    const createSupplierRequest = async event => {
+        event.preventDefault();
+        setRequestState({ saving: true, error: '', success: '' });
+        try {
+            const contract = contracts.find(item => item.id === requestForm.contractId);
+            const company = companies.find(item => item.id === requestForm.supplierId);
+            let fileData = {};
+            if (requestForm.file) {
+                const safeName = requestForm.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const storagePath = `fornecedores/${company.id}/solicitacoes/${Date.now()}-${safeName}`;
+                const storageRef = ref(storage, storagePath);
+                await uploadBytes(storageRef, requestForm.file, { contentType: requestForm.file.type });
+                fileData = { fileUrl: await getDownloadURL(storageRef), fileName: requestForm.file.name, storagePath, fileSize: requestForm.file.size };
+            }
+            await addDoc(collection(firestore, 'supplierRequests'), {
+                supplierId: company.id,
+                supplierName: company.tradeName || company.legalName || company.nome || company.name || '',
+                supplierCnpj: company.cnpj,
+                contractId: contract?.id || '',
+                contractNumber: contract?.identifier || contract?.contractNumber || '',
+                type: requestForm.type,
+                identifier: requestForm.identifier.trim(),
+                title: requestForm.title.trim(),
+                description: requestForm.description.trim(),
+                amount: requestForm.amount ? Number(requestForm.amount) : null,
+                ...fileData,
+                status: 'new',
+                statusLabel: 'Nova',
+                createdAt: serverTimestamp(),
+                createdBy: currentUser?.uid || '',
+            });
+            setRequestState({ saving: false, error: '', success: 'Solicitação enviada ao fornecedor.' });
+            setRequestModal(false);
+            setRequestForm({ supplierId: '', contractId: '', type: 'service_order', identifier: '', title: '', description: '', amount: '', file: null });
+        } catch (error) {
+            setRequestState({ saving: false, error: error.message || 'Não foi possível enviar a solicitação.', success: '' });
+        }
+    };
+    const rows = tab === 'documents'
+        ? [...collections.supplierDocuments, ...collections.supplierSubmissions.filter(item => item.type !== 'invoice')]
+        : tab === 'charges'
+            ? [...collections.supplierCharges, ...collections.supplierSubmissions.filter(item => item.type === 'invoice')]
+            : collections.supplierRequests;
+    const sortedRows = [...rows].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    const tabs = [
+        ['documents', 'Documentos', collections.supplierDocuments.length + collections.supplierSubmissions.filter(item => item.type !== 'invoice').length],
+        ['charges', 'Cobranças', collections.supplierCharges.length + collections.supplierSubmissions.filter(item => item.type === 'invoice').length],
+        ['requests', 'Solicitações', collections.supplierRequests.length],
+    ];
+    return <section className="data-card administrative-section-card">
+        <div className="administrative-section-heading"><div><h2>Relacionamento com empresas</h2><p>Documentos, cobranças e solicitações recebidos dos fornecedores.</p></div>{tab === 'requests' && <PermissionGate permission="contratos.editar"><button className="primary-button" onClick={() => setRequestModal(true)}><LiaPlusSolid /> Nova solicitação</button></PermissionGate>}</div>
+        {requestState.success && <p className="supplier-admin-success">{requestState.success}</p>}
+        {requestState.error && <p className="supplier-admin-error">{requestState.error}</p>}
+        <div className="supplier-admin-tabs">{tabs.map(([id, label, count]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{label} <span>{count}</span></button>)}</div>
+        {sortedRows.length ? sortedRows.map(row => <article className="contract-alert-row" key={`${tab}-${row.id}`}>
+            <div><strong>{row.reference || row.identifier || row.requestNumber || row.fileName || SUPPLIER_CERTIFICATE_LABELS[row.certificateType] || row.type || 'Solicitação'}</strong><span>{row.supplierName || row.supplierCnpj || 'Fornecedor'} · {row.description || row.title || row.object || row.competence || (row.issuedAt || row.validUntil ? `Emitida ${row.issuedAt || '—'} · Vence ${row.validUntil || '—'}` : 'Sem descrição')}</span><small>{row.statusLabel || row.status || 'Recebido'}{row.amount != null ? ` · ${money(row.amount)}` : ''}</small></div>
+            {row.fileUrl && <a href={row.fileUrl} target="_blank" rel="noreferrer">Abrir arquivo</a>}
+        </article>) : <p className="administrative-muted">Nenhum registro recebido nesta categoria.</p>}
+        {requestModal && <div className="supplier-request-backdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && setRequestModal(false)}><form className="supplier-request-modal" onSubmit={createSupplierRequest}>
+            <header><div><h2>Enviar solicitação ao fornecedor</h2><p>Cadastre uma ordem de serviço, empenho ou ordem de compra.</p></div><button type="button" aria-label="Fechar" onClick={() => setRequestModal(false)}><LiaTimesSolid /></button></header>
+            <div className="supplier-request-form-grid">
+                <label className="full"><span>Fornecedor *</span><select required value={requestForm.supplierId} onChange={event => { updateRequest('supplierId', event.target.value); updateRequest('contractId', ''); }}><option value="">Selecione a empresa</option>{companies.map(company => <option key={company.id} value={company.id}>{company.tradeName || company.legalName || company.nome || company.name} — {company.cnpj}</option>)}</select></label>
+                <label><span>Tipo *</span><select required value={requestForm.type} onChange={event => updateRequest('type', event.target.value)}><option value="service_order">Ordem de serviço</option><option value="commitment">Empenho</option><option value="purchase_order">Ordem de compra</option><option value="other">Outra solicitação</option></select></label>
+                <label><span>Número / identificação</span><input value={requestForm.identifier} onChange={event => updateRequest('identifier', event.target.value)} placeholder="OS 012/2026" /></label>
+                <label className="full"><span>Contrato relacionado</span><select value={requestForm.contractId} onChange={event => updateRequest('contractId', event.target.value)}><option value="">Sem contrato vinculado</option>{companyContracts.map(contract => <option key={contract.id} value={contract.id}>{contract.identifier || contract.contractNumber} — {contract.object}</option>)}</select></label>
+                <label className="full"><span>Título *</span><input required value={requestForm.title} onChange={event => updateRequest('title', event.target.value)} /></label>
+                <label><span>Valor</span><input type="number" min="0" step="0.01" value={requestForm.amount} onChange={event => updateRequest('amount', event.target.value)} /></label>
+                <label className="full"><span>Descrição e instruções *</span><textarea required rows="4" value={requestForm.description} onChange={event => updateRequest('description', event.target.value)} /></label>
+                <label className="full"><span>Documento da ordem ou empenho (PDF, imagem)</span><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={event => updateRequest('file', event.target.files?.[0] || null)} /></label>
+            </div>
+            <footer><button type="button" className="secondary-button" onClick={() => setRequestModal(false)}>Cancelar</button><button className="primary-button" disabled={requestState.saving}>{requestState.saving ? 'Enviando...' : 'Enviar ao fornecedor'}</button></footer>
+        </form></div>}
     </section>;
 }
 
@@ -176,25 +286,98 @@ function ContractForm() {
 
 function ContractDetail({ contractId }) {
     const [contract, setContract] = useState(null); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
-    const [activity, setActivity] = useState({ type: 'inspection', description: '', measuredValue: '', saving: false, message: '' });
+    const [contractDocuments, setContractDocuments] = useState([]);
+    const documentIdsKey = contractDocuments.map(item => item.id).join('|');
+    const [supplierReturns, setSupplierReturns] = useState([]);
+    const [documentForm, setDocumentForm] = useState({ documentType: 'contract', description: '', sendForSignature: true, file: null });
+    const [documentState, setDocumentState] = useState({ saving: false, message: '', error: '' });
+    const [activity, setActivity] = useState({ type: 'inspection', description: '', measuredValue: '', supplierVisible: true, saving: false, message: '' });
     useEffect(() => onSnapshot(doc(firestore, 'contracts', contractId), snapshot => { setContract(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null); setLoading(false); }, err => { setError(err.message); setLoading(false); }), [contractId]);
+    useEffect(() => onSnapshot(collection(firestore, 'contracts', contractId, 'documents'), snapshot => {
+        setContractDocuments(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
+    }, err => setDocumentState({ saving: false, message: '', error: err.message })), [contractId]);
+    useEffect(() => {
+        const subscriptions = contractDocuments.map(documentRow => onSnapshot(
+            collection(doc(firestore, 'contracts', contractId, 'documents', documentRow.id), 'supplierReturns'),
+            snapshot => setSupplierReturns(current => [
+                ...current.filter(item => item.documentId !== documentRow.id),
+                ...snapshot.docs.map(item => ({ id: item.id, documentId: documentRow.id, ...item.data() })),
+            ]),
+            err => setDocumentState({ saving: false, message: '', error: err.message }),
+        ));
+        return () => subscriptions.forEach(unsubscribe => unsubscribe());
+    }, [documentIdsKey, contractId]);
     if (loading) return <Loading />; if (error) return <ErrorState message={error} />; if (!contract) return <AdministrativeEmptyState icon={LiaFileContractSolid} title="Contrato não encontrado" description="O registro solicitado não existe ou não está disponível para seu perfil." />;
     const actionMap = { inspection: 'addInspection', occurrence: 'addOccurrence', measurement: 'addMeasurement', obligation: 'addObligation' };
     const submit = async event => { event.preventDefault(); setActivity(current => ({ ...current, saving: true, message: '' })); try { await AdministrativeCommandService.run('contratos', actionMap[activity.type], { contractId, description: activity.description, measuredValue: activity.measuredValue }); setActivity(current => ({ ...current, description: '', measuredValue: '', saving: false, message: 'Registro incluído com sucesso.' })); } catch (err) { setActivity(current => ({ ...current, saving: false, message: err.message })); } };
+    const uploadContractDocument = async event => {
+        event.preventDefault();
+        if (!documentForm.file) return;
+        setDocumentState({ saving: true, message: '', error: '' });
+        try {
+            const safeName = documentForm.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const storagePath = `contracts/${contractId}/documents/${Date.now()}-${safeName}`;
+            const storageRef = ref(storage, storagePath);
+            await uploadBytes(storageRef, documentForm.file, { contentType: documentForm.file.type });
+            const documentTypeLabel = { contract: 'Contrato', addendum: 'Aditivo', apostille: 'Apostilamento', annex: 'Termo ou anexo', other: 'Outro documento' }[documentForm.documentType];
+            await AdministrativeCommandService.run('contratos', 'addDocument', {
+                contractId, name: documentForm.file.name, fileName: documentForm.file.name,
+                storagePath, url: await getDownloadURL(storageRef), mimeType: documentForm.file.type,
+                size: documentForm.file.size, version: 1, documentType: documentForm.documentType,
+                documentTypeLabel, description: documentForm.description.trim(),
+                requiresSupplierSignature: documentForm.sendForSignature,
+                supplierUploadAllowed: documentForm.sendForSignature,
+                signatureStatus: documentForm.sendForSignature ? 'awaiting_supplier' : 'not_required',
+            });
+            setDocumentForm({ documentType: 'contract', description: '', sendForSignature: true, file: null });
+            setDocumentState({ saving: false, message: documentForm.sendForSignature ? 'Documento enviado ao portal da empresa para assinatura.' : 'Documento anexado ao contrato.', error: '' });
+        } catch (err) {
+            setDocumentState({ saving: false, message: '', error: err.message || 'Não foi possível anexar o documento.' });
+        }
+    };
+    const reviewSupplierReturn = async (returnRow, decision) => {
+        setDocumentState({ saving: true, message: '', error: '' });
+        try {
+            await AdministrativeCommandService.run('contratos', 'reviewSupplierSignature', {
+                contractId, documentId: returnRow.documentId, returnId: returnRow.id, decision,
+                note: decision === 'accept' ? 'Assinatura recebida e conferida.' : 'Solicitamos o reenvio da via assinada.',
+            });
+            setDocumentState({ saving: false, message: decision === 'accept' ? 'Assinatura confirmada.' : 'Reenvio solicitado à empresa.', error: '' });
+        } catch (err) {
+            setDocumentState({ saving: false, message: '', error: err.message || 'Não foi possível atualizar a assinatura.' });
+        }
+    };
     const progress = contract.currentValue ? Math.min(100, (Number(contract.executedValue || 0) / Number(contract.currentValue)) * 100) : 0;
     return <>
         <section className="data-card contract-detail-header"><div><span>{contract.identifier}</span><h2>Contrato {contract.contractNumber}</h2><p>{contract.object}</p></div><StatusBadge value={contract.status} /></section>
         <section className="contract-detail-grid">{[['Fornecedor', contract.supplierName], ['Vigência', `${dateLabel(contract.startsAt)} a ${dateLabel(contract.endsAt)}`], ['Gestor', contract.managerName || 'Não definido'], ['Fiscal titular', contract.inspectorName || 'Não definido'], ['Valor atualizado', money(contract.currentValue)], ['Valor executado', money(contract.executedValue)]].map(([label, value]) => <article className="data-card" key={label}><span>{label}</span><strong>{value}</strong></article>)}</section>
         <section className="data-card administrative-section-card"><div className="administrative-section-heading"><div><h2>Execução financeira</h2><p>{progress.toFixed(1)}% do valor atualizado.</p></div><strong>{money(Number(contract.currentValue || 0) - Number(contract.executedValue || 0))} de saldo</strong></div><div className="contract-progress"><span style={{ width: `${progress}%` }} /></div></section>
-        <section className="data-card administrative-section-card"><h2>Registrar atividade</h2><form className="contract-activity-form" onSubmit={submit}><label><span>Tipo</span><select value={activity.type} onChange={event => setActivity(current => ({ ...current, type: event.target.value }))}><option value="inspection">Fiscalização</option><option value="occurrence">Ocorrência</option><option value="measurement">Medição</option><option value="obligation">Obrigação</option></select></label>{activity.type === 'measurement' && <label><span>Valor medido</span><input required type="number" min="0" step="0.01" value={activity.measuredValue} onChange={event => setActivity(current => ({ ...current, measuredValue: event.target.value }))} /></label>}<label className="full"><span>Descrição *</span><textarea required rows="4" value={activity.description} onChange={event => setActivity(current => ({ ...current, description: event.target.value }))} /></label><div className="full administrative-form-actions">{activity.message && <span>{activity.message}</span>}<button className="primary-button" disabled={activity.saving}>{activity.saving ? 'Registrando...' : 'Registrar atividade'}</button></div></form></section>
+        <section className="data-card administrative-section-card"><div className="administrative-section-heading"><div><h2>Documentos e assinaturas</h2><p>Anexe contratos e aditivos e envie a via correspondente ao fornecedor para assinatura.</p></div></div>
+            {documentState.error && <ErrorState message={documentState.error} />}{documentState.message && <p className="supplier-admin-success">{documentState.message}</p>}
+            <PermissionGate permission="contratos.editar"><form className="contract-document-form" onSubmit={uploadContractDocument}>
+                <label><span>Tipo de documento</span><select value={documentForm.documentType} onChange={event => setDocumentForm(current => ({ ...current, documentType: event.target.value }))}><option value="contract">Contrato</option><option value="addendum">Aditivo contratual</option><option value="apostille">Apostilamento</option><option value="annex">Termo ou anexo</option><option value="other">Outro documento</option></select></label>
+                <label><span>Arquivo PDF</span><input required type="file" accept=".pdf,application/pdf" onChange={event => setDocumentForm(current => ({ ...current, file: event.target.files?.[0] || null }))} /></label>
+                <label className="contract-document-description"><span>Descrição</span><input value={documentForm.description} onChange={event => setDocumentForm(current => ({ ...current, description: event.target.value }))} placeholder="Ex.: contrato para assinatura, 1º aditivo" /></label>
+                <label className="contract-send-signature"><input type="checkbox" checked={documentForm.sendForSignature} onChange={event => setDocumentForm(current => ({ ...current, sendForSignature: event.target.checked }))} /><span>Disponibilizar para a empresa baixar, assinar e devolver</span></label>
+                <button className="primary-button" disabled={documentState.saving}>{documentState.saving ? 'Enviando...' : documentForm.sendForSignature ? 'Enviar para assinatura' : 'Anexar documento'}</button>
+            </form></PermissionGate>
+            <div className="contract-managed-documents">{contractDocuments.length ? contractDocuments.map(documentRow => {
+                const returns = supplierReturns.filter(item => item.documentId === documentRow.id).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                const latestReturn = returns[0];
+                return <article className="contract-managed-document" key={documentRow.id}><div><strong>{documentRow.documentTypeLabel || documentRow.documentType || 'Documento contratual'} · {documentRow.name || documentRow.fileName}</strong><span>{documentRow.description || 'Sem descrição'}</span><small>{documentRow.requiresSupplierSignature ? `Assinatura: ${documentRow.signatureStatus === 'signed' ? 'confirmada pela Câmara' : latestReturn ? 'via assinada recebida' : 'aguardando empresa'}` : 'Documento disponível para consulta'}</small></div>{documentRow.url && <a href={documentRow.url} target="_blank" rel="noreferrer">Abrir via enviada</a>}
+                    {returns.map(returnRow => <div className="contract-supplier-return" key={returnRow.id}><span><strong>Via assinada pela empresa</strong><small>{returnRow.fileName} · {dateLabel(returnRow.uploadedAt || returnRow.createdAt)} · {returnRow.status === 'accepted' ? 'Aceita' : returnRow.status === 'resubmission_requested' ? 'Reenvio solicitado' : 'Aguardando conferência'}</small></span><a href={returnRow.fileUrl} target="_blank" rel="noreferrer">Baixar via assinada</a>{returnRow.id === latestReturn?.id && returnRow.status !== 'accepted' && documentRow.requiresSupplierSignature && <PermissionGate permission="contratos.editar"><div className="contract-return-actions"><button type="button" className="secondary-button" onClick={() => reviewSupplierReturn(returnRow, 'request_resubmission')} disabled={documentState.saving}>Solicitar reenvio</button><button type="button" className="primary-button" onClick={() => reviewSupplierReturn(returnRow, 'accept')} disabled={documentState.saving}>Confirmar assinatura</button></div></PermissionGate>}</div>)}
+                </article>;
+            }) : <p className="administrative-muted">Nenhum documento anexado a este contrato.</p>}</div>
+        </section>
+        <section className="data-card administrative-section-card"><h2>Registrar atividade</h2><form className="contract-activity-form" onSubmit={submit}><label><span>Tipo</span><select value={activity.type} onChange={event => setActivity(current => ({ ...current, type: event.target.value }))}><option value="inspection">Fiscalização</option><option value="occurrence">Ocorrência</option><option value="measurement">Medição</option><option value="obligation">Obrigação</option></select></label>{activity.type === 'measurement' && <label><span>Valor medido</span><input required type="number" min="0" step="0.01" value={activity.measuredValue} onChange={event => setActivity(current => ({ ...current, measuredValue: event.target.value }))} /></label>}<label className="full"><span>Descrição *</span><textarea required rows="4" value={activity.description} onChange={event => setActivity(current => ({ ...current, description: event.target.value }))} /></label>{activity.type === 'occurrence' && <label className="contract-supplier-visibility full"><input type="checkbox" checked={activity.supplierVisible} onChange={event => setActivity(current => ({ ...current, supplierVisible: event.target.checked }))} /><span>Compartilhar esta ocorrência com o fornecedor vinculado</span></label>}<div className="full administrative-form-actions">{activity.message && <span>{activity.message}</span>}<button className="primary-button" disabled={activity.saving}>{activity.saving ? 'Registrando...' : 'Registrar atividade'}</button></div></form></section>
     </>;
 }
 
 export default function ContractsModulePage() {
     const location = useLocation(); const navigate = useNavigate(); const { contractId } = useParams(); const { loading, rows, error } = useContracts();
-    const page = contractId ? 'detail' : location.pathname.endsWith('/novo') ? 'new' : location.pathname.endsWith('/meus') ? 'mine' : location.pathname.endsWith('/lista') ? 'list' : ['fiscalizacoes', 'ocorrencias', 'obrigacoes'].some(segment => location.pathname.endsWith(`/${segment}`)) ? 'list' : 'dashboard';
-    const titles = { dashboard: ['Fiscalização de Contratos', 'Acompanhe vigência, execução, ocorrências e obrigações contratuais.'], list: ['Contratos', 'Consulte e gerencie os contratos cadastrados.'], mine: ['Meus contratos', 'Contratos sob sua gestão ou fiscalização.'], new: ['Cadastrar contrato', 'Registre o contrato e defina sua equipe de fiscalização.'], detail: ['Central do contrato', 'Fiscalização e acompanhamento da execução contratual.'] };
+    const page = contractId ? 'detail' : location.pathname.endsWith('/novo') ? 'new' : location.pathname.endsWith('/meus') ? 'mine' : location.pathname.endsWith('/fornecedores') ? 'supplier-documents' : location.pathname.endsWith('/lista') ? 'list' : ['fiscalizacoes', 'ocorrencias', 'obrigacoes'].some(segment => location.pathname.endsWith(`/${segment}`)) ? 'list' : 'dashboard';
+    const titles = { dashboard: ['Fiscalização de Contratos', 'Acompanhe vigência, execução, ocorrências e obrigações contratuais.'], list: ['Contratos', 'Consulte e gerencie os contratos cadastrados.'], mine: ['Meus contratos', 'Contratos sob sua gestão ou fiscalização.'], new: ['Cadastrar contrato', 'Registre o contrato e defina sua equipe de fiscalização.'], detail: ['Central do contrato', 'Fiscalização e acompanhamento da execução contratual.'], 'supplier-documents': ['Documentos das empresas', 'Analise notas fiscais, certidões, relatórios e outros documentos enviados pelos fornecedores.'] };
     return <AdministrativeModuleLayout title={titles[page][0]} description={titles[page][1]} navigation={NAVIGATION} actions={page !== 'new' && <><PermissionGate permission="contratos.criar"><ContractImport onDone={() => {}} /><button className="primary-button" onClick={() => navigate('/admin/contratos/novo')}><LiaPlusSolid /> Novo contrato</button></PermissionGate></>}>
-        {loading && page !== 'new' ? <Loading /> : error ? <ErrorState message={error} /> : page === 'dashboard' ? <Dashboard contracts={rows} /> : page === 'new' ? <ContractForm /> : page === 'detail' ? <ContractDetail contractId={contractId} /> : <ContractList contracts={rows} mine={page === 'mine'} />}
+        {loading && page !== 'new' ? <Loading /> : error ? <ErrorState message={error} /> : page === 'dashboard' ? <Dashboard contracts={rows} /> : page === 'new' ? <ContractForm /> : page === 'detail' ? <ContractDetail contractId={contractId} /> : page === 'supplier-documents' ? <SupplierDocuments /> : <ContractList contracts={rows} mine={page === 'mine'} />}
     </AdministrativeModuleLayout>;
 }

@@ -86,6 +86,8 @@ import AssetsModulePage from './modules/assets';
 import MaintenanceModulePage from './modules/maintenance';
 import FleetModulePage from './modules/fleet';
 import AdministrativeReports from './pages/pagesAdmin/AdministrativeReports';
+import SupplierPortal from './pages/pagesUser/SupplierPortal';
+import CompanyRegistration from './pages/CompanyRegistration';
 import AdminEscolaParlamento from './pages/pagesAdmin/AdminEscolaParlamento';
 import EscolaParlamento from './pages/pagesUser/EscolaParlamento';
 import NoticiasPortal from './pages/pagesUser/NoticiasPortal';
@@ -117,6 +119,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cadastro" element={<CadastroPage />} />
+          <Route path="/cadastro/empresa" element={<ModuleRoute surface="portal" enabledBy="contratos"><CompanyRegistration /></ModuleRoute>} />
           <Route path="/download-app" element={<DownloadApp />} />
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/noticia/:id" element={<NoticiaDetalhe />} />
@@ -194,6 +197,7 @@ function App() {
           <Route path="/admin-vereadores" element={<ModuleRoute surface="admin"><AdminVereadores /></ModuleRoute>} />
           <Route path="/admin-agenda-vereadores" element={<ModuleRoute surface="admin"><AdminAgendaVereadores /></ModuleRoute>} />
           <Route path="/admin-legislativo" element={<ModuleRoute surface="admin"><AdminLegislativo /></ModuleRoute>} />
+          <Route path="/fornecedor" element={<ModuleRoute surface="portal" moduleId="contratos" enabledBy="contratos"><SupplierPortal /></ModuleRoute>} />
           <Route path="/painel-votacao/:sessionId" element={<LegislativeVotingPanel />} />
           <Route path="/admin-legislativo/sessao/nova" element={<ModuleRoute surface="admin"><AdminLegislativeEventForm mode="session" /></ModuleRoute>} />
           <Route path="/admin-legislativo/sessao/:unitId/controles" element={<ModuleRoute surface="admin"><AdminLegislativeUnit /></ModuleRoute>} />
