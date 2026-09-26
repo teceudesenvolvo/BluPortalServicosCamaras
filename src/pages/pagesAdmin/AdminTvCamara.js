@@ -6,6 +6,7 @@ import {
     doc,
     getDocs,
     limit,
+    onSnapshot,
     orderBy,
     query,
     serverTimestamp,
@@ -15,6 +16,8 @@ import {
     LiaExternalLinkAltSolid,
     LiaKeySolid,
     LiaLinkSolid,
+    LiaMicrophoneSolid,
+    LiaCopySolid,
     LiaPlayCircleSolid,
     LiaPlusSolid,
     LiaSyncSolid,
@@ -22,7 +25,8 @@ import {
     LiaTvSolid,
 } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
-import { auth, firestore } from '../../firebase';
+import { auth, firestore, functions } from '../../firebase';
+import { httpsCallable } from 'firebase/functions';
 import {
     buildPlayerUrl,
     extractYoutubeVideoId,
@@ -48,6 +52,16 @@ const formatLogDate = (value) => {
     return date.toLocaleString('pt-BR');
 };
 
+const plainTextFromTranscript = value => {
+    const raw = typeof value === 'string' ? value : value?.html || value?.transcript || '';
+    if (!raw) return '';
+    const parsed = new DOMParser().parseFromString(raw, 'text/html');
+    return (parsed.body.textContent || raw.replace(/<[^>]*>/g, ''))
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+};
+
 const AdminTvCamara = () => {
     const [manualVideos, setManualVideos] = useState([]);
     const [endpointVideos, setEndpointVideos] = useState([]);
@@ -62,6 +76,12 @@ const AdminTvCamara = () => {
     const [oauthResult, setOauthResult] = useState('');
     const [activeLogFunction, setActiveLogFunction] = useState('all');
     const [error, setError] = useState('');
+    const [transcriptionVideoId, setTranscriptionVideoId] = useState('');
+    const [transcriptionRunning, setTranscriptionRunning] = useState(false);
+    const [transcriptionStatus, setTranscriptionStatus] = useState('');
+    const [transcriptionResult, setTranscriptionResult] = useState(null);
+    const [transcriptionError, setTranscriptionError] = useState('');
+    const [transcriptionJobId, setTranscriptionJobId] = useState('');
     const [formData, setFormData] = useState({
         url: '',
         title: '',
@@ -81,6 +101,79 @@ const AdminTvCamara = () => {
         totalLogs: logs.filter(log => (log.functionName || log.functionId) === youtubeFunction.id || (log.functionName || log.functionId) === youtubeFunction.name).length,
     })), [logs]);
     const youtubeFunctionCards = useMemo(() => youtubeFunctions.filter(item => item.type !== 'firestore-action'), []);
+
+    useEffect(() => {
+        if (!transcriptionJobId) return undefined;
+        return onSnapshot(doc(firestore, 'tv-camara-transcriptions', transcriptionJobId), snapshot => {
+            if (!snapshot.exists()) {
+                setTranscriptionRunning(false);
+                setTranscriptionError('O processamento não foi encontrado.');
+                return;
+            }
+            const job = snapshot.data();
+            const statusMessages = {
+                queued: 'Aguardando início do processamento...',
+                processing: 'Extraindo a transcrição do vídeo...',
+                completed: 'Transcrição concluída.',
+            };
+            if (job.status === 'completed') {
+                setTranscriptionResult({ transcript: job.transcription, language: job.language });
+                setTranscriptionStatus(statusMessages.completed);
+                setTranscriptionRunning(false);
+            } else if (job.status === 'error') {
+                setTranscriptionError(job.error || 'Não foi possível transcrever este vídeo.');
+                setTranscriptionStatus('');
+                setTranscriptionRunning(false);
+            } else {
+                setTranscriptionStatus(statusMessages[job.status] || 'Processando transcrição...');
+            }
+        }, subscriptionError => {
+            setTranscriptionError(subscriptionError.message || 'Não foi possível acompanhar a transcrição.');
+            setTranscriptionRunning(false);
+        });
+    }, [transcriptionJobId]);
+
+    const handleTranscribeYoutube = async event => {
+        event.preventDefault();
+        const video = mergedVideos.find(item => item.videoId === transcriptionVideoId);
+        if (!video) {
+            setTranscriptionError('Selecione um vídeo disponível na playlist da TV Câmara.');
+            return;
+        }
+        if (!auth.currentUser) {
+            setTranscriptionError('Sua sessão expirou. Entre novamente para transcrever.');
+            return;
+        }
+        setTranscriptionRunning(true);
+        setTranscriptionError('');
+        setTranscriptionResult(null);
+        setTranscriptionStatus('Enviando solicitação ao portal...');
+
+        try {
+            const response = await httpsCallable(functions, 'startTvCamaraTranscription')({
+                videoId: video.videoId,
+                videoTitle: video.title || 'Sessão da TV Câmara',
+                videoSource: video.source || 'playlist',
+            });
+            setTranscriptionJobId(response.data.jobId);
+            setTranscriptionStatus('Transcrição enviada para processamento.');
+        } catch (transcriptionFailure) {
+            setTranscriptionError(transcriptionFailure.message || 'Não foi possível iniciar a transcrição.');
+            setTranscriptionStatus('');
+            setTranscriptionRunning(false);
+        }
+    };
+
+    const handleCopyTranscription = async () => {
+        const text = plainTextFromTranscript(transcriptionResult);
+        if (!text) return;
+        try {
+            await navigator.clipboard.writeText(text);
+            setTranscriptionStatus('Transcrição copiada para a área de transferência.');
+        } catch (copyError) {
+            setTranscriptionError(copyError.message || 'Não foi possível copiar o texto.');
+        }
+    };
 
     const getAuthHeaders = async () => {
         const token = await auth.currentUser?.getIdToken();
@@ -269,9 +362,21 @@ const AdminTvCamara = () => {
                 durationMs: result.durationMs,
                 videosCount: result.videos.length,
                 endpoint: videosEndpoint,
-                message: `Listagem concluída com ${result.videos.length} vídeo(s).`,
+                message: `Listagem concluída com ${result.videos.length} vídeo(s)` +
+                    `${result.payload?.playlistId ? ` da playlist ${result.payload.playlistId}` : ''}` +
+                    `${Number.isFinite(result.payload?.apiReportedTotal) ? ` · YouTube informa ${result.payload.apiReportedTotal} item(ns)` : ''}` +
+                    `${Number.isFinite(result.payload?.pageCount) ? ` · ${result.payload.pageCount} página(s)` : ''}` +
+                    `${result.payload?.source ? ` · fonte ${result.payload.source}` : ''}` +
+                    `${result.fallback ? ` · contingência após erro: ${result.primaryError}` : ''}.`,
                 details: {
                     payloadKeys: Object.keys(result.payload || {}),
+                    playlistId: result.payload?.playlistId || null,
+                    reportedTotal: result.payload?.total ?? null,
+                    apiReportedTotal: result.payload?.apiReportedTotal ?? null,
+                    pageCount: result.payload?.pageCount ?? null,
+                    source: result.payload?.source || null,
+                    fallback: Boolean(result.fallback),
+                    primaryError: result.primaryError || null,
                 },
             });
 
@@ -538,6 +643,41 @@ const AdminTvCamara = () => {
                 {error && <div className="error-message-inline">{error}</div>}
 
                 <main className="admin-tv-camara-grid">
+                    <section className="data-card admin-tv-camara-transcription-card">
+                        <div className="card-header">
+                            <h3><LiaMicrophoneSolid /> Transcrever sessão</h3>
+                            <span>YouTube · legenda oficial</span>
+                        </div>
+                        <p className="admin-tv-camara-transcription-help">A transcrição usa as faixas de legenda publicadas ou automáticas do YouTube, acessadas pelo OAuth do canal configurado neste portal. O texto e o histórico do processamento ficam no Firestore do projeto.</p>
+                        <form className="admin-tv-camara-transcription-form" onSubmit={handleTranscribeYoutube}>
+                            <label htmlFor="tv-camara-transcription-video">Vídeo da playlist</label>
+                            <div className="admin-tv-camara-transcription-entry">
+                                <select
+                                    id="tv-camara-transcription-video"
+                                    value={transcriptionVideoId}
+                                    onChange={event => setTranscriptionVideoId(event.target.value)}
+                                    disabled={transcriptionRunning}
+                                >
+                                    <option value="">{mergedVideos.length ? 'Selecione um vídeo da playlist' : 'Nenhum vídeo disponível'}</option>
+                                    {mergedVideos.map(video => <option key={`${video.source}-${video.id || video.videoId}`} value={video.videoId}>{video.title} · {video.source === 'manual' ? 'Manual' : 'YouTube'}</option>)}
+                                </select>
+                                <button type="submit" className="btn-primary" disabled={transcriptionRunning || !transcriptionVideoId}>
+                                    <LiaMicrophoneSolid /> {transcriptionRunning ? 'Processando...' : 'Transcrever sessão'}
+                                </button>
+                            </div>
+                            {transcriptionVideoId && <small className="admin-tv-camara-transcription-selected">{mergedVideos.find(video => video.videoId === transcriptionVideoId)?.title || ''}</small>}
+                        </form>
+                        {transcriptionStatus && <p className="admin-tv-camara-transcription-status" role="status">{transcriptionStatus}</p>}
+                        {transcriptionError && <div className="error-message-inline" role="alert">{transcriptionError}</div>}
+                        {transcriptionResult && <div className="admin-tv-camara-transcription-result">
+                            <div className="admin-tv-camara-transcription-result-header">
+                                <div><strong>Transcrição concluída</strong><small>Revise o texto antes de utilizá-lo em documentos oficiais.</small></div>
+                                <button type="button" className="btn-secondary" onClick={handleCopyTranscription}><LiaCopySolid /> Copiar texto</button>
+                            </div>
+                            {transcriptionResult.language && <dl><div><dt>Idioma</dt><dd>{transcriptionResult.language}</dd></div></dl>}
+                            <pre>{plainTextFromTranscript(transcriptionResult) || 'O processamento foi concluído, mas não retornou texto para exibição.'}</pre>
+                        </div>}
+                    </section>
                     <section className="data-card admin-tv-camara-functions-card">
                         <div className="card-header">
                             <h3><LiaTvSolid /> Funções YouTube</h3>
@@ -577,7 +717,7 @@ const AdminTvCamara = () => {
                         <div className="admin-tv-camara-oauth-panel">
                             <div className="admin-tv-camara-oauth-copy">
                                 <strong>Client ID e Client Secret continuam protegidos no Firebase.</strong>
-                                <p>Use este fluxo apenas quando o Google informar token expirado, revogado ou `invalid_grant`. O portal gera a URL, você autoriza a conta do canal e cola a URL final para gravar uma nova versão do secret.</p>
+                                <p>A transcrição exige os escopos <code>youtube</code> e <code>youtube.force-ssl</code>. Se a autorização anterior não incluiu esses acessos, remova “Portal de Serviços” das permissões da sua Conta Google, gere uma nova autorização, escolha a conta proprietária do canal, aceite os escopos e cole a URL de retorno. O Google também exige permissão de edição do vídeo para baixar a faixa de legendas.</p>
                             </div>
                             <div className="admin-tv-camara-oauth-actions">
                                 <button
@@ -607,7 +747,7 @@ const AdminTvCamara = () => {
                                         rows="3"
                                         value={oauthCallbackUrl}
                                         onChange={(event) => setOauthCallbackUrl(event.target.value)}
-                                        placeholder="http://localhost/?code=4/0Adk...&scope=https://www.googleapis.com/auth/youtube"
+                                        placeholder="http://localhost/?code=4/0Adk...&scope=https://www.googleapis.com/auth/youtube.force-ssl"
                                     />
                                 </label>
                                 <button
@@ -622,8 +762,8 @@ const AdminTvCamara = () => {
                             </div>
                             {oauthResult && <div className="success-message-inline">{oauthResult}</div>}
                             <div className="admin-tv-camara-oauth-note">
-                                <strong>Para evitar novas revogações:</strong>
-                                mantenha a tela de consentimento em produção, use sempre a mesma conta do canal e o mesmo OAuth Client, não gere tokens repetidos sem necessidade e não remova o acesso em myaccount.google.com/permissions.
+                                <strong>Importante:</strong>
+                                o portal confirma que o Google concedeu <code>youtube.force-ssl</code> antes de salvar. Se o erro persistir, confira os escopos informados pela Function e conecte uma conta com permissão de edição sobre o vídeo.
                             </div>
                         </div>
                     </section>

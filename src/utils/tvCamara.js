@@ -8,8 +8,8 @@ export const youtubeFunctionInvokerEndpoint = `${appFunctionsBaseUrl}/invokeYout
 export const youtubeSyncLogsEndpoint = `${appFunctionsBaseUrl}/syncYoutubeFunctionLogs`;
 export const youtubeOAuthUrlEndpoint = `${appFunctionsBaseUrl}/getYoutubeOAuthUrl`;
 export const youtubeRefreshTokenEndpoint = `${appFunctionsBaseUrl}/updateYoutubeRefreshToken`;
-export const videosEndpoint = `${youtubeFunctionsBaseUrl}/listarVideosTvCamara`;
-export const fallbackVideosEndpoint = `${appFunctionsBaseUrl}/listarVideosTvCamaraFallback`;
+export const videosEndpoint = `${appFunctionsBaseUrl}/listarVideosTvCamaraFallback`;
+export const fallbackVideosEndpoint = `${youtubeFunctionsBaseUrl}/listarVideosTvCamara`;
 export const tvCamaraPlaylistCollection = 'tv-camara-playlist';
 export const tvCamaraLogsCollection = 'tv-camara-logs';
 
@@ -158,9 +158,9 @@ const requestVideosEndpoint = async (endpoint, source = 'endpoint') => {
 
 export const fetchEndpointVideos = async () => {
     try {
-        return await requestVideosEndpoint(videosEndpoint, 'endpoint');
+        return await requestVideosEndpoint(videosEndpoint, 'youtube-data-api');
     } catch (primaryError) {
-        const fallbackResult = await requestVideosEndpoint(fallbackVideosEndpoint, 'public-feed');
+        const fallbackResult = await requestVideosEndpoint(fallbackVideosEndpoint, 'remote-endpoint');
         return {
             ...fallbackResult,
             primaryError: primaryError.message || 'Falha ao carregar endpoint principal.',

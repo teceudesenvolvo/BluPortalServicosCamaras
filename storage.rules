@@ -2,19 +2,62 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     function isConfiguredRoot() {
+      let controlPath = /databases/(default)/documents/system-control/portal;
+      let controlExists = request.auth != null
+        && firestore.exists(controlPath);
+      let control = controlExists ? firestore.get(controlPath).data : {};
+      let rootEmails = control.get('security', {}).get('rootEmails', []);
       return request.auth != null
-        && request.auth.token.email in firestore.get(/databases/(default)/documents/system-control/portal).data.security.rootEmails;
+        && controlExists
+        && rootEmails is list
+        && request.auth.token.get('email', '') in rootEmails;
     }
     function hasAdministrativeModuleAccess(moduleId) {
-      let profile = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
-      let control = firestore.get(/databases/(default)/documents/system-control/portal).data;
+      let profilePath = /databases/(default)/documents/users/$(request.auth.uid);
+      let controlPath = /databases/(default)/documents/system-control/portal;
+      let profileExists = request.auth != null
+        && firestore.exists(profilePath);
+      let controlExists = request.auth != null
+        && firestore.exists(controlPath);
+      let profile = profileExists ? firestore.get(profilePath).data : {};
+      let control = controlExists ? firestore.get(controlPath).data : {};
       let role = profile.get('tipo', '');
       return request.auth != null
+        && profileExists
+        && controlExists
         && control.get('modules', {}).get(moduleId, {}).get('admin', false)
-        && (isConfiguredRoot()
-          || role in ['Admin', 'Administrador']
+        && (role in ['Admin', 'Administrador']
+          || isConfiguredRoot()
+          || (moduleId == 'ged'
+            && control.get('security', {}).get('rolePermissions', {})
+              .get(role, {}).get('ged', {}).get('admin',
+                role in ['Arquivista', 'Gestor de Arquivo', 'Servidor']))
           || control.get('security', {}).get('actionPermissions', {}).get(role, {}).get(moduleId + '.visualizar', false)
           || control.get('security', {}).get('rolePermissions', {}).get(role, {}).get(moduleId, {}).get('admin', false));
+    }
+
+    function hasGedManagerAccess() {
+      let profilePath = /databases/(default)/documents/users/$(request.auth.uid);
+      let controlPath = /databases/(default)/documents/system-control/portal;
+      let profile = firestore.get(profilePath).data;
+      let control = firestore.get(controlPath).data;
+      let role = profile.get('tipo', '');
+      let rootEmails = control.get('security', {}).get('rootEmails', []);
+      let actionPermissions = control.get('security', {})
+        .get('actionPermissions', {});
+      return request.auth != null
+        && control.get('modules', {}).get('ged', {}).get('admin', false)
+        && (role in ['Admin', 'Administrador']
+          || (rootEmails is list
+            && request.auth.token.get('email', '') in rootEmails)
+          || actionPermissions.get(role, {}).get('ged.gerenciar',
+            role in ['Arquivista', 'Gestor de Arquivo']));
+    }
+
+    function canReadGedFile() {
+      return hasGedManagerAccess()
+        || (resource.metadata.get('gedAccessLevel', '') == 'internal'
+          && hasAdministrativeModuleAccess('ged'));
     }
 
     function isContractSupplier(contractId) {
@@ -33,7 +76,10 @@ service firebase.storage {
           || request.resource.contentType.matches('image/.*')
           || request.resource.contentType.matches('video/.*')
           || request.resource.contentType.matches('application/msword')
-          || request.resource.contentType.matches('application/vnd\\.openxmlformats-officedocument\\..*'));
+          || request.resource.contentType.matches('application/vnd\\.openxmlformats-officedocument\\..*')
+          || request.resource.contentType.matches('application/vnd\\.ms-(excel|powerpoint)')
+          || request.resource.contentType.matches('text/(csv|plain|xml)')
+          || request.resource.contentType.matches('application/xml'));
     }
 
     match /system-control/{tenant}/{allPaths=**} {
@@ -47,13 +93,23 @@ service firebase.storage {
     // autorizado pode criar um arquivo, mas não substituir nem apagar a prova
     // documental por acesso direto ao Storage.
     match /administrativo/{moduleId}/{entityId}/{fileName} {
-      allow read: if moduleId in ['contratos', 'almoxarifado', 'patrimonio', 'manutencao', 'frotas']
-        && hasAdministrativeModuleAccess(moduleId);
-      allow create: if moduleId in ['contratos', 'almoxarifado', 'patrimonio', 'manutencao', 'frotas']
-        && hasAdministrativeModuleAccess(moduleId)
-        && entityId.size() > 0
-        && fileName.size() > 0
-        && isAllowedAdministrativeFile();
+      allow read: if (moduleId == 'ged' && canReadGedFile())
+        || (moduleId in ['contratos', 'almoxarifado', 'patrimonio', 'manutencao', 'frotas']
+          && hasAdministrativeModuleAccess(moduleId));
+      allow create: if (moduleId == 'ged'
+          && hasGedManagerAccess()
+          && entityId.size() > 0
+          && fileName.size() > 0
+          && request.resource.metadata.get('gedUploaderUid', '')
+            == request.auth.uid
+          && request.resource.metadata.get('gedAccessLevel', '')
+            in ['internal', 'restricted', 'confidential']
+          && isAllowedAdministrativeFile())
+        || (moduleId in ['contratos', 'almoxarifado', 'patrimonio', 'manutencao', 'frotas']
+          && hasAdministrativeModuleAccess(moduleId)
+          && entityId.size() > 0
+          && fileName.size() > 0
+          && isAllowedAdministrativeFile());
       allow update, delete: if false;
     }
 

@@ -147,6 +147,7 @@ const AdminSidebar = () => {
         { title: 'Dashboard', icon: <LiaHomeSolid />, path: '/admin-dashboard', roles: ['Admin', 'Administrador', 'Protocolo', 'Servidor', 'Gestor de Setor', 'Secretaria Legislativa', 'Vereador', 'Assessor', 'Juridico', 'Procuradoria', 'Procon', 'Ouvidoria', 'Balcão', 'Recepção', 'Microempreendedor', 'Escola do Parlamento'] },
         { title: 'Protocolo e processos', icon: <LiaClipboardListSolid />, path: '/admin/protocolo', roles: ['Admin', 'Administrador', 'Protocolo', 'Servidor', 'Gestor de Setor', 'Secretaria Legislativa', 'Vereador', 'Assessor'] },
         { title: 'Fiscalização de Contratos', icon: <LiaFileContractSolid />, path: '/admin/contratos', roles: ['Admin', 'Administrador', 'Fiscal de Contrato', 'Gestor de Contrato', 'Gestor de Setor'] },
+        { title: 'Gestão de Documentos (GED)', icon: <LiaFileAltSolid />, path: '/admin/ged', roles: ['Admin', 'Administrador', 'Arquivista', 'Gestor de Arquivo', 'Servidor'] },
         { title: 'Almoxarifado', icon: <LiaBoxesSolid />, path: '/admin/almoxarifado', roles: ['Admin', 'Administrador', 'Almoxarifado', 'Gestor de Setor'] },
         { title: 'Patrimônio', icon: <LiaArchiveSolid />, path: '/admin/patrimonio', roles: ['Admin', 'Administrador', 'Patrimônio', 'Gestor de Setor'] },
         { title: 'Manutenção Patrimonial', icon: <LiaToolsSolid />, path: '/admin/manutencao', roles: ['Admin', 'Administrador', 'Manutenção', 'Gestor de Setor'] },
@@ -210,7 +211,7 @@ const AdminSidebar = () => {
     });
     const menuGroups = [
         { title: 'Atendimento', paths: ['/admin-dashboard', '/admin/protocolo', '/admin-balcao', '/recepcao', '/admin-mensagens', '/admin-whatsapp', '/admin-ouvidoria', '/admin-esic', '/admin-procuradoria', '/admin-procon', '/admin-microempreendedor'] },
-        { title: 'Gestão institucional', paths: ['/admin/contratos', '/admin/almoxarifado', '/admin/patrimonio', '/admin/manutencao', '/admin/frotas', '/admin-relatorios', '/admin-escola-parlamento', '/admin-avaliacoes', '/admin-vereadores', '/admin-agenda-vereadores', '/admin-legislativo', '/admin-piel', '/admin-noticias', '/admin-tv-camara'] },
+        { title: 'Gestão institucional', paths: ['/admin/contratos', '/admin/ged', '/admin/almoxarifado', '/admin/patrimonio', '/admin/manutencao', '/admin/frotas', '/admin-relatorios', '/admin-escola-parlamento', '/admin-avaliacoes', '/admin-vereadores', '/admin-agenda-vereadores', '/admin-legislativo', '/admin-piel', '/admin-noticias', '/admin-tv-camara'] },
         { title: 'Sistema', paths: ['/controle-sistema', '/admin-users', '/admin-notifications', '/admin-mail', '/perfil'] },
     ].map(group => ({ ...group, items: visibleMenuItems.filter(item => group.paths.includes(item.path)) }));
 

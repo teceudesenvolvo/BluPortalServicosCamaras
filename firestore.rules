@@ -104,6 +104,16 @@ service cloud.firestore {
     match /tv-camara-logs/{documentId} {
       allow read, write: if request.auth != null && (isConfiguredRoot() || isAdminProfile());
     }
+    match /tv-camara-settings/{documentId} {
+      allow read: if isConfiguredRoot()
+        || hasModuleAdminAccess('tvCamara', ['Admin', 'Administrador']);
+      allow write: if false;
+    }
+    match /tv-camara-transcriptions/{documentId} {
+      allow read: if isConfiguredRoot()
+        || hasModuleAdminAccess('tvCamara', ['Admin', 'Administrador']);
+      allow write: if false;
+    }
 
     // O cidadão pode consultar somente suas próprias solicitações do Balcão,
     // incluindo registros antigos que guardavam o identificador em dadosUsuario.id.
@@ -286,6 +296,11 @@ service cloud.firestore {
         && (isConfiguredRoot()
           || role in ['Admin', 'Administrador']
           || control.get('security', {}).get('actionPermissions', {}).get(role, {}).get(permission, role in defaults));
+    }
+    function canManageGed() {
+      return hasModuleAdminAccess('ged', ['Arquivista', 'Gestor de Arquivo'])
+        && hasAdministrativePermission(
+          'ged', 'gerenciar', ['Arquivista', 'Gestor de Arquivo']);
     }
 
     function canReadAdministrativeAudit() {
@@ -724,6 +739,59 @@ service cloud.firestore {
       allow read: if request.auth != null && resource.data.requestedBy == request.auth.uid;
       allow write: if false;
     }
+    // Arquivo GED: documentos internos podem ser consultados pela equipe
+    // autorizada; itens restritos/sigilosos ficam limitados aos gestores.
+    match /gedDocuments/{documentId} {
+      allow read: if hasAdministrativePermission(
+        'ged', 'visualizar', ['Arquivista', 'Gestor de Arquivo', 'Servidor'])
+        && (resource.data.get('accessLevel', 'internal') == 'internal'
+          || canManageGed());
+      allow create: if canManageGed()
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.category is string
+        && request.resource.data.accessLevel in ['internal', 'restricted', 'confidential']
+        && (request.resource.data.category != 'human_resources'
+          || request.resource.data.accessLevel == 'confidential')
+        && request.resource.data.status == 'active'
+        && request.resource.data.storagePath is string
+        && request.resource.data.downloadUrl is string;
+      allow update: if canManageGed()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.status in ['active', 'archived']
+        && request.resource.data.accessLevel in ['internal', 'restricted', 'confidential']
+        && (request.resource.data.category != 'human_resources'
+          || request.resource.data.accessLevel == 'confidential');
+      allow delete: if false;
+    }
+    match /gedFolders/{folderId} {
+      allow read: if hasAdministrativePermission(
+        'ged', 'visualizar', ['Arquivista', 'Gestor de Arquivo', 'Servidor']);
+      allow create: if canManageGed()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.category is string
+        && request.resource.data.parentId is string
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status == 'active';
+      allow update: if canManageGed()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.category is string
+        && request.resource.data.parentId is string
+        && request.resource.data.status in ['active', 'archived'];
+      allow delete: if false;
+    }
+    match /gedAuditLogs/{eventId} {
+      allow read: if canManageGed();
+      allow create: if canManageGed()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.documentId is string
+        && request.resource.data.action is string;
+      allow update, delete: if false;
+    }
     match /contracts/{recordId} {
       allow read: if hasAdministrativePermission('contratos', 'visualizar', ['Fiscal de Contrato', 'Gestor de Contrato', 'Gestor de Setor'])
         || (request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo in ['Empresa', 'Fornecedor']
@@ -882,18 +950,39 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    function isProtectedCollection(collectionName) {
+      return collectionName in [
+        'processes', 'processTypes', 'processFlows',
+        'documentTemplates', 'processEvents', 'protocolSettings',
+        'processCounters', 'esic-pedidos', 'esic-contadores',
+        'login-activities', 'system-control', 'vereadores',
+        'solicitacoes-vereadores', 'balcao-config',
+        'balcao-monthly-configs', 'vereadores-agenda-config',
+        'gabinetes-equipe', 'gabinetes-tarefas', 'gabinetes-eventos',
+        'gabinetes-listas', 'gabinetes-visitantes',
+        'gabinetes-mensagens', 'gabinetes-demandas-historico',
+        'gabinetes-encaminhamentos', 'gabinetes-documentos',
+        'gabinetes-pastas', 'departments', 'administrativeCounters',
+        'administrativeAuditLogs', 'administrativeExports', 'contracts',
+        'inventoryProducts', 'inventoryWarehouses', 'inventoryBatches',
+        'inventoryMovements', 'materialRequests', 'assets',
+        'assetMovements', 'assetInventories', 'assetEvents',
+        'maintenanceTickets', 'maintenanceWorkOrders',
+        'maintenancePlans', 'maintenanceSchedules', 'fleetVehicles',
+        'fleetDrivers', 'fleetFuelings', 'fleetMaintenance',
+        'fleetTires', 'fleetDocuments', 'fleetIncidents', 'fleetFines',
+        'fleetEvents', 'whatsappSettings',
+        'whatsappAutomaticMessages', 'whatsappFlows',
+        'whatsappConversations', 'whatsappMessages', 'gedDocuments',
+        'gedFolders', 'gedAuditLogs', 'tv-camara-settings',
+        'tv-camara-transcriptions'
+      ] || collectionName.matches('legislativo_.*');
+    }
+
     // Regras básicas para permitir operações autenticadas
     match /{document=**} {
       allow read, write: if request.auth != null
-        && !document.matches('processes/.*') && !document.matches('processTypes/.*') && !document.matches('processFlows/.*') && !document.matches('documentTemplates/.*') && !document.matches('processEvents/.*') && !document.matches('protocolSettings/.*') && !document.matches('processCounters/.*') && !document.matches('esic-pedidos/.*')
-        && !document.matches('esic-contadores/.*') && !document.matches('login-activities/.*')
-        && !document.matches('system-control/.*') && !document.matches('vereadores/.*') && !document.matches('solicitacoes-vereadores/.*') && !document.matches('balcao-config/.*') && !document.matches('balcao-monthly-configs/.*') && !document.matches('vereadores-agenda-config/.*') && !document.matches('gabinetes-equipe/.*') && !document.matches('gabinetes-tarefas/.*') && !document.matches('gabinetes-eventos/.*') && !document.matches('gabinetes-listas/.*') && !document.matches('gabinetes-visitantes/.*') && !document.matches('gabinetes-mensagens/.*') && !document.matches('gabinetes-demandas-historico/.*') && !document.matches('gabinetes-encaminhamentos/.*') && !document.matches('gabinetes-documentos/.*') && !document.matches('gabinetes-pastas/.*') && !document.matches('legislativo_.*')
-        && !document.matches('departments/.*') && !document.matches('administrativeCounters/.*') && !document.matches('administrativeAuditLogs/.*') && !document.matches('administrativeExports/.*')
-        && !document.matches('contracts/.*') && !document.matches('inventoryProducts/.*') && !document.matches('inventoryWarehouses/.*') && !document.matches('inventoryBatches/.*') && !document.matches('inventoryMovements/.*') && !document.matches('materialRequests/.*')
-        && !document.matches('assets/.*') && !document.matches('assetMovements/.*') && !document.matches('assetInventories/.*') && !document.matches('assetEvents/.*')
-        && !document.matches('maintenanceTickets/.*') && !document.matches('maintenanceWorkOrders/.*') && !document.matches('maintenancePlans/.*') && !document.matches('maintenanceSchedules/.*')
-        && !document.matches('fleetVehicles/.*') && !document.matches('fleetDrivers/.*') && !document.matches('fleetFuelings/.*') && !document.matches('fleetMaintenance/.*') && !document.matches('fleetTires/.*') && !document.matches('fleetDocuments/.*') && !document.matches('fleetIncidents/.*') && !document.matches('fleetFines/.*') && !document.matches('fleetEvents/.*')
-        && !document.matches('whatsappSettings/.*') && !document.matches('whatsappAutomaticMessages/.*') && !document.matches('whatsappFlows/.*') && !document.matches('whatsappConversations/.*') && !document.matches('whatsappMessages/.*');
+        && !isProtectedCollection(document[0]);
     }
   }
 }

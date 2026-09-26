@@ -77,6 +77,254 @@ exports.saveWhatsAppCredentials = onCall(
       };
     });
 
+/**
+ * Verifies the authenticated portal administrator and the TV Câmara flag.
+ * @param {object} request Callable request
+ * @return {Promise<object>} User and portal settings
+ */
+async function requireTvCamaraAdmin(request) {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Autenticação necessária.");
+  }
+  const firestore = admin.firestore();
+  const [userSnapshot, settingsSnapshot] = await Promise.all([
+    firestore.collection("users").doc(request.auth.uid).get(),
+    firestore.collection("system-control").doc("portal").get(),
+  ]);
+  const userData = userSnapshot.data() || {};
+  const portal = settingsSnapshot.data() || {};
+  const email = normalizeEmail(request.auth.token.email || "");
+  const rootEmails = (portal.security?.rootEmails || [])
+      .map(normalizeEmail);
+  const isRoot = rootEmails.includes(email);
+  const isAdmin = ["Admin", "Administrador"].includes(userData.tipo);
+  if (!isAdmin && !isRoot) {
+    throw new HttpsError(
+        "permission-denied",
+        "Apenas administradores podem usar a transcrição da TV Câmara.",
+    );
+  }
+  if (portal.modules?.tvCamara?.admin !== true && !isRoot) {
+    throw new HttpsError(
+        "failed-precondition",
+        "O módulo TV Câmara está desativado para administradores.",
+    );
+  }
+  return {userData, email, isRoot};
+}
+
+/**
+ * Creates a private transcription job for a playlist video.
+ */
+exports.startTvCamaraTranscription = onCall(
+    {cors: true}, async (request) => {
+      const {email} = await requireTvCamaraAdmin(request);
+      const videoId = String(request.data?.videoId || "").trim();
+      const videoTitle = String(
+          request.data?.videoTitle || "Sessão da TV Câmara",
+      ).trim().slice(0, 240);
+      const videoSource = String(request.data?.videoSource || "playlist")
+          .trim().slice(0, 40);
+      if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) {
+        throw new HttpsError("invalid-argument", "ID do vídeo inválido.");
+      }
+      const job = await admin.firestore()
+          .collection("tv-camara-transcriptions").add({
+            videoId,
+            videoTitle,
+            videoSource,
+            youtubeUrl: `https://www.youtube.com/watch?v=${videoId}`,
+            status: "queued",
+            createdBy: request.auth.uid,
+            createdByEmail: email,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+      return {jobId: job.id};
+    });
+
+/**
+ * Converts YouTube's VTT caption file into plain text and timestamped cues.
+ * @param {string} content VTT caption file
+ * @return {{transcript: string, segments: object[]}} Parsed transcript
+ */
+function parseYoutubeVtt(content) {
+  const lines = String(content || "").replace(/^\uFEFF/, "").split(/\r?\n/);
+  const segments = [];
+  let timestamp = "";
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const timeMatch = trimmed.match(
+        /^(\d{2}:\d{2}:\d{2}\.\d{3}|\d{2}:\d{2}\.\d{3})\s+-->/,
+    );
+    if (timeMatch) {
+      timestamp = timeMatch[1];
+      continue;
+    }
+    if (!trimmed || trimmed === "WEBVTT" || trimmed.startsWith("NOTE")) {
+      continue;
+    }
+    if (/^\d+$/.test(trimmed) || trimmed.includes("-->")) continue;
+    const text = trimmed.replace(/<[^>]*>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, "\"")
+        .replace(/&#39;|&apos;/g, "'")
+        .replace(/\s+/g, " ").trim();
+    if (text) segments.push({timestamp, text});
+  }
+  const uniqueSegments = segments.filter((segment, index) =>
+    index === 0 || segment.text !== segments[index - 1].text);
+  return {
+    transcript: uniqueSegments.map((segment) => segment.text).join(" "),
+    segments: uniqueSegments,
+  };
+}
+
+/**
+ * Gets a human-readable error from a YouTube Data API response.
+ * @param {Response} response Fetch response
+ * @param {string} operation API operation for a useful diagnosis
+ * @return {Promise<string>} API error detail
+ */
+async function youtubeApiError(response, operation) {
+  try {
+    const payload = await response.json();
+    const reason = payload.error?.errors?.[0]?.reason;
+    const apiMessage = payload.error?.message || "";
+    if (reason === "quotaExceeded") {
+      return "A cota diária da API do YouTube foi atingida.";
+    }
+    if (["insufficientPermissions", "insufficientAuthenticationScopes"]
+        .includes(reason) ||
+        /insufficient authentication scopes|insufficient.*scope/i
+            .test(apiMessage)) {
+      return "O OAuth não concedeu o escopo youtube.force-ssl. Gere uma " +
+        "nova autorização na página Admin TV Câmara, selecione a conta " +
+        "que administra o canal, aceite o acesso e atualize o refresh " +
+        "token. Se já fez isso, revogue o acesso antigo do Portal em " +
+        "myaccount.google.com/permissions e autorize novamente. " +
+        "Detalhe do YouTube: " + apiMessage;
+    }
+    if (response.status === 403 && operation === "download-caption") {
+      return "O OAuth tem acesso à faixa, mas o YouTube não autorizou o " +
+        "download. A conta Google conectada precisa ser proprietária ou " +
+        "ter permissão de edição neste vídeo. Detalhe: " + apiMessage;
+    }
+    if (response.status === 403 && operation === "list-captions") {
+      return "O YouTube bloqueou a consulta das legendas. Confirme o " +
+        "escopo youtube.force-ssl (reautorize o canal) e que a conta " +
+        "conectada tem acesso de edição ao vídeo. Detalhe: " + apiMessage;
+    }
+    return apiMessage ||
+      `A API do YouTube retornou HTTP ${response.status}.`;
+  } catch (error) {
+    return `A API do YouTube retornou HTTP ${response.status}.`;
+  }
+}
+
+/**
+ * Transcribes a YouTube video after the callable has created its job.
+ */
+exports.processTvCamaraTranscription = onDocumentCreated({
+  document: "tv-camara-transcriptions/{jobId}",
+  region: "us-central1",
+  timeoutSeconds: 540,
+  memory: "1GiB",
+  secrets: [youtubeClientId, youtubeClientSecret],
+}, async (event) => {
+  const jobSnapshot = event.data;
+  if (!jobSnapshot || jobSnapshot.data().status !== "queued") return;
+  const jobRef = jobSnapshot.ref;
+  const job = jobSnapshot.data();
+  await jobRef.update({
+    status: "processing",
+    startedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  try {
+    const accessToken = await getTvCamaraYoutubeAccessToken();
+    const captionsParams = new URLSearchParams({
+      part: "snippet",
+      videoId: job.videoId,
+    });
+    const captionsResponse = await fetch(
+        `https://youtube.googleapis.com/youtube/v3/captions?${captionsParams}`,
+        {
+          headers: {Authorization: `Bearer ${accessToken}`},
+          signal: AbortSignal.timeout(30000),
+        },
+    );
+    if (!captionsResponse.ok) {
+      throw new Error(await youtubeApiError(
+          captionsResponse, "list-captions",
+      ));
+    }
+    const captionPayload = await captionsResponse.json();
+    const availableTracks = (captionPayload.items || []).filter((track) =>
+      track.snippet?.status !== "failed" &&
+      track.snippet?.isDraft !== true,
+    );
+    if (!availableTracks.length) {
+      throw new Error(
+          "O YouTube não disponibilizou legendas para este vídeo. " +
+          "Publique uma faixa de legendas ou aguarde a geração automática " +
+          "do YouTube e tente novamente.",
+      );
+    }
+    const selectedTrack = availableTracks.sort((first, second) => {
+      const languageRank = (track) => {
+        const language = String(track.snippet?.language || "").toLowerCase();
+        if (language === "pt-br") return 0;
+        if (language === "pt") return 1;
+        return 2;
+      };
+      return languageRank(first) - languageRank(second);
+    })[0];
+    const downloadParams = new URLSearchParams({tfmt: "vtt"});
+    const downloadResponse = await fetch(
+        `https://youtube.googleapis.com/youtube/v3/captions/` +
+        `${encodeURIComponent(selectedTrack.id)}?${downloadParams}`,
+        {
+          headers: {Authorization: `Bearer ${accessToken}`},
+          signal: AbortSignal.timeout(60000),
+        },
+    );
+    if (!downloadResponse.ok) {
+      throw new Error(await youtubeApiError(
+          downloadResponse, "download-caption",
+      ));
+    }
+    const {transcript, segments} = parseYoutubeVtt(
+        await downloadResponse.text(),
+    );
+    if (!transcript) {
+      throw new Error("A faixa de legendas do YouTube está vazia.");
+    }
+    await jobRef.update({
+      status: "completed",
+      transcription: transcript,
+      segments,
+      language: selectedTrack.snippet?.language || "pt",
+      captionTrackKind: selectedTrack.snippet?.trackKind || "standard",
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Falha na transcrição da TV Câmara", {
+      jobId: event.params.jobId,
+      videoId: job.videoId,
+      message: error.message,
+    });
+    await jobRef.update({
+      status: "error",
+      error: error.message || "Não foi possível transcrever o vídeo.",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+});
+
 let secretManagerClient;
 let loggingClient;
 
@@ -293,9 +541,18 @@ exports.notificarAgendaDosGabinetes = onSchedule(
 const youtubeFunctionsBaseUrl =
     "https://southamerica-east1-blu-app-camara.cloudfunctions.net";
 const tvCamaraPublicPlaylistId = "PL2jvfc9q3EZ0CXi2qg5aDPydeCYdCsq59";
-const tvCamaraPublicChannelId = "UC-gpASXvFBoe1H6C-alYLzg";
+let tvCamaraPlaylistCache = {
+  expiresAt: 0,
+  result: {videos: [], pageCount: 0, apiReportedTotal: 0},
+};
+const youtubePlaylistCacheTtlMs = 5 * 60 * 1000;
 const youtubeOAuthRedirectUri = "http://localhost";
-const youtubeOAuthScope = "https://www.googleapis.com/auth/youtube";
+const youtubeOAuthScope =
+  "https://www.googleapis.com/auth/youtube.force-ssl";
+const youtubeOAuthScopes = [
+  "https://www.googleapis.com/auth/youtube",
+  youtubeOAuthScope,
+].join(" ");
 
 const allowedYoutubeFunctions = {
   listarVideosTvCamara: {
@@ -578,95 +835,141 @@ async function saveYoutubeRefreshTokenSecret(refreshToken) {
 }
 
 /**
- * Decodes XML entities used by YouTube public feeds.
- * @param {string} value XML text
- * @return {string} Decoded text
+ * Gets an access token for the portal's configured YouTube channel account.
+ * @return {Promise<string>} Google OAuth access token
  */
-function decodeXmlText(value) {
-  return String(value || "")
-      .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, "\"")
-      .replace(/&#39;/g, "'");
-}
-
-/**
- * Reads the first matching XML tag from a feed entry.
- * @param {string} entry Feed entry XML
- * @param {string[]} tagNames Tag names to try
- * @return {string} Tag text
- */
-function readXmlTag(entry, tagNames) {
-  for (const tagName of tagNames) {
-    const pattern = new RegExp(
-        `<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "i");
-    const match = entry.match(pattern);
-    if (match?.[1]) return decodeXmlText(match[1].trim());
+async function getTvCamaraYoutubeAccessToken() {
+  const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+  if (!projectId) {
+    throw new Error("Projeto Google Cloud não identificado.");
   }
-  return "";
+  const secretName = `projects/${projectId}/secrets/` +
+    "YOUTUBE_REFRESH_TOKEN/versions/latest";
+  const [refreshTokenVersion] = await getSecretManagerClient()
+      .accessSecretVersion({name: secretName});
+  const refreshToken = refreshTokenVersion.payload.data.toString("utf8")
+      .trim().replace(/[\r\n]+/g, "");
+  const clientId = youtubeClientId.value()?.trim();
+  const clientSecret = youtubeClientSecret.value()?.trim();
+  if (!refreshToken || !clientId || !clientSecret) {
+    throw new Error("Configure as credenciais OAuth do YouTube no portal.");
+  }
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {"Content-Type": "application/x-www-form-urlencoded"},
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }).toString(),
+    signal: AbortSignal.timeout(30000),
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload.access_token) {
+    throw new Error(payload.error_description ||
+      "Não foi possível autenticar na API do YouTube.");
+  }
+  const scopeInfoUrl = new URL("https://oauth2.googleapis.com/tokeninfo");
+  scopeInfoUrl.searchParams.set("access_token", payload.access_token);
+  const scopeInfoResponse = await fetch(scopeInfoUrl, {
+    signal: AbortSignal.timeout(15000),
+  });
+  const scopeInfo = await scopeInfoResponse.json().catch(() => ({}));
+  const grantedScopes = String(scopeInfo.scope || payload.scope || "")
+      .split(/\s+/).filter(Boolean);
+  if (!grantedScopes.includes(youtubeOAuthScope)) {
+    throw new Error(
+        "O refresh token salvo no Firebase gera um access token sem " +
+        "youtube.force-ssl. Revogue o acesso antigo do Portal em " +
+        "myaccount.google.com/permissions, gere uma nova autorização " +
+        "na página Admin TV Câmara e salve o novo refresh token. Escopos " +
+        "concedidos: " + (grantedScopes.join(", ") || "não informados") +
+        ".",
+    );
+  }
+  return payload.access_token;
 }
 
 /**
- * Converts a YouTube feed entry to the public video shape used by the portal.
- * @param {string} entry Feed entry XML
- * @param {number} position Entry position
- * @return {object|null} Normalized video
+ * Lists every item in the configured public playlist, following page tokens.
+ * @return {Promise<object[]>} Normalized YouTube playlist videos
  */
-function parseYoutubeFeedEntry(entry, position) {
-  const videoId = readXmlTag(entry, ["yt:videoId", "videoId"]) ||
-      readXmlTag(entry, ["id"]).split(":").pop();
-  if (!videoId) return null;
+async function fetchAllTvCamaraPlaylistVideos() {
+  if (tvCamaraPlaylistCache.expiresAt > Date.now()) {
+    return tvCamaraPlaylistCache.result;
+  }
 
-  const thumbnailMatch = entry.match(
-      /<media:thumbnail\b[^>]*\burl="([^"]+)"/i);
-
-  return {
-    videoId,
-    title: readXmlTag(entry, ["title"]) || "Vídeo da TV Câmara",
-    description: readXmlTag(entry, ["media:description", "description"]),
-    thumbnailUrl: thumbnailMatch?.[1] ? decodeXmlText(thumbnailMatch[1]) :
-      `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-    publishedAt: readXmlTag(entry, ["published", "updated"]) || null,
-    position,
-  };
-}
-
-/**
- * Fetches videos from the public YouTube RSS feed.
- * @return {Promise<object[]>} Public videos
- */
-async function fetchPublicTvCamaraFeedVideos() {
-  const feedUrls = [
-    `https://www.youtube.com/feeds/videos.xml?playlist_id=${tvCamaraPublicPlaylistId}`,
-    `https://www.youtube.com/feeds/videos.xml?channel_id=${tvCamaraPublicChannelId}`,
-  ];
-
-  for (const feedUrl of feedUrls) {
-    const response = await fetch(feedUrl);
+  const accessToken = await getTvCamaraYoutubeAccessToken();
+  const videos = [];
+  let pageToken = "";
+  let pageCount = 0;
+  let apiReportedTotal = null;
+  do {
+    const params = new URLSearchParams({
+      part: "snippet,contentDetails",
+      playlistId: tvCamaraPublicPlaylistId,
+      maxResults: "50",
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+    const response = await fetch(
+        `https://youtube.googleapis.com/youtube/v3/playlistItems?${params}`,
+        {
+          headers: {Authorization: `Bearer ${accessToken}`},
+          signal: AbortSignal.timeout(30000),
+        },
+    );
+    const payload = await response.json();
     if (!response.ok) {
-      console.warn(`Feed público TV Câmara retornou HTTP ${response.status}`);
-      continue;
+      throw new Error(payload.error?.message ||
+        `YouTube Data API retornou HTTP ${response.status}.`);
     }
+    apiReportedTotal = payload.pageInfo?.totalResults ?? apiReportedTotal;
 
-    const xml = await response.text();
-    const entries = xml.match(/<entry>[\s\S]*?<\/entry>/gi) || [];
-    const videos = entries
-        .map((entry, index) => parseYoutubeFeedEntry(entry, index))
-        .filter(Boolean)
-        .sort((firstVideo, secondVideo) => {
-          const firstTime = firstVideo.publishedAt ?
-            Date.parse(firstVideo.publishedAt) : 0;
-          const secondTime = secondVideo.publishedAt ?
-            Date.parse(secondVideo.publishedAt) : 0;
-          return secondTime - firstTime;
-        });
+    for (const item of payload.items || []) {
+      const snippet = item.snippet || {};
+      const videoId = snippet.resourceId?.videoId ||
+        item.contentDetails?.videoId;
+      if (!videoId) continue;
+      const thumbnails = snippet.thumbnails || {};
+      const thumbnail = thumbnails.maxres || thumbnails.standard ||
+        thumbnails.high || thumbnails.medium || thumbnails.default;
+      videos.push({
+        videoId,
+        title: snippet.title || "Vídeo da TV Câmara",
+        description: snippet.description || "",
+        thumbnailUrl: thumbnail?.url ||
+          `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+        publishedAt: item.contentDetails?.videoPublishedAt ||
+          snippet.publishedAt || null,
+        position: snippet.position ?? null,
+      });
+    }
+    pageToken = payload.nextPageToken || "";
+    pageCount += 1;
+    if (pageCount >= 200 && pageToken) {
+      throw new Error("A playlist excedeu o limite seguro de paginação.");
+    }
+  } while (pageToken);
 
-    if (videos.length > 0) return videos;
-  }
-
-  return [];
+  const uniqueVideos = Array.from(
+      new Map(videos.map((video) => [video.videoId, video])).values(),
+  ).sort((first, second) => {
+    const firstTime = first.publishedAt ? Date.parse(first.publishedAt) : 0;
+    const secondTime = second.publishedAt ? Date.parse(second.publishedAt) : 0;
+    return secondTime - firstTime;
+  });
+  const result = {
+    videos: uniqueVideos,
+    pageCount,
+    apiReportedTotal,
+  };
+  tvCamaraPlaylistCache = {
+    expiresAt: Date.now() + youtubePlaylistCacheTtlMs,
+    result,
+  };
+  return result;
 }
 
 /**
@@ -1109,7 +1412,10 @@ exports.generateNews = onRequest(
 );
 
 exports.listarVideosTvCamaraFallback = onRequest(
-    {},
+    {
+      secrets: [youtubeClientId, youtubeClientSecret],
+      timeoutSeconds: 300,
+    },
     async (req, res) => {
       applyCors(res);
 
@@ -1121,18 +1427,23 @@ exports.listarVideosTvCamaraFallback = onRequest(
       }
 
       try {
-        const videos = await fetchPublicTvCamaraFeedVideos();
+        const result = await fetchAllTvCamaraPlaylistVideos();
+        const {videos} = result;
         res.set("Cache-Control", "public, max-age=300, s-maxage=300");
         return res.json({
           ok: true,
-          source: "youtube-public-feed",
+          source: "youtube-data-api-paginated",
+          playlistId: tvCamaraPublicPlaylistId,
+          total: videos.length,
+          apiReportedTotal: result.apiReportedTotal,
+          pageCount: result.pageCount,
           videos,
         });
       } catch (error) {
-        console.error("Erro no listarVideosTvCamaraFallback:", error);
+        console.error("Erro ao listar playlist completa da TV Câmara:", error);
         return res.status(500).json({
           ok: false,
-          error: "Falha ao carregar feed público da TV Câmara.",
+          error: error.message || "Falha ao carregar a playlist da TV Câmara.",
         });
       }
     },
@@ -1866,10 +2177,10 @@ exports.getYoutubeOAuthUrl = onRequest(
         authUrl.searchParams.set("client_id", clientId);
         authUrl.searchParams.set("redirect_uri", youtubeOAuthRedirectUri);
         authUrl.searchParams.set("response_type", "code");
-        authUrl.searchParams.set("scope", youtubeOAuthScope);
+        authUrl.searchParams.set("scope", youtubeOAuthScopes);
         authUrl.searchParams.set("access_type", "offline");
-        authUrl.searchParams.set("prompt", "consent");
-        authUrl.searchParams.set("include_granted_scopes", "true");
+        authUrl.searchParams.set("prompt", "consent select_account");
+        authUrl.searchParams.set("include_granted_scopes", "false");
 
         await saveYoutubeFunctionLog({
           status: "success",
@@ -1966,6 +2277,28 @@ exports.updateYoutubeRefreshToken = onRequest(
             "Gere a URL novamente e confirme o consentimento",
             "da conta do canal.",
           ].join(" "));
+        }
+
+        let grantedScopes = tokenPayload.scope || "";
+        if (!grantedScopes && tokenPayload.access_token) {
+          const tokenInfoUrl = new URL(
+              "https://oauth2.googleapis.com/tokeninfo",
+          );
+          tokenInfoUrl.searchParams.set(
+              "access_token", tokenPayload.access_token,
+          );
+          const tokenInfoResponse = await fetch(tokenInfoUrl, {
+            signal: AbortSignal.timeout(15000),
+          });
+          const tokenInfo = await tokenInfoResponse.json().catch(() => ({}));
+          if (tokenInfoResponse.ok) grantedScopes = tokenInfo.scope || "";
+        }
+        if (!grantedScopes.split(/\s+/).includes(youtubeOAuthScope)) {
+          throw new Error(
+              "O Google não concedeu o escopo youtube.force-ssl. " +
+              "Gere uma nova URL de autorização, escolha a conta que " +
+              "administra o canal e aceite todas as permissões solicitadas.",
+          );
         }
 
         const versionName = await saveYoutubeRefreshTokenSecret(refreshToken);

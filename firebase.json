@@ -23,9 +23,12 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
-  "storage": {
-    "rules": "storage.rules"
-  },
+  "storage": [
+    {
+      "target": "portal",
+      "rules": "storage.rules"
+    }
+  ],
   "auth": {
     "providers": {}
   }

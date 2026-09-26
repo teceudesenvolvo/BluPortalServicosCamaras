@@ -13,6 +13,7 @@ export const isSystemRootEmail = (settings, email) => {
 export const SYSTEM_MODULES = [
     { id: 'protocolo', name: 'Protocolo e Processos', description: 'Protocolos, processos administrativos, tramitação, documentos e acompanhamento.', adminPaths: ['/admin/protocolo', '/admin-protocolo'], userPaths: ['/protocolo'], app: true },
     { id: 'contratos', name: 'Fiscalização de Contratos', description: 'Execução contratual, fiscalização, medições, ocorrências, obrigações e alertas.', adminPaths: ['/admin/contratos'], userPaths: ['/operacoes/contratos'], app: true, enabledByDefault: false },
+    { id: 'ged', name: 'Gestão Eletrônica de Documentos (GED)', description: 'Arquivo digital institucional para documentos contábeis, legislativos, administrativos e de gestão.', adminPaths: ['/admin/ged'], userPaths: [], app: false, enabledByDefault: false },
     { id: 'fornecedores', name: 'Portal de empresas contratadas', description: 'Relacionamento com empresas, notas fiscais, certidões, relatórios, ordens de serviço e empenhos.', adminPaths: ['/admin/contratos'], userPaths: ['/fornecedor'], app: false, enabledByDefault: false },
     { id: 'almoxarifado', name: 'Almoxarifado', description: 'Produtos, depósitos, entradas, requisições e movimentações de estoque.', adminPaths: ['/admin/almoxarifado'], userPaths: ['/operacoes/almoxarifado'], app: true, enabledByDefault: false },
     { id: 'patrimonio', name: 'Patrimônio', description: 'Bens, movimentações, responsabilidade, identificação e inventários patrimoniais.', adminPaths: ['/admin/patrimonio'], userPaths: ['/operacoes/patrimonio'], app: true, enabledByDefault: false },
@@ -42,7 +43,7 @@ export const SYSTEM_MODULES = [
     { id: 'notificacoes', name: 'Notificações', description: 'Histórico e entrega de notificações.', adminPaths: ['/admin-notifications'], userPaths: [], app: true },
 ];
 
-export const ADMINISTRATIVE_MODULE_IDS = ['contratos', 'almoxarifado', 'patrimonio', 'manutencao', 'frotas', 'recepcao'];
+export const ADMINISTRATIVE_MODULE_IDS = ['contratos', 'ged', 'almoxarifado', 'patrimonio', 'manutencao', 'frotas', 'recepcao'];
 
 export const APP_HOME_MODULE_IDS = ['protocolo', 'balcao', 'ouvidoria', 'esic', 'procuradoria', 'procon', 'microempreendedor', 'escolaParlamento', 'tvCamara', 'noticias', 'vereadores', 'piel', 'mensagens', 'avaliacoes'];
 export const DEFAULT_APP_HOME_MODULES = ['protocolo', 'balcao', 'ouvidoria', 'procuradoria', 'tvCamara'];

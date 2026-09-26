@@ -85,6 +85,7 @@ import InventoryModulePage from './modules/inventory';
 import AssetsModulePage from './modules/assets';
 import MaintenanceModulePage from './modules/maintenance';
 import FleetModulePage from './modules/fleet';
+import DocumentManagementPage from './modules/ged';
 import AdministrativeReports from './pages/pagesAdmin/AdministrativeReports';
 import SupplierPortal from './pages/pagesUser/SupplierPortal';
 import CompanyRegistration from './pages/CompanyRegistration';
@@ -187,6 +188,7 @@ function App() {
           <Route path="/admin/patrimonio/*" element={<ModuleRoute surface="admin"><AssetsModulePage /></ModuleRoute>} />
           <Route path="/admin/manutencao/*" element={<ModuleRoute surface="admin"><MaintenanceModulePage /></ModuleRoute>} />
           <Route path="/admin/frotas/*" element={<ModuleRoute surface="admin"><FleetModulePage /></ModuleRoute>} />
+          <Route path="/admin/ged/*" element={<ModuleRoute surface="admin"><DocumentManagementPage /></ModuleRoute>} />
           <Route path="/admin-relatorios" element={<ModuleRoute surface="admin"><AdministrativeReports /></ModuleRoute>} />
           <Route path="/admin-juridico" element={<ModuleRoute surface="admin"><AdminJuridico /></ModuleRoute>} />
           <Route path="/admin-noticias" element={<ModuleRoute surface="admin"><AdminNoticiasSite /></ModuleRoute>} />

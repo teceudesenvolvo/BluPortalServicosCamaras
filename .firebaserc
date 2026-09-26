@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "blu-app-camara"
-  }
+  },
+  "targets": {
+    "blu-app-camara": {
+      "storage": {
+        "portal": [
+          "blu-app-camara.firebasestorage.app"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

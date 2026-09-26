@@ -3,10 +3,10 @@ import { NavLink } from 'react-router-dom';
 import AdminSidebar from '../../../components/AdminSidebar';
 import '../administrative-core.css';
 
-export default function AdministrativeModuleLayout({ eyebrow = 'GESTÃO ADMINISTRATIVA', title, description, navigation = [], actions, children }) {
+export default function AdministrativeModuleLayout({ eyebrow = 'GESTÃO ADMINISTRATIVA', title, description, navigation = [], actions, children, className = '' }) {
     return <div className="dashboard-layout">
         <AdminSidebar />
-        <main className="dashboard-content administrative-module-page">
+        <main className={`dashboard-content administrative-module-page ${className}`}>
             <header className="page-header-container administrative-module-header">
                 <div><span>{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>
                 {actions && <div className="administrative-header-actions">{actions}</div>}
@@ -23,4 +23,3 @@ export default function AdministrativeModuleLayout({ eyebrow = 'GESTÃO ADMINIST
         </main>
     </div>;
 }
-
