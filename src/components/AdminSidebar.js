@@ -56,8 +56,8 @@ const AdminSidebarItem = ({ badge, icon, title, path, isActive, onClick }) => (
             {icon}
             {badge > 0 && <span className="sidebar-icon-badge">{badge > 99 ? '99+' : badge}</span>}
         </span>
-        <span className="sidebar-title">
-            {title}
+        <span className="sidebar-title" title={title}>
+            <span className="sidebar-label">{title}</span>
             {badge > 0 && <span className="sidebar-title-badge">{badge > 99 ? '99+' : badge}</span>}
         </span>
     </div>
@@ -152,7 +152,7 @@ const AdminSidebar = () => {
         { title: 'Patrimônio', icon: <LiaArchiveSolid />, path: '/admin/patrimonio', roles: ['Admin', 'Administrador', 'Patrimônio', 'Gestor de Setor'] },
         { title: 'Manutenção Patrimonial', icon: <LiaToolsSolid />, path: '/admin/manutencao', roles: ['Admin', 'Administrador', 'Manutenção', 'Gestor de Setor'] },
         { title: 'Gestão de Frotas', icon: <LiaCarSolid />, path: '/admin/frotas', roles: ['Admin', 'Administrador', 'Frotas', 'Gestor de Setor'] },
-        { title: 'Relatórios administrativos', icon: <LiaFileDownloadSolid />, path: '/admin-relatorios', roles: ['Admin', 'Administrador'] },
+        { title: 'Controle Interno e Compliance', icon: <LiaFileDownloadSolid />, path: '/admin-relatorios', roles: ['Admin', 'Administrador'] },
         // { title: 'Atendimentos Jurídicos', icon: <LiaGavelSolid />, path: '/admin-juridico', roles: ['Admin', 'Juridico'] },
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/admin-balcao', roles: ['Admin', 'Balcão'] },
         { title: 'Recepção', icon: <LiaClipboardListSolid />, path: '/recepcao', roles: ['Admin', 'Balcão', 'Recepção', 'Microempreendedor'] },

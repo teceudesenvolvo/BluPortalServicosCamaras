@@ -10,6 +10,7 @@ const {fleetHandlers} = require("./fleet");
 const {integrationHandlers} = require("./integrations");
 const {sweepAdministrativeAlerts} = require("./alerts");
 const {reportHandlers} = require("./reports");
+const {internalControlHandlers} = require("./internalControl");
 
 const withAlerts = (handlers) => ({
   ...handlers,
@@ -47,6 +48,10 @@ const handlers = {
     ...fleetHandlers,
     ...integrationHandlers("frotas"),
     ...reportHandlers("frotas"),
+  },
+  relatorios: {
+    ...internalControlHandlers,
+    ...reportHandlers("relatorios"),
   },
 };
 

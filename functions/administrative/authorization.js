@@ -7,6 +7,7 @@ const MODULE_ACTIONS = {
   patrimonio: ["visualizar", "criar", "movimentar", "inventariar", "baixar", "gerenciar", "configurar"],
   manutencao: ["visualizar", "solicitar", "executar", "validar", "gerenciar", "configurar"],
   frotas: ["visualizar", "registrar", "movimentar", "gerenciar", "configurar"],
+  relatorios: ["visualizar", "gerenciar"],
 };
 
 const DEFAULT_ROLES = {
@@ -15,6 +16,7 @@ const DEFAULT_ROLES = {
   patrimonio: ["Patrimônio", "Gestor de Setor"],
   manutencao: ["Manutenção", "Gestor de Setor"],
   frotas: ["Frotas", "Gestor de Setor"],
+  relatorios: [],
 };
 
 const permissionParts = (permission) => {

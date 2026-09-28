@@ -304,7 +304,9 @@ service cloud.firestore {
     }
 
     function canReadAdministrativeAudit() {
-      return (resource.data.moduleId == 'contratos'
+      return (resource.data.moduleId == 'relatorios'
+          && hasAdministrativePermission('relatorios', 'visualizar', ['Admin', 'Administrador']))
+        || (resource.data.moduleId == 'contratos'
           && hasAdministrativePermission('contratos', 'gerenciar', ['Gestor de Contrato']))
         || (resource.data.moduleId == 'almoxarifado'
           && hasAdministrativePermission('almoxarifado', 'gerenciar', ['Almoxarifado']))
@@ -739,6 +741,11 @@ service cloud.firestore {
       allow read: if request.auth != null && resource.data.requestedBy == request.auth.uid;
       allow write: if false;
     }
+    match /internalControlRecords/{recordId} {
+      allow read: if hasAdministrativePermission(
+        'relatorios', 'visualizar', ['Admin', 'Administrador']);
+      allow write: if false;
+    }
     // Arquivo GED: documentos internos podem ser consultados pela equipe
     // autorizada; itens restritos/sigilosos ficam limitados aos gestores.
     match /gedDocuments/{documentId} {
@@ -963,7 +970,8 @@ service cloud.firestore {
         'gabinetes-mensagens', 'gabinetes-demandas-historico',
         'gabinetes-encaminhamentos', 'gabinetes-documentos',
         'gabinetes-pastas', 'departments', 'administrativeCounters',
-        'administrativeAuditLogs', 'administrativeExports', 'contracts',
+        'administrativeAuditLogs', 'administrativeExports',
+        'internalControlRecords', 'contracts',
         'inventoryProducts', 'inventoryWarehouses', 'inventoryBatches',
         'inventoryMovements', 'materialRequests', 'assets',
         'assetMovements', 'assetInventories', 'assetEvents',

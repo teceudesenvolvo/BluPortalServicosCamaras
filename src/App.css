@@ -10156,6 +10156,28 @@ color: #fff !important;
   opacity: 1;
 }
 
+/* Keep long navigation labels inside the expanded sidebar. */
+.dashboard-sidebar .sidebar-item { display: flex; align-items: center; min-width: 0; }
+.dashboard-sidebar .sidebar-title,
+.dashboard-sidebar.expanded .sidebar-title {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.dashboard-sidebar .sidebar-label {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dashboard-sidebar .sidebar-title-badge { flex: 0 0 auto; }
+
 .sidebar-icon-badge,
 .sidebar-title-badge {
   background: #ef4444;
