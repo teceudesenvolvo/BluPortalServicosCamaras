@@ -809,7 +809,7 @@ const RecepcaoAtendimento = () => {
                         templateType: 'reception-welcome-app-download',
                         protocolo: docRef.id,
                         timestamp: serverTimestamp(),
-                        message: buildReceptionWelcomeEmail(requestForm.nome, config.cityCollection),
+                        message: buildReceptionWelcomeEmail(requestForm.nome, config.cityCollection, settings.integrations?.appDownloadUrl),
                     });
                     setWelcomeEmailStatus('Boas-vindas com o link do aplicativo encaminhadas para envio por e-mail.');
                 } catch (emailError) {

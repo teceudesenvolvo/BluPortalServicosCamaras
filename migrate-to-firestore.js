@@ -1,10 +1,18 @@
 const admin = require('firebase-admin');
 const serviceAccount = require('./path/to/serviceAccountKey.json'); // Baixe do Firebase Console > Configurações do Projeto > Contas de Serviço
+const projectId = process.env.FIREBASE_PROJECT_ID || serviceAccount.project_id;
+const databaseURL = process.env.FIREBASE_DATABASE_URL ||
+  serviceAccount.databaseURL ||
+  (projectId ? `https://${projectId}-default-rtdb.firebaseio.com` : '');
+
+if (!projectId || !databaseURL) {
+  throw new Error('Configure FIREBASE_PROJECT_ID ou informe project_id na conta de serviço.');
+}
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: 'https://blu-app-camara-default-rtdb.firebaseio.com',
-  projectId: 'blu-app-camara'
+  databaseURL,
+  projectId
 });
 
 const rtdb = admin.database();
@@ -54,7 +62,11 @@ async function migrateAll() {
     console.log('Iniciando migração completa para Firestore...');
 
     // Migre as principais coleções (ajuste conforme suas necessidades)
-    const cityCollection = 'paraipaba'; 
+    const tenantConfig = require('./public/tenant-config.json');
+    const cityCollection = process.env.TENANT_SLUG || tenantConfig.tenant?.slug;
+    if (!cityCollection) {
+      throw new Error('Configure TENANT_SLUG ou tenant.slug em public/tenant-config.json.');
+    }
 
     await migrateCollection(`${cityCollection}/balcao-cidadao`, 'balcao-cidadao');
     await migrateCollection(`${cityCollection}/users`, 'users');

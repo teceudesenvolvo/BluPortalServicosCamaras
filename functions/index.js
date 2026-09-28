@@ -538,8 +538,11 @@ exports.notificarAgendaDosGabinetes = onSchedule(
     },
 );
 
-const youtubeFunctionsBaseUrl =
-    "https://southamerica-east1-blu-app-camara.cloudfunctions.net";
+const functionsProjectId = process.env.GCLOUD_PROJECT ||
+    process.env.GCP_PROJECT || admin.app().options.projectId;
+const functionsRegion = process.env.FUNCTIONS_REGION || "us-central1";
+const youtubeFunctionsBaseUrl = functionsProjectId ?
+    `https://${functionsRegion}-${functionsProjectId}.cloudfunctions.net` : "";
 const tvCamaraPublicPlaylistId = "PL2jvfc9q3EZ0CXi2qg5aDPydeCYdCsq59";
 let tvCamaraPlaylistCache = {
   expiresAt: 0,
@@ -556,7 +559,7 @@ const youtubeOAuthScopes = [
 
 const allowedYoutubeFunctions = {
   listarVideosTvCamara: {
-    endpoint: `${youtubeFunctionsBaseUrl}/listarVideosTvCamara`,
+    endpoint: `${youtubeFunctionsBaseUrl}/listarVideosTvCamaraFallback`,
     method: "GET",
     label: "Listar vídeos da TV Câmara",
   },
@@ -564,11 +567,11 @@ const allowedYoutubeFunctions = {
 
 const youtubeCloudLogTargets = {
   atualizarPlaylistYoutube: {
-    functionId: "atualizarPlaylistYoutube",
-    functionName: "atualizarPlaylistYoutube",
+    functionId: "atualizarPlaylistYoutubeAutomatico",
+    functionName: "atualizarPlaylistYoutubeAutomatico",
     functionLabel: "Atualizar playlist do YouTube",
-    endpoint: `${youtubeFunctionsBaseUrl}/atualizarPlaylistYoutube`,
-    serviceName: "atualizarplaylistyoutube",
+    endpoint: `${youtubeFunctionsBaseUrl}/atualizarPlaylistYoutubeAutomatico`,
+    serviceName: "atualizarplaylistyoutubeautomatico",
   },
   youtubeChannelWebhook: {
     functionId: "youtubeChannelWebhook",
@@ -578,18 +581,18 @@ const youtubeCloudLogTargets = {
     serviceName: "youtubechannelwebhook",
   },
   renovarWebhookYoutube: {
-    functionId: "renovarWebhookYoutube",
-    functionName: "renovarWebhookYoutube",
+    functionId: "renovarWebhookYoutubeAutomatico",
+    functionName: "renovarWebhookYoutubeAutomatico",
     functionLabel: "Renovar webhook YouTube",
-    endpoint: `${youtubeFunctionsBaseUrl}/renovarWebhookYoutube`,
-    serviceName: "renovarwebhookyoutube",
+    endpoint: `${youtubeFunctionsBaseUrl}/renovarWebhookYoutubeAutomatico`,
+    serviceName: "renovarwebhookyoutubeautomatico",
   },
   listarVideosTvCamara: {
-    functionId: "listarVideosTvCamara",
-    functionName: "listarVideosTvCamara",
+    functionId: "listarVideosTvCamaraFallback",
+    functionName: "listarVideosTvCamaraFallback",
     functionLabel: "Listar vídeos da TV Câmara",
-    endpoint: `${youtubeFunctionsBaseUrl}/listarVideosTvCamara`,
-    serviceName: "listarvideostvcamara",
+    endpoint: `${youtubeFunctionsBaseUrl}/listarVideosTvCamaraFallback`,
+    serviceName: "listarvideostvcamarafallback",
   },
 };
 
@@ -2378,7 +2381,8 @@ exports.invokeYoutubeFunction = onRequest(
           return res.status(400).json({
             error: "Função YouTube não permitida para chamada manual.",
             message: "atualizarPlaylistYoutube e renovarWebhookYoutube são " +
-              "automações do projeto blu-app-camaras; youtubeChannelWebhook " +
+              "automações ainda não configuradas nesta instalação; " +
+              "youtubeChannelWebhook " +
               "é chamado apenas pelo YouTube/WebSub.",
             allowed: Object.keys(allowedYoutubeFunctions),
           });
@@ -2456,8 +2460,8 @@ exports.atualizarPlaylistYoutubeAutomatico = onSchedule(
       timeZone: "America/Fortaleza",
     },
     async () => {
-      console.log("Automação original atualizarPlaylistYoutube gerenciada " +
-          "pelo projeto blu-app-camaras. Suporte local não executa chamada.");
+      console.log("Automação atualizarPlaylistYoutube ainda não está " +
+          "habilitada nesta instalação.");
       return null;
     },
 );
@@ -2468,8 +2472,8 @@ exports.renovarWebhookYoutubeAutomatico = onSchedule(
       timeZone: "America/Fortaleza",
     },
     async () => {
-      console.log("Automação original renovarWebhookYoutube gerenciada " +
-          "pelo projeto blu-app-camaras. Suporte local não executa chamada.");
+      console.log("Automação renovarWebhookYoutube ainda não está " +
+          "habilitada nesta instalação.");
       return null;
     },
 );

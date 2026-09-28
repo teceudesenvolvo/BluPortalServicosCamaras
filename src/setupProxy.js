@@ -1,30 +1,20 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function(app) {
-  app.use(
-    '/api', // O prefixo que acionará o proxy
-    createProxyMiddleware({
-      target: 'https://www.cmpacatuba.ce.gov.br', // O servidor de destino
-      changeOrigin: true, // Essencial para que o servidor de destino aceite a requisição
-      pathRewrite: {
-        '^/api': '', // Remove o prefixo '/api' antes de enviar a requisição
-      },
-    })
-  );
+  const projectId = process.env.REACT_APP_FIREBASE_PROJECT_ID;
+  const region = process.env.REACT_APP_FUNCTIONS_REGION || 'us-central1';
+  const configuredBaseUrl = process.env.REACT_APP_FUNCTIONS_BASE_URL?.trim().replace(/\/$/, '');
+  const functionsBaseUrl = configuredBaseUrl || (projectId ?
+    `https://${region}-${projectId}.cloudfunctions.net` : '');
 
-  const functionsBaseUrl = process.env.REACT_APP_FUNCTIONS_BASE_URL ||
-      'https://us-central1-blu-app-camara.cloudfunctions.net/generateNews';
-  const functionsTarget = functionsBaseUrl.endsWith('/generateNews') ?
-      functionsBaseUrl : `${functionsBaseUrl.replace(/\/$/, '')}/generateNews`;
-
-  app.use(
-    '/generateNews', // Firebase Cloud Function proxy
-    createProxyMiddleware({
-      target: functionsTarget,
-      changeOrigin: true,
-      pathRewrite: {
-        '^/generateNews': '', // Remove prefix
-      },
-    })
-  );
+  if (functionsBaseUrl) {
+    app.use(
+      '/generateNews',
+      createProxyMiddleware({
+        target: `${functionsBaseUrl}/generateNews`,
+        changeOrigin: true,
+        pathRewrite: {'^/generateNews': ''},
+      })
+    );
+  }
 };

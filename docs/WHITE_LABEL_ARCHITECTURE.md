@@ -49,7 +49,21 @@ git commit -m "Configurar tenant da Câmara de Município"
 git push -u origin main
 ```
 
-Depois, configure `.env.local`, crie ou selecione o projeto Firebase da Câmara, publique regras, Functions e Hosting, e finalize a identidade em **Controle do sistema**.
+Depois, configure `.env.local` com as chaves do Firebase da Câmara. As URLs das Cloud Functions são derivadas automaticamente de `REACT_APP_FIREBASE_PROJECT_ID` e `REACT_APP_FUNCTIONS_REGION` (padrão `us-central1`); deixe `REACT_APP_FUNCTIONS_BASE_URL` vazio, salvo quando houver um endpoint externo intencional.
+
+O arquivo `.firebaserc` é local e ignorado pelo Git. Vincule o clone ao projeto correto antes de publicar:
+
+```bash
+firebase login
+firebase use --add
+firebase target:apply hosting portal ID_DO_SITE_FIREBASE
+firebase target:apply storage portal BUCKET_DE_STORAGE_DA_CAMARA
+firebase deploy --only firestore:rules,storage
+firebase deploy --only functions
+firebase deploy --only hosting
+```
+
+Assim, cada clone seleciona seu próprio projeto e seus destinos Hosting/Storage sem herdar um projeto da plataforma.
 
 ## Regra de personalização
 

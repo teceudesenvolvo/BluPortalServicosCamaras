@@ -49,8 +49,7 @@ const ServiceCard = ({ icon, title, description, tag, onClick }) => {
 
 const BALCAO_BALANCE_ENDPOINTS = [
     `${appFunctionsBaseUrl}/getBalcaoPublicBalance`,
-    'https://us-central1-blu-app-camara.cloudfunctions.net/getBalcaoPublicBalance',
-].filter((endpoint, index, endpoints) => endpoint && endpoints.indexOf(endpoint) === index);
+].filter(Boolean);
 
 // Componente Principal: Home Page
 const HomePage = () => {
