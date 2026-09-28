@@ -261,7 +261,7 @@ const AdminTvCamara = () => {
     const callYoutubeFunction = async (youtubeFunction, { silent = false } = {}) => {
         if (!youtubeFunction?.endpoint) return null;
         if (youtubeFunction.callable === false) {
-            const message = `${youtubeFunction.label} é gerenciada automaticamente no projeto blu-app-camaras e não deve ser chamada manualmente pelo portal.`;
+            const message = `${youtubeFunction.label} é gerenciada automaticamente nesta instalação e não deve ser chamada manualmente pelo portal.`;
             if (!silent) alert(message);
             throw new Error(message);
         }
@@ -405,7 +405,7 @@ const AdminTvCamara = () => {
         setError('');
         try {
             if (youtubeFunction.callable === false) {
-                const message = `${youtubeFunction.label} é ${youtubeFunction.statusLabel?.toLowerCase() || 'automática'} e permanece ativa no projeto blu-app-camaras.`;
+                const message = `${youtubeFunction.label} é ${youtubeFunction.statusLabel?.toLowerCase() || 'automática'} e permanece vinculada a esta instalação.`;
                 setError(message);
                 await registerYoutubeLog({
                     functionId: youtubeFunction.id,

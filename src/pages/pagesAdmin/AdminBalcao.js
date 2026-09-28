@@ -20,6 +20,7 @@ import {
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { useTheme } from '../../contexts/ThemeContext';
+import { appFunctionsBaseUrl } from '../../utils/firebaseFunctionEndpoints';
 
 // Lightbox para visualizar arquivos inline
 const FileViewerModal = ({ file, onClose }) => {
@@ -920,7 +921,7 @@ const AdminBalcaoDashboard = () => {
         const fetchAuthCount = async () => {
             try {
                 const token = await auth.currentUser.getIdToken();
-                const baseUrl = process.env.REACT_APP_FUNCTIONS_BASE_URL?.replace(/\/$/, '') || 'https://us-central1-blu-app-camara.cloudfunctions.net';
+                const baseUrl = appFunctionsBaseUrl;
                 let lastError;
 
                 for (let attempt = 0; attempt < 3; attempt += 1) {

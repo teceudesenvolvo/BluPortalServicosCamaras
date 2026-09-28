@@ -40,7 +40,7 @@ export const storage = getStorage(app);
 
 // Exporta a instância do Realtime Database
 export const db = getDatabase(app);
-export const functions = getFunctions(app, 'us-central1');
+export const functions = getFunctions(app, process.env.REACT_APP_FUNCTIONS_REGION || 'us-central1');
 
 // Exporta o app para uso futuro, se necessário
 export default app;

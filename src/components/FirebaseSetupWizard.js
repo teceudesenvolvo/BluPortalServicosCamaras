@@ -13,7 +13,7 @@ const FIELDS = [
     ['appId', 'ID do aplicativo web', 'REACT_APP_FIREBASE_APP_ID', '1:123:web:abc'],
     ['measurementId', 'Measurement ID', 'REACT_APP_FIREBASE_MEASUREMENT_ID', 'G-XXXXXXXXXX'],
     ['databaseURL', 'Realtime Database URL', 'REACT_APP_FIREBASE_DATABASE_URL', 'https://projeto-default-rtdb.firebaseio.com'],
-    ['functionsBaseUrl', 'URL base das Functions', 'REACT_APP_FUNCTIONS_BASE_URL', 'https://us-central1-projeto.cloudfunctions.net'],
+    ['functionsBaseUrl', 'URL base das Functions (opcional)', 'REACT_APP_FUNCTIONS_BASE_URL', 'Vazio usa o projectId e a região configurada'],
 ];
 const REQUIRED = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId', 'databaseURL'];
 const currentConfig = () => { const options = getApp().options; return { apiKey: options.apiKey || '', authDomain: options.authDomain || '', projectId: options.projectId || '', storageBucket: options.storageBucket || '', messagingSenderId: options.messagingSenderId || '', appId: options.appId || '', measurementId: options.measurementId || '', databaseURL: options.databaseURL || '', functionsBaseUrl: process.env.REACT_APP_FUNCTIONS_BASE_URL || '' }; };

@@ -1,6 +1,7 @@
 // src/config.js
+import tenantConfig from './tenant-config.json';
 
 const config = {
-    cityCollection: 'paraipaba' // Altere este valor para o da câmara municipal (ex: 'pacatuba')
+    cityCollection: tenantConfig.tenant?.slug || 'exemplo'
 };
 export default config;

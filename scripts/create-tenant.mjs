@@ -28,4 +28,5 @@ template.security = { rootEmails: args.rootEmail.split(',').map(email => email.t
 mkdirSync(tenantDir, { recursive: true });
 writeFileSync(resolve(tenantDir, 'tenant.config.json'), `${JSON.stringify(template, null, 2)}\n`);
 writeFileSync(resolve(projectRoot, 'public/tenant-config.json'), `${JSON.stringify(template, null, 2)}\n`);
-console.log(`Tenant ${args.slug} criado e ativado em public/tenant-config.json.`);
+writeFileSync(resolve(projectRoot, 'src/tenant-config.json'), `${JSON.stringify(template, null, 2)}\n`);
+console.log(`Tenant ${args.slug} criado e ativado em src/tenant-config.json e public/tenant-config.json.`);

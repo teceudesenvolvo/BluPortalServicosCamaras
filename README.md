@@ -61,7 +61,10 @@ REACT_APP_FIREBASE_MESSAGING_SENDER_ID=
 REACT_APP_FIREBASE_APP_ID=
 REACT_APP_FIREBASE_DATABASE_URL=
 REACT_APP_FUNCTIONS_BASE_URL=
+REACT_APP_FUNCTIONS_REGION=us-central1
 ```
+
+Com `REACT_APP_FUNCTIONS_BASE_URL` vazio, o portal monta a URL das Cloud Functions usando o project ID e a região acima.
 
 Chaves privadas e tokens OAuth devem ser configurados no Firebase/Google Secret Manager.
 
@@ -73,6 +76,8 @@ Em **Integrar APIs**, cadastre uma URL externa, indique o caminho da lista retor
 
 ```bash
 firebase use --add
+firebase target:apply hosting portal ID_DO_SITE_FIREBASE
+firebase target:apply storage portal BUCKET_DE_STORAGE_DA_CAMARA
 firebase deploy --only firestore:rules,storage
 firebase deploy --only functions
 firebase deploy --only hosting

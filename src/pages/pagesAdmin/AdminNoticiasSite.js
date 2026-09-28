@@ -11,6 +11,7 @@ import AdminSidebar from '../../components/AdminSidebar';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
+import { appFunctionsBaseUrl } from '../../utils/firebaseFunctionEndpoints';
 
 // Ícones
 import {
@@ -19,8 +20,7 @@ import {
     LiaBellSolid
 } from "react-icons/lia";
 
-const FUNCTIONS_BASE_URL = process.env.REACT_APP_FUNCTIONS_BASE_URL?.replace(/\/$/, "") ||
-    "https://us-central1-blu-app-camara.cloudfunctions.net";
+const FUNCTIONS_BASE_URL = appFunctionsBaseUrl;
 
 const AdminNoticiasSite = () => {
     const navigate = useNavigate();
