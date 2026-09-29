@@ -1,5 +1,4 @@
 import React from 'react';
-import Logo from '../assets/logo-paraipaba.png';
 
 const PreLoader = ({ message = 'Carregando portal...' }) => (
     <div className="premium-preloader" role="status" aria-live="polite">
@@ -8,7 +7,6 @@ const PreLoader = ({ message = 'Carregando portal...' }) => (
                 <span />
                 <span />
                 <span />
-                <img src={Logo} alt="" />
             </div>
             <strong>{message}</strong>
             <p>Preparando sua experiência digital</p>
