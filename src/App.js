@@ -36,6 +36,7 @@ import Ouvidoria from './pages/pagesUser/Ouvidoria';
 import NovaOuvidoria from './pages/pagesUser/NovaOuvidoria';
 import NovaOuvidoriaInterna from './pages/pagesUser/NovaOuvidoriaInterna';
 import OuvidoriaPublica from './pages/pagesUser/OuvidoriaPublica';
+import AcompanharOuvidoriaPublica from './pages/pagesUser/AcompanharOuvidoriaPublica';
 import OuvidoriaInstitucional from './pages/pagesUser/OuvidoriaInstitucional';
 import Procuradoria from './pages/pagesUser/Procuradoria';
 import NovaProcuradoria from './pages/pagesUser/NovaProcuradoria';
@@ -129,6 +130,7 @@ function App() {
           <Route path="/admin-esic" element={<ModuleRoute surface="admin"><Esic admin /></ModuleRoute>} />
           <Route path="/ouvidoria-publica" element={<OuvidoriaPublica />} />
           <Route path="/ouvidoria-publica/nova" element={<NovaOuvidoria />} />
+          <Route path="/ouvidoria-publica/acompanhar" element={<AcompanharOuvidoriaPublica />} />
           <Route path="/ouvidoria-publica/:page" element={<OuvidoriaInstitucional />} />
           <Route path="/legislativo-publico" element={<LegislativoPublico />} />
 

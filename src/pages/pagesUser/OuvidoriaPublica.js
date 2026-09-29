@@ -6,7 +6,7 @@ import { LiaBullhornSolid, LiaClipboardCheckSolid, LiaCommentsSolid, LiaFileAltS
 
 const channels = [
   { title: 'Registrar manifestação', text: 'Envie uma denúncia, reclamação, sugestão, elogio ou solicitação.', icon: <LiaBullhornSolid />, path: '/ouvidoria-publica/nova', primary: true },
-  { title: 'Acompanhar manifestações', text: 'Acesse suas manifestações identificadas pelo Portal.', icon: <LiaClipboardCheckSolid />, path: '/ouvidoria' },
+  { title: 'Acompanhar manifestação', text: 'Consulte o andamento usando o número de protocolo, sem entrar no Portal.', icon: <LiaClipboardCheckSolid />, path: '/ouvidoria-publica/acompanhar' },
   { title: 'Carta de serviços', text: 'Conheça os serviços, canais e compromissos de atendimento.', icon: <LiaFileAltSolid />, path: '/ouvidoria-publica/carta-de-servicos' },
 ];
 

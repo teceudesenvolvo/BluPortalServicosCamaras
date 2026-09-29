@@ -18,6 +18,7 @@ const {
 admin.initializeApp();
 Object.assign(exports, require("./videoConference"));
 Object.assign(exports, require("./administrative"));
+Object.assign(exports, require("./ouvidoria"));
 
 const youtubeClientId = defineSecret("YOUTUBE_CLIENT_ID");
 const youtubeClientSecret = defineSecret("YOUTUBE_CLIENT_SECRET");

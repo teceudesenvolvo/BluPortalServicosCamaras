@@ -364,7 +364,10 @@ const AdminOuvidoriaDashboard = () => {
         const itemRef = doc(firestore, 'ouvidoria', id);
         const newMessageId = Date.now().toString();
         const newMessage = { text, sender: 'admin', timestamp: new Date().toISOString() };
-        await updateDoc(itemRef, { [`messages.${newMessageId}`]: newMessage });
+        await updateDoc(itemRef, {
+            [`messages.${newMessageId}`]: newMessage,
+            ultimaAtualizacao: serverTimestamp(),
+        });
         await sendNotification({ ...selectedManifestacao, id });
         alert('Mensagem enviada!');
     };

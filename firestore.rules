@@ -228,7 +228,8 @@ service cloud.firestore {
         || (request.resource.data.status == 'Recebida'
           && request.resource.data.keys().hasOnly(['protocolo', 'userId', 'dadosUsuario', 'dadosManifestacao', 'status', 'etapaAtual', 'origem', 'dataManifestacao', 'ultimaAtualizacao'])
           && ((request.auth == null && request.resource.data.userId == 'anonimo'
-              && request.resource.data.dadosManifestacao.tipoManifestacao == 'Denúncia')
+              && request.resource.data.dadosManifestacao.tipoManifestacao == 'Denúncia'
+              && request.resource.data.protocolo.matches('OUV-[0-9]{4}-[A-Za-z0-9]{20}'))
             || (request.auth != null && (request.resource.data.userId == request.auth.uid || request.resource.data.userId == 'anonimo'))));
       allow get, list: if isOuvidoriaManager()
         || (request.auth != null && resource.data.userId == request.auth.uid);
