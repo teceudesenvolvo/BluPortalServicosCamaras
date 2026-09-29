@@ -49,6 +49,27 @@ service cloud.firestore {
       allow delete: if documentId == 'portal' && isConfiguredRoot();
     }
 
+    // Registro central de configurações públicas do SDK Web dos clones.
+    // Nunca guardar service-account, tokens ou segredos de servidor aqui.
+    match /clone-firebase-projects/{projectId} {
+      function canManage() {
+        return isConfiguredRoot() || isAdminProfile();
+      }
+      function hasOnlyPublicFirebaseConfig() {
+        return request.resource.data.keys().hasOnly([
+            'name', 'slug', 'repository', 'firebaseConfig', 'updatedAt', 'updatedBy'
+          ])
+          && request.resource.data.firebaseConfig is map
+          && request.resource.data.firebaseConfig.keys().hasOnly([
+            'apiKey', 'authDomain', 'projectId', 'storageBucket',
+            'messagingSenderId', 'appId', 'measurementId', 'databaseURL'
+          ]);
+      }
+      allow read: if canManage();
+      allow create, update: if canManage() && hasOnlyPublicFirebaseConfig();
+      allow delete: if canManage();
+    }
+
     // Conteúdo institucional que pode ser consumido pelo portal, aplicativo e integrações públicas.
     match /noticias/{documentId} {
       allow read: if true;
