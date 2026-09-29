@@ -22,6 +22,7 @@ const firebaseConfig = {
 export const runtimeFirebaseConfig = firebaseConfig;
 export const hasRuntimeFirebaseConfig = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId']
   .every(key => Boolean(String(firebaseConfig[key] || '').trim()));
+export const hasRealtimeDatabaseConfig = Boolean(String(firebaseConfig.databaseURL || '').trim());
 
 // Inicializa o Firebase
 const app = initializeApp(firebaseConfig);
@@ -38,8 +39,8 @@ export const firestore = initializeFirestore(app, {
 
 export const storage = getStorage(app);
 
-// Exporta a instância do Realtime Database
-export const db = getDatabase(app);
+// Realtime Database é opcional; projetos sem databaseURL continuam usando os demais serviços.
+export const db = hasRealtimeDatabaseConfig ? getDatabase(app) : null;
 export const functions = getFunctions(app, 'us-central1');
 
 // Exporta o app para uso futuro, se necessário

@@ -96,6 +96,12 @@ const AdminMigration = () => {
     };
 
     const migrateToFirestore = async () => {
+        if (!db) {
+            addLog('Este projeto não possui Realtime Database configurado. A migração para Firestore está indisponível.', 'warning');
+            setMigrationStatus('error');
+            return;
+        }
+
         setMigrating(true);
         setMigrationStatus('in-progress');
         setMigrationLog([]);
@@ -223,6 +229,11 @@ const AdminMigration = () => {
     };
 
     const verifyMigration = async () => {
+        if (!db) {
+            addLog('Este projeto não possui Realtime Database configurado. Não há dados RTDB para verificar.', 'warning');
+            return;
+        }
+
         try {
             addLog('Iniciando verificação...', 'info');
 
@@ -311,6 +322,9 @@ const AdminMigration = () => {
                     </div>
 
                     <div style={{ padding: '20px' }}>
+                        {!db && <div role="status" style={{ marginBottom: '16px', padding: '12px 16px', borderRadius: '8px', background: '#fef3c7', color: '#92400e' }}>
+                            O Realtime Database não está configurado neste projeto. A migração RTDB → Firestore fica indisponível.
+                        </div>}
                         <div style={{ marginBottom: '24px' }}>
                             <h4 style={{ marginBottom: '12px' }}>Informações da Migração</h4>
                             <div style={{ background: '#f0f9ff', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}>
@@ -358,26 +372,26 @@ const AdminMigration = () => {
                         <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
                             <button
                                 onClick={migrateToFirestore}
-                                disabled={migrating || migrationStatus === 'completed'}
+                                disabled={!db || migrating || migrationStatus === 'completed'}
                                 className="btn-primary"
                                 style={{
                                     padding: '12px 24px',
                                     fontSize: '1rem',
-                                    opacity: (migrating || migrationStatus === 'completed') ? 0.5 : 1,
-                                    cursor: (migrating || migrationStatus === 'completed') ? 'not-allowed' : 'pointer'
+                                    opacity: (!db || migrating || migrationStatus === 'completed') ? 0.5 : 1,
+                                    cursor: (!db || migrating || migrationStatus === 'completed') ? 'not-allowed' : 'pointer'
                                 }}
                             >
                                 {migrating ? '⏳ Migrando...' : '🚀 Iniciar Migração'}
                             </button>
                             <button
                                 onClick={verifyMigration}
-                                disabled={migrating}
+                                disabled={!db || migrating}
                                 className="btn-secondary"
                                 style={{
                                     padding: '12px 24px',
                                     fontSize: '1rem',
-                                    opacity: migrating ? 0.5 : 1,
-                                    cursor: migrating ? 'not-allowed' : 'pointer'
+                                    opacity: (!db || migrating) ? 0.5 : 1,
+                                    cursor: (!db || migrating) ? 'not-allowed' : 'pointer'
                                 }}
                             >
                                 ✓ Verificar Migração
