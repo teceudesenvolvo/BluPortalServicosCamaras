@@ -1,19 +1,23 @@
 import { collection, getDocs, orderBy, query } from "../services/firebaseApi.js";
 import { firestore } from "../services/firebaseApi.js";
 import {
+    firebaseFunctionsRegion,
     getFirebaseFunctionUrl,
     getFirebaseFunctionsBaseUrl,
     requestFirebaseFunction,
 } from '../services/firebaseApi';
 
-export const youtubeFunctionsBaseUrl = getFirebaseFunctionsBaseUrl('southamerica-east1');
-export const appFunctionsBaseUrl = getFirebaseFunctionsBaseUrl('us-central1');
+export const youtubeFunctionsRegion = String(
+    process.env.REACT_APP_FIREBASE_YOUTUBE_FUNCTIONS_REGION || 'southamerica-east1',
+).trim();
+export const youtubeFunctionsBaseUrl = getFirebaseFunctionsBaseUrl(youtubeFunctionsRegion);
+export const appFunctionsBaseUrl = getFirebaseFunctionsBaseUrl(firebaseFunctionsRegion);
 export const youtubeFunctionInvokerEndpoint = getFirebaseFunctionUrl('invokeYoutubeFunction');
 export const youtubeSyncLogsEndpoint = getFirebaseFunctionUrl('syncYoutubeFunctionLogs');
 export const youtubeOAuthUrlEndpoint = getFirebaseFunctionUrl('getYoutubeOAuthUrl');
 export const youtubeRefreshTokenEndpoint = getFirebaseFunctionUrl('updateYoutubeRefreshToken');
 export const videosEndpoint = getFirebaseFunctionUrl('listarVideosTvCamaraFallback');
-export const fallbackVideosEndpoint = getFirebaseFunctionUrl('listarVideosTvCamara', 'southamerica-east1');
+export const fallbackVideosEndpoint = getFirebaseFunctionUrl('listarVideosTvCamara', youtubeFunctionsRegion);
 export const tvCamaraPlaylistCollection = 'tv-camara-playlist';
 export const tvCamaraLogsCollection = 'tv-camara-logs';
 
@@ -22,7 +26,7 @@ export const youtubeFunctions = [
         id: 'atualizarPlaylistYoutube',
         name: 'atualizarPlaylistYoutube',
         label: 'Atualizar playlist do YouTube',
-        endpoint: getFirebaseFunctionUrl('atualizarPlaylistYoutube', 'southamerica-east1'),
+        endpoint: getFirebaseFunctionUrl('atualizarPlaylistYoutube', youtubeFunctionsRegion),
         description: 'Automação agendada na instalação Firebase da Câmara.',
         type: 'scheduled-function',
         method: 'SCHEDULE',
@@ -33,7 +37,7 @@ export const youtubeFunctions = [
         id: 'youtubeChannelWebhook',
         name: 'youtubeChannelWebhook',
         label: 'Webhook do canal YouTube',
-        endpoint: getFirebaseFunctionUrl('youtubeChannelWebhook', 'southamerica-east1'),
+        endpoint: getFirebaseFunctionUrl('youtubeChannelWebhook', youtubeFunctionsRegion),
         description: 'Endpoint chamado pelo YouTube/WebSub. Chamadas manuais sem hub.challenge retornam 403 por segurança.',
         type: 'webhook',
         method: 'WEBHOOK',
@@ -44,7 +48,7 @@ export const youtubeFunctions = [
         id: 'renovarWebhookYoutube',
         name: 'renovarWebhookYoutube',
         label: 'Renovar webhook YouTube',
-        endpoint: getFirebaseFunctionUrl('renovarWebhookYoutube', 'southamerica-east1'),
+        endpoint: getFirebaseFunctionUrl('renovarWebhookYoutube', youtubeFunctionsRegion),
         description: 'Renovação agendada na instalação Firebase da Câmara.',
         type: 'scheduled-function',
         method: 'SCHEDULE',
@@ -164,13 +168,13 @@ export const fetchEndpointVideos = async () => {
     try {
         return await requestVideosEndpoint(
             'listarVideosTvCamaraFallback',
-            'us-central1',
+            firebaseFunctionsRegion,
             'youtube-data-api',
         );
     } catch (primaryError) {
         const fallbackResult = await requestVideosEndpoint(
             'listarVideosTvCamara',
-            'southamerica-east1',
+            youtubeFunctionsRegion,
             'remote-endpoint',
         );
         return {

@@ -7,7 +7,9 @@ import { initializeFirestore } from "firebase/firestore";
 import { getDatabase } from "firebase/database";
 import { getFunctions } from "firebase/functions";
 
-// As chaves são lidas das variáveis de ambiente (arquivo .env.local) para segurança e para garantir que a configuração esteja completa.
+// Firebase Web SDK config is injected at build time from local env files or
+// the Vercel project's Environment Variables. Each deployment can use its own
+// Firebase project without changing or committing application source.
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
   authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
@@ -20,6 +22,9 @@ const firebaseConfig = {
 };
 
 export const runtimeFirebaseConfig = firebaseConfig;
+export const firebaseFunctionsRegion = String(
+  process.env.REACT_APP_FIREBASE_FUNCTIONS_REGION || 'us-central1',
+).trim();
 export const hasRuntimeFirebaseConfig = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId']
   .every(key => Boolean(String(firebaseConfig[key] || '').trim()));
 
@@ -40,7 +45,7 @@ export const storage = getStorage(app);
 
 // Exporta a instância do Realtime Database
 export const db = getDatabase(app);
-export const functions = getFunctions(app, 'us-central1');
+export const functions = getFunctions(app, firebaseFunctionsRegion);
 
 // Exporta o app para uso futuro, se necessário
 export default app;

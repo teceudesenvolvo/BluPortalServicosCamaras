@@ -39,6 +39,7 @@ import app, {
     auth,
     db,
     firestore,
+    firebaseFunctionsRegion,
     functions,
     hasRuntimeFirebaseConfig,
     runtimeFirebaseConfig,
@@ -49,10 +50,11 @@ export const firebaseApp = app;
 export const getApp = () => app;
 
 const projectId = String(runtimeFirebaseConfig?.projectId || "").trim();
+const defaultFunctionsRegion = firebaseFunctionsRegion || "us-central1";
 
 /** Resolve Firebase Function URLs for the Firebase project configured at build time. */
-export const getFirebaseFunctionsBaseUrl = (region = "us-central1") => {
-    const normalizedRegion = String(region || "us-central1").trim();
+export const getFirebaseFunctionsBaseUrl = (region = defaultFunctionsRegion) => {
+    const normalizedRegion = String(region || defaultFunctionsRegion).trim();
     if (!/^[a-z0-9-]+$/i.test(normalizedRegion)) {
         throw new Error("A região da Cloud Function é inválida.");
     }
@@ -63,7 +65,7 @@ export const getFirebaseFunctionsBaseUrl = (region = "us-central1") => {
     return `https://${normalizedRegion}-${projectId}.cloudfunctions.net`;
 };
 
-export const getFirebaseFunctionUrl = (name, region = "us-central1") => {
+export const getFirebaseFunctionUrl = (name, region = defaultFunctionsRegion) => {
     const functionName = String(name || "").trim().replace(/^\/+|\/+$/g, "");
     if (!functionName) throw new Error("Informe o nome da Cloud Function.");
     return `${getFirebaseFunctionsBaseUrl(region)}/${functionName}`;
@@ -80,7 +82,7 @@ export const requestFirebaseRest = (url, options = {}) => fetch(url, options);
 
 /** HTTP Cloud Function request; Firebase project and regional host are resolved here. */
 export const requestFirebaseFunction = (name, options = {}) => {
-    const { region = "us-central1", ...requestOptions } = options;
+    const { region = defaultFunctionsRegion, ...requestOptions } = options;
     return fetch(getFirebaseFunctionUrl(name, region), requestOptions);
 };
 
@@ -101,6 +103,7 @@ export {
     doc,
     EmailAuthProvider,
     firestore,
+    firebaseFunctionsRegion,
     getDatabaseValue as get,
     getDoc,
     getDocs,

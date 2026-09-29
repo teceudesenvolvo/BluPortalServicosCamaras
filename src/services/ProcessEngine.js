@@ -1,6 +1,6 @@
 import { getDownloadURL, storageRef as ref, uploadBytes } from "./firebaseApi.js";
 import { storage } from "./firebaseApi.js";
-import { callFirebaseFunction } from './firebaseApi';
+import { callFirebaseFunction, firebaseFunctionsRegion } from './firebaseApi';
 
 // Operações que alteram o processo são centralizadas em Cloud Functions para
 // preservar numeração transacional, auditoria e autorização no servidor.
@@ -11,7 +11,7 @@ const explainCallableError = error => {
     || code === 'functions/unavailable'
     || /preflight|cors|failed to fetch|\b404\b|not found/i.test(message);
   if (missingService) {
-    return new Error('O serviço de protocolo não está publicado ou disponível neste projeto. Publique as Functions processCommand e publicProcessLookup na região us-central1 e tente novamente.');
+    return new Error(`O serviço de protocolo não está publicado ou disponível neste projeto. Publique as Functions processCommand e publicProcessLookup na região ${firebaseFunctionsRegion} e tente novamente.`);
   }
   if (code === 'functions/internal') {
     console.error('Erro interno em processCommand:', error);
