@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { collection, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import { collection, limit, onSnapshot, orderBy, query, where } from "../../services/firebaseApi.js";
 import { LiaCogSolid, LiaDownloadSolid, LiaImageSolid, LiaRedoAltSolid, LiaVolumeMuteSolid, LiaVolumeUpSolid } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import appQrCode from '../../assets/app-download-qr.png';
 
 const getTime = (value) => {

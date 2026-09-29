@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { addDoc, collection, onSnapshot, query, serverTimestamp, updateDoc, doc, where } from 'firebase/firestore';
-import { firestore } from '../firebase';
+import { addDoc, collection, onSnapshot, query, serverTimestamp, updateDoc, doc, where } from "../services/firebaseApi.js";
+import { firestore } from "../services/firebaseApi.js";
 
 export default function CabinetReceivedLetters({ gabineteId, canOperate }) {
   const [letters, setLetters] = useState([]); const [filter, setFilter] = useState('Todos');

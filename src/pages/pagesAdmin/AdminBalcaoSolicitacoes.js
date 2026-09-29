@@ -4,9 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { 
     collection, doc, getDocs, query, orderBy, limit, startAfter, 
     updateDoc, addDoc, where, getDoc, deleteDoc, serverTimestamp, runTransaction, setDoc
-} from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
-import { firestore, auth } from '../../firebase';
+} from "../../services/firebaseApi.js";
+import { onAuthStateChanged } from "../../services/firebaseApi.js";
+import { firestore, auth } from "../../services/firebaseApi.js";
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import AdminQuickReplies from '../../components/AdminQuickReplies';

@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from "../../services/firebaseApi.js";
 import { useNavigate, useParams } from 'react-router-dom';
 import { LiaCheckCircleSolid, LiaFileAltSolid, LiaPlayCircleSolid } from 'react-icons/lia';
 import Sidebar from '../../components/Sidebar';
-import { auth, firestore } from '../../firebase';
+import { auth, firestore } from "../../services/firebaseApi.js";
 
 const videoEmbedUrl = url => { const youtube = (url || '').match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^?&/]+)/); if (youtube) return `https://www.youtube.com/embed/${youtube[1]}`; const vimeo = (url || '').match(/vimeo\.com\/(?:video\/)?(\d+)/); return vimeo ? `https://player.vimeo.com/video/${vimeo[1]}` : url; };
 

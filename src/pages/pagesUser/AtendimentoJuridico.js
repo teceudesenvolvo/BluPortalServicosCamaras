@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import Sidebar from '../../components/Sidebar';
-import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc } from "../../services/firebaseApi.js";
 
 // Ícones
 import { LiaPlusSolid, LiaTimesSolid } from "react-icons/lia";

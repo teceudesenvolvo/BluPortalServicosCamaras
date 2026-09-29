@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "../../services/firebaseApi.js";
 import { LiaCommentsSolid, LiaCogSolid, LiaProjectDiagramSolid, LiaPaperPlane, LiaPlusSolid, LiaRobotSolid, LiaSyncSolid, LiaTrashAltSolid } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
-import { firestore, functions } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
+import { callFirebaseFunction } from '../../services/firebaseApi';
 import './AdminWhatsApp.css';
 
 const emptyMessage = { name: '', trigger: '', text: '', active: true };
@@ -48,7 +48,7 @@ const AdminWhatsApp = () => {
         setSaving(true);
         try { await addDoc(collection(firestore, 'whatsappFlows'), { ...flowForm, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }); setFlowForm(emptyFlow); } finally { setSaving(false); }
     };
-    const saveSettings = async event => { event.preventDefault(); setSaving(true); try { if (secrets.accessToken || secrets.verifyToken) { await httpsCallable(functions, 'saveWhatsAppCredentials')(secrets); setSecrets({ accessToken: '', verifyToken: '' }); } await setDoc(doc(firestore, 'whatsappSettings', 'config'), { ...settings, updatedAt: serverTimestamp() }, { merge: true }); } finally { setSaving(false); } };
+    const saveSettings = async event => { event.preventDefault(); setSaving(true); try { if (secrets.accessToken || secrets.verifyToken) { await callFirebaseFunction('saveWhatsAppCredentials', secrets); setSecrets({ accessToken: '', verifyToken: '' }); } await setDoc(doc(firestore, 'whatsappSettings', 'config'), { ...settings, updatedAt: serverTimestamp() }, { merge: true }); } finally { setSaving(false); } };
     const sendReply = async event => {
         event.preventDefault();
         if (!selectedConversation || !reply.trim()) return;

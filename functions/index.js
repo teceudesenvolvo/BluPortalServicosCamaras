@@ -538,8 +538,12 @@ exports.notificarAgendaDosGabinetes = onSchedule(
     },
 );
 
+const youtubeProjectId = process.env.GCLOUD_PROJECT ||
+  process.env.GCP_PROJECT || admin.app().options.projectId;
+const appFunctionsBaseUrl =
+  `https://us-central1-${youtubeProjectId}.cloudfunctions.net`;
 const youtubeFunctionsBaseUrl =
-    "https://southamerica-east1-blu-app-camara.cloudfunctions.net";
+  `https://southamerica-east1-${youtubeProjectId}.cloudfunctions.net`;
 const tvCamaraPublicPlaylistId = "PL2jvfc9q3EZ0CXi2qg5aDPydeCYdCsq59";
 let tvCamaraPlaylistCache = {
   expiresAt: 0,
@@ -556,7 +560,7 @@ const youtubeOAuthScopes = [
 
 const allowedYoutubeFunctions = {
   listarVideosTvCamara: {
-    endpoint: `${youtubeFunctionsBaseUrl}/listarVideosTvCamara`,
+    endpoint: `${appFunctionsBaseUrl}/listarVideosTvCamaraFallback`,
     method: "GET",
     label: "Listar vídeos da TV Câmara",
   },
@@ -588,8 +592,8 @@ const youtubeCloudLogTargets = {
     functionId: "listarVideosTvCamara",
     functionName: "listarVideosTvCamara",
     functionLabel: "Listar vídeos da TV Câmara",
-    endpoint: `${youtubeFunctionsBaseUrl}/listarVideosTvCamara`,
-    serviceName: "listarvideostvcamara",
+    endpoint: `${appFunctionsBaseUrl}/listarVideosTvCamaraFallback`,
+    serviceName: "listarvideostvcamarafallback",
   },
 };
 
@@ -2377,9 +2381,8 @@ exports.invokeYoutubeFunction = onRequest(
         if (!allowedYoutubeFunctions[functionName]) {
           return res.status(400).json({
             error: "Função YouTube não permitida para chamada manual.",
-            message: "atualizarPlaylistYoutube e renovarWebhookYoutube são " +
-              "automações do projeto blu-app-camaras; youtubeChannelWebhook " +
-              "é chamado apenas pelo YouTube/WebSub.",
+            message: "As atualizações de playlist e renovação são " +
+              "automáticas; youtubeChannelWebhook só é chamado pelo YouTube.",
             allowed: Object.keys(allowedYoutubeFunctions),
           });
         }
@@ -2456,8 +2459,8 @@ exports.atualizarPlaylistYoutubeAutomatico = onSchedule(
       timeZone: "America/Fortaleza",
     },
     async () => {
-      console.log("Automação original atualizarPlaylistYoutube gerenciada " +
-          "pelo projeto blu-app-camaras. Suporte local não executa chamada.");
+      console.log(
+          "Automação da playlist não está habilitada nesta instalação.");
       return null;
     },
 );
@@ -2468,8 +2471,7 @@ exports.renovarWebhookYoutubeAutomatico = onSchedule(
       timeZone: "America/Fortaleza",
     },
     async () => {
-      console.log("Automação original renovarWebhookYoutube gerenciada " +
-          "pelo projeto blu-app-camaras. Suporte local não executa chamada.");
+      console.log("Renovação WebSub não está habilitada nesta instalação.");
       return null;
     },
 );

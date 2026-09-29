@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect, useMemo } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { auth, firestore } from '../firebase'; // Importa a instância do auth
+import { onAuthStateChanged } from "../services/firebaseApi.js";
+import { doc, onSnapshot } from "../services/firebaseApi.js";
+import { auth, firestore } from "../services/firebaseApi.js"; // Importa a instância do auth
 import PreLoader from '../components/PreLoader';
 
 // 1. Cria o Contexto

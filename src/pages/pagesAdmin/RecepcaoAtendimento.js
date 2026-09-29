@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { collection, doc, getDocs, limit, onSnapshot, query, runTransaction, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, getDocs, limit, onSnapshot, query, runTransaction, serverTimestamp, setDoc, updateDoc, where } from "../../services/firebaseApi.js";
 import { getWalkInLimit } from '../../utils/walkInLimit';
 import {
     LiaCheckCircleSolid,
@@ -11,7 +11,7 @@ import {
     LiaUploadSolid,
 } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
-import { auth, firestore } from '../../firebase';
+import { auth, firestore } from "../../services/firebaseApi.js";
 import config from '../../config';
 import { printProtocolReceipt, printTableReport } from '../../utils/printReport';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';

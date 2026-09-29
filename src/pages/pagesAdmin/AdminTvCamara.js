@@ -11,7 +11,7 @@ import {
     query,
     serverTimestamp,
     updateDoc,
-} from 'firebase/firestore';
+} from "../../services/firebaseApi.js";
 import {
     LiaExternalLinkAltSolid,
     LiaKeySolid,
@@ -25,8 +25,8 @@ import {
     LiaTvSolid,
 } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
-import { auth, firestore, functions } from '../../firebase';
-import { httpsCallable } from 'firebase/functions';
+import { auth, firestore } from "../../services/firebaseApi.js";
+import { callFirebaseFunction, requestFirebaseFunction } from '../../services/firebaseApi';
 import {
     buildPlayerUrl,
     extractYoutubeVideoId,
@@ -41,9 +41,6 @@ import {
     videosEndpoint,
     youtubeFunctionInvokerEndpoint,
     youtubeFunctions,
-    youtubeOAuthUrlEndpoint,
-    youtubeRefreshTokenEndpoint,
-    youtubeSyncLogsEndpoint,
 } from '../../utils/tvCamara';
 
 const formatLogDate = (value) => {
@@ -150,7 +147,7 @@ const AdminTvCamara = () => {
         setTranscriptionStatus('Enviando solicitação ao portal...');
 
         try {
-            const response = await httpsCallable(functions, 'startTvCamaraTranscription')({
+            const response = await callFirebaseFunction('startTvCamaraTranscription', {
                 videoId: video.videoId,
                 videoTitle: video.title || 'Sessão da TV Câmara',
                 videoSource: video.source || 'playlist',
@@ -228,7 +225,7 @@ const AdminTvCamara = () => {
 
     const syncYoutubeLogs = async (functionId = 'all') => {
         try {
-            const response = await fetch(youtubeSyncLogsEndpoint, {
+            const response = await requestFirebaseFunction('syncYoutubeFunctionLogs', {
                 method: 'POST',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify({ functionId }),
@@ -261,7 +258,7 @@ const AdminTvCamara = () => {
     const callYoutubeFunction = async (youtubeFunction, { silent = false } = {}) => {
         if (!youtubeFunction?.endpoint) return null;
         if (youtubeFunction.callable === false) {
-            const message = `${youtubeFunction.label} é gerenciada automaticamente no projeto blu-app-camaras e não deve ser chamada manualmente pelo portal.`;
+            const message = `${youtubeFunction.label} é gerenciada automaticamente nesta instalação e não deve ser chamada manualmente pelo portal.`;
             if (!silent) alert(message);
             throw new Error(message);
         }
@@ -270,7 +267,7 @@ const AdminTvCamara = () => {
         const startedAt = Date.now();
 
         try {
-            const response = await fetch(youtubeFunctionInvokerEndpoint, {
+            const response = await requestFirebaseFunction('invokeYoutubeFunction', {
                 method: 'POST',
                 headers: {
                     Accept: 'application/json, text/plain, */*',
@@ -405,7 +402,7 @@ const AdminTvCamara = () => {
         setError('');
         try {
             if (youtubeFunction.callable === false) {
-                const message = `${youtubeFunction.label} é ${youtubeFunction.statusLabel?.toLowerCase() || 'automática'} e permanece ativa no projeto blu-app-camaras.`;
+                const message = `${youtubeFunction.label} é ${youtubeFunction.statusLabel?.toLowerCase() || 'automática'} e permanece ativa nesta instalação.`;
                 setError(message);
                 await registerYoutubeLog({
                     functionId: youtubeFunction.id,
@@ -543,7 +540,7 @@ const AdminTvCamara = () => {
         setError('');
 
         try {
-            const response = await fetch(youtubeOAuthUrlEndpoint, {
+            const response = await requestFirebaseFunction('getYoutubeOAuthUrl', {
                 method: 'POST',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify({ source: 'admin-tv-camara' }),
@@ -578,7 +575,7 @@ const AdminTvCamara = () => {
         setError('');
 
         try {
-            const response = await fetch(youtubeRefreshTokenEndpoint, {
+            const response = await requestFirebaseFunction('updateYoutubeRefreshToken', {
                 method: 'POST',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify({

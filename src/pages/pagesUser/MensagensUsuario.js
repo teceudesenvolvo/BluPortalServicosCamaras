@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, doc, getDocs, limit, query, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, getDocs, limit, query, updateDoc, where } from "../../services/firebaseApi.js";
 import {
     LiaArrowLeftSolid,
     LiaCheckDoubleSolid,
@@ -13,7 +13,7 @@ import {
     LiaUserCircleSolid,
 } from 'react-icons/lia';
 import Sidebar from '../../components/Sidebar';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { getLastMessage, getMessagesArray, getMessageTime } from '../../utils/adminMessages';
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
-import { firestore } from '../firebase';
+import { doc, getDoc } from "../services/firebaseApi.js";
+import { firestore } from "../services/firebaseApi.js";
 import { LiaCalendarSolid, LiaUserSolid } from 'react-icons/lia';
 import Footer from '../components/Footer';
 import Logo from '../assets/logo-paraipaba.png';

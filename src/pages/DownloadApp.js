@@ -1,25 +1,26 @@
 import React, { useEffect, useMemo } from 'react';
 import { LiaAndroid, LiaApple, LiaExternalLinkAltSolid, LiaMobileAltSolid } from 'react-icons/lia';
-import Logo from '../assets/logo-paraipaba-azul.png';
 import { useSystemControl } from '../contexts/SystemControlContext';
 
-const ANDROID_URL = 'https://play.google.com/store/apps/details?id=com.blutecnologias.appcamara&pcampaignid=web_share';
-const IOS_URL = 'https://apps.apple.com/br/app/cm-paraipaba/id6769832252';
-
-const detectMobileStore = () => {
+const detectMobileStore = integrations => {
     const userAgent = navigator.userAgent || navigator.vendor || '';
     const isAndroid = /android/i.test(userAgent);
     const isAppleMobile = /iPad|iPhone|iPod/i.test(userAgent)
         || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-    if (isAndroid) return { name: 'Google Play', url: ANDROID_URL };
-    if (isAppleMobile) return { name: 'App Store', url: IOS_URL };
+    if (isAndroid && integrations.androidStoreUrl) return { name: 'Google Play', url: integrations.androidStoreUrl };
+    if (isAppleMobile && integrations.iosStoreUrl) return { name: 'App Store', url: integrations.iosStoreUrl };
     return null;
 };
 
 const DownloadApp = () => {
     const { settings } = useSystemControl();
-    const detectedStore = useMemo(detectMobileStore, []);
+    const integrations = settings.integrations || {};
+    const home = settings.home || {};
+    const detectedStore = useMemo(() => detectMobileStore({
+        androidStoreUrl: integrations.androidStoreUrl,
+        iosStoreUrl: integrations.iosStoreUrl,
+    }), [integrations.androidStoreUrl, integrations.iosStoreUrl]);
 
     useEffect(() => {
         if (!detectedStore) return undefined;
@@ -32,7 +33,7 @@ const DownloadApp = () => {
     return (
         <main className="app-download-page">
             <section className="app-download-card">
-                <img src={settings.branding?.logoUrl || Logo} alt={settings.branding?.logoAlt || settings.tenant?.name || 'Câmara Municipal'} className="app-download-logo" />
+                {settings.branding?.logoUrl && <img src={settings.branding.logoUrl} alt={settings.branding?.logoAlt || settings.tenant?.name || 'Câmara Municipal'} className="app-download-logo" />}
                 <span className="app-download-eyebrow"><LiaMobileAltSolid /> Aplicativo oficial</span>
                 <h1>{settings.tenant?.shortName}</h1>
                 <p>
@@ -42,16 +43,17 @@ const DownloadApp = () => {
                 </p>
 
                 <div className="app-download-actions">
-                    <a href={IOS_URL} className="app-store-button apple">
+                    {integrations.iosStoreUrl && <a href={integrations.iosStoreUrl} className="app-store-button apple">
                         <LiaApple />
                         <span><small>Baixar na</small><strong>App Store</strong></span>
                         <LiaExternalLinkAltSolid className="store-external-icon" />
-                    </a>
-                    <a href={ANDROID_URL} className="app-store-button android">
+                    </a>}
+                    {integrations.androidStoreUrl && <a href={integrations.androidStoreUrl} className="app-store-button android">
                         <LiaAndroid />
                         <span><small>Disponível no</small><strong>Google Play</strong></span>
                         <LiaExternalLinkAltSolid className="store-external-icon" />
-                    </a>
+                    </a>}
+                    {integrations.appDownloadUrl && <a href={integrations.appDownloadUrl} className="app-store-button">{home.footerDownloadLabel || 'Baixar aplicativo'}<LiaExternalLinkAltSolid className="store-external-icon" /></a>}
                 </div>
 
                 {detectedStore && <small className="app-download-fallback">Se a loja não abrir automaticamente, toque em um dos botões.</small>}

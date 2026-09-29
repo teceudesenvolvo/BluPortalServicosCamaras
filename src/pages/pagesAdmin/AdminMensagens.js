@@ -8,8 +8,8 @@ import {
     limit,
     query,
     updateDoc,
-} from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+} from "../../services/firebaseApi.js";
+import { onAuthStateChanged } from "../../services/firebaseApi.js";
 import {
     LiaArrowLeftSolid,
     LiaCheckDoubleSolid,
@@ -24,7 +24,7 @@ import {
 import AdminSidebar from '../../components/AdminSidebar';
 import { useSystemControl } from '../../contexts/SystemControlContext';
 import { canAccessModule } from '../../config/rolePermissions';
-import { auth, firestore } from '../../firebase';
+import { auth, firestore } from "../../services/firebaseApi.js";
 import {
     buildReadMessagesUpdate,
     countUnreadAdminMessages,

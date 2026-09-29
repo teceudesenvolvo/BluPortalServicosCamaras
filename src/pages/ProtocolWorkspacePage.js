@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {Link,useLocation} from 'react-router-dom';
-import {addDoc,collection,doc,onSnapshot,orderBy,query,serverTimestamp,setDoc,updateDoc} from 'firebase/firestore';
-import {firestore} from '../firebase';
+import {addDoc,collection,doc,onSnapshot,orderBy,query,serverTimestamp,setDoc,updateDoc} from "../services/firebaseApi.js";
+import {firestore} from "../services/firebaseApi.js";
 import AdminSidebar from '../components/AdminSidebar';
 import {LiaArchiveSolid,LiaBellSolid,LiaClipboardListSolid,LiaCogSolid,LiaFileAltSolid,LiaFolderOpenSolid,LiaHistorySolid,LiaPlusSolid,LiaStreamSolid,LiaTachometerAltSolid} from 'react-icons/lia';
 

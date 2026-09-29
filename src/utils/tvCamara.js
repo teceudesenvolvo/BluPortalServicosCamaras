@@ -1,15 +1,19 @@
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
-import { firestore } from '../firebase';
+import { collection, getDocs, orderBy, query } from "../services/firebaseApi.js";
+import { firestore } from "../services/firebaseApi.js";
+import {
+    getFirebaseFunctionUrl,
+    getFirebaseFunctionsBaseUrl,
+    requestFirebaseFunction,
+} from '../services/firebaseApi';
 
-export const youtubeFunctionsBaseUrl = 'https://southamerica-east1-blu-app-camara.cloudfunctions.net';
-export const appFunctionsBaseUrl = process.env.REACT_APP_FUNCTIONS_BASE_URL?.replace(/\/$/, '') ||
-    'https://us-central1-blu-app-camara.cloudfunctions.net';
-export const youtubeFunctionInvokerEndpoint = `${appFunctionsBaseUrl}/invokeYoutubeFunction`;
-export const youtubeSyncLogsEndpoint = `${appFunctionsBaseUrl}/syncYoutubeFunctionLogs`;
-export const youtubeOAuthUrlEndpoint = `${appFunctionsBaseUrl}/getYoutubeOAuthUrl`;
-export const youtubeRefreshTokenEndpoint = `${appFunctionsBaseUrl}/updateYoutubeRefreshToken`;
-export const videosEndpoint = `${appFunctionsBaseUrl}/listarVideosTvCamaraFallback`;
-export const fallbackVideosEndpoint = `${youtubeFunctionsBaseUrl}/listarVideosTvCamara`;
+export const youtubeFunctionsBaseUrl = getFirebaseFunctionsBaseUrl('southamerica-east1');
+export const appFunctionsBaseUrl = getFirebaseFunctionsBaseUrl('us-central1');
+export const youtubeFunctionInvokerEndpoint = getFirebaseFunctionUrl('invokeYoutubeFunction');
+export const youtubeSyncLogsEndpoint = getFirebaseFunctionUrl('syncYoutubeFunctionLogs');
+export const youtubeOAuthUrlEndpoint = getFirebaseFunctionUrl('getYoutubeOAuthUrl');
+export const youtubeRefreshTokenEndpoint = getFirebaseFunctionUrl('updateYoutubeRefreshToken');
+export const videosEndpoint = getFirebaseFunctionUrl('listarVideosTvCamaraFallback');
+export const fallbackVideosEndpoint = getFirebaseFunctionUrl('listarVideosTvCamara', 'southamerica-east1');
 export const tvCamaraPlaylistCollection = 'tv-camara-playlist';
 export const tvCamaraLogsCollection = 'tv-camara-logs';
 
@@ -18,8 +22,8 @@ export const youtubeFunctions = [
         id: 'atualizarPlaylistYoutube',
         name: 'atualizarPlaylistYoutube',
         label: 'Atualizar playlist do YouTube',
-        endpoint: `${youtubeFunctionsBaseUrl}/atualizarPlaylistYoutube`,
-        description: 'Automação original do projeto blu-app-camaras. Roda a cada 30 minutos, das 8h às 19h.',
+        endpoint: getFirebaseFunctionUrl('atualizarPlaylistYoutube', 'southamerica-east1'),
+        description: 'Automação agendada na instalação Firebase da Câmara.',
         type: 'scheduled-function',
         method: 'SCHEDULE',
         callable: false,
@@ -29,7 +33,7 @@ export const youtubeFunctions = [
         id: 'youtubeChannelWebhook',
         name: 'youtubeChannelWebhook',
         label: 'Webhook do canal YouTube',
-        endpoint: `${youtubeFunctionsBaseUrl}/youtubeChannelWebhook`,
+        endpoint: getFirebaseFunctionUrl('youtubeChannelWebhook', 'southamerica-east1'),
         description: 'Endpoint chamado pelo YouTube/WebSub. Chamadas manuais sem hub.challenge retornam 403 por segurança.',
         type: 'webhook',
         method: 'WEBHOOK',
@@ -40,8 +44,8 @@ export const youtubeFunctions = [
         id: 'renovarWebhookYoutube',
         name: 'renovarWebhookYoutube',
         label: 'Renovar webhook YouTube',
-        endpoint: `${youtubeFunctionsBaseUrl}/renovarWebhookYoutube`,
-        description: 'Automação original do projeto blu-app-camaras. Renova a inscrição WebSub a cada 3 dias.',
+        endpoint: getFirebaseFunctionUrl('renovarWebhookYoutube', 'southamerica-east1'),
+        description: 'Renovação agendada na instalação Firebase da Câmara.',
         type: 'scheduled-function',
         method: 'SCHEDULE',
         callable: false,
@@ -141,9 +145,9 @@ export const normalizeVideo = (video = {}, source = 'endpoint') => {
     };
 };
 
-const requestVideosEndpoint = async (endpoint, source = 'endpoint') => {
+const requestVideosEndpoint = async (functionName, region, source = 'endpoint') => {
     const startedAt = Date.now();
-    const response = await fetch(endpoint);
+    const response = await requestFirebaseFunction(functionName, { region });
     const durationMs = Date.now() - startedAt;
 
     if (!response.ok) {
@@ -158,9 +162,17 @@ const requestVideosEndpoint = async (endpoint, source = 'endpoint') => {
 
 export const fetchEndpointVideos = async () => {
     try {
-        return await requestVideosEndpoint(videosEndpoint, 'youtube-data-api');
+        return await requestVideosEndpoint(
+            'listarVideosTvCamaraFallback',
+            'us-central1',
+            'youtube-data-api',
+        );
     } catch (primaryError) {
-        const fallbackResult = await requestVideosEndpoint(fallbackVideosEndpoint, 'remote-endpoint');
+        const fallbackResult = await requestVideosEndpoint(
+            'listarVideosTvCamara',
+            'southamerica-east1',
+            'remote-endpoint',
+        );
         return {
             ...fallbackResult,
             primaryError: primaryError.message || 'Falha ao carregar endpoint principal.',

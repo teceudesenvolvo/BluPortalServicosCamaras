@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query } from "../../services/firebaseApi.js";
 import { LiaCalendarSolid, LiaImageSolid, LiaTimesSolid, LiaUserSolid } from 'react-icons/lia';
 import Sidebar from '../../components/Sidebar';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 
 const safeHtml = html => (html || '').replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '').replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '');
 const dateLabel = value => value?.toMillis ? new Date(value.toMillis()).toLocaleDateString('pt-BR') : 'Notícia';

@@ -1,6 +1,6 @@
-import { httpsCallable } from 'firebase/functions';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { functions, storage } from '../firebase';
+import { getDownloadURL, storageRef as ref, uploadBytes } from "./firebaseApi.js";
+import { storage } from "./firebaseApi.js";
+import { callFirebaseFunction } from './firebaseApi';
 
 // Operações que alteram o processo são centralizadas em Cloud Functions para
 // preservar numeração transacional, auditoria e autorização no servidor.
@@ -20,7 +20,7 @@ const explainCallableError = error => {
   return error;
 };
 
-const command = (action, payload = {}) => httpsCallable(functions, 'processCommand')({ action, ...payload }).catch(error => {
+const command = (action, payload = {}) => callFirebaseFunction('processCommand', { action, ...payload }).catch(error => {
   throw explainCallableError(error);
 });
 
@@ -40,7 +40,7 @@ export const relacionarProcesso = (processId, payload) => command('relationship'
 export const suspenderProcesso = (processId, payload) => command('suspend', { processId, ...payload });
 export const cancelarProcesso = (processId, payload) => command('cancel', { processId, ...payload });
 export const atualizarProcesso = (processId, payload) => command('update', { processId, ...payload });
-export const consultarProcessoPublico = payload => httpsCallable(functions, 'publicProcessLookup')(payload).catch(error => {
+export const consultarProcessoPublico = payload => callFirebaseFunction('publicProcessLookup', payload).catch(error => {
   throw explainCallableError(error);
 });
 

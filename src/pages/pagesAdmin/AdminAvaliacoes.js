@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query } from "../../services/firebaseApi.js";
 import { LiaChartBarSolid, LiaSearchSolid, LiaStarSolid, LiaUserTieSolid } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 
 const toDate = (value) => {
     if (!value) return null;

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { firestore } from '../firebase';
+import { doc, onSnapshot } from "../services/firebaseApi.js";
+import { firestore } from "../services/firebaseApi.js";
 import { buildDefaultModuleSettings, DEFAULT_CMS_SETTINGS } from '../config/systemModules';
 
 const SystemControlContext = createContext(null);
@@ -18,6 +18,7 @@ export const SystemControlProvider = ({ children }) => {
             tenant: { ...current.tenant, ...(data.tenant || {}) },
             design: { ...current.design, ...(data.design || {}) },
             branding: { ...current.branding, ...(data.branding || {}) },
+            home: { ...current.home, ...(data.home || {}) },
             integrations: { ...current.integrations, ...(data.integrations || {}) },
             apiFeatures: { ...current.apiFeatures, ...(data.apiFeatures || {}) },
             security: { ...current.security, ...(data.security || {}) },

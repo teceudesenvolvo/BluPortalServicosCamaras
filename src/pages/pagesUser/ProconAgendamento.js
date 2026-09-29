@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, runTransaction, serverTimestamp } from "../../services/firebaseApi.js";
 import { useNavigate } from 'react-router-dom';
 import { LiaArrowLeftSolid, LiaCalendarCheckSolid } from 'react-icons/lia';
 import Sidebar from '../../components/Sidebar';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import { dateToBr, getFreeTimes } from '../../utils/proconSchedule';
 
 const ProconAgendamento = () => {

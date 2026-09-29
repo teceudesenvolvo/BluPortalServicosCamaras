@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, serverTimestamp, setDoc } from "../../services/firebaseApi.js";
 import { LiaArrowLeftSolid, LiaCheckCircleSolid, LiaStarSolid } from 'react-icons/lia';
 import Sidebar from '../../components/Sidebar';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 
 const stars = [1, 2, 3, 4, 5];
 

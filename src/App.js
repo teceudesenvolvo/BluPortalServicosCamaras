@@ -99,7 +99,7 @@ import AdminAtendimentosGuiches from './pages/pagesAdmin/AdminAtendimentosGuiche
 import LegislativeVotingPanel from './pages/LegislativeVotingPanel';
 import SystemControl from './pages/pagesAdmin/SystemControl';
 import InstallationWizard from './pages/InstallationWizard';
-import { hasRuntimeFirebaseConfig } from './firebase';
+import { hasRuntimeFirebaseConfig } from "./services/firebaseApi.js";
 
 
 function App() {

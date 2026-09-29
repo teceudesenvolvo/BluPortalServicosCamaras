@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, serverTimestamp, setDoc } from "../../services/firebaseApi.js";
 import { LiaArrowLeftSolid, LiaLockSolid, LiaPaperPlane, LiaUserSolid } from 'react-icons/lia';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';

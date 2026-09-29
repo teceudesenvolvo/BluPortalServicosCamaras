@@ -1,11 +1,8 @@
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../../../firebase';
-
-const execute = httpsCallable(functions, 'administrativeCommand');
+import { callFirebaseFunction } from '../../../services/firebaseApi';
 
 export const AdministrativeCommandService = {
     run(moduleId, action, payload = {}) {
-        return execute({ moduleId, action, payload }).then(result => result.data).catch(error => {
+        return callFirebaseFunction('administrativeCommand', { moduleId, action, payload }).then(result => result.data).catch(error => {
             const code = String(error?.code || '').replace('functions/', '');
             const details = error?.details ? ` ${String(error.details)}` : '';
             const message = error?.message || 'Não foi possível concluir a operação.';

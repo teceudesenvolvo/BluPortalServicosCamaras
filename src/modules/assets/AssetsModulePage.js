@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, onSnapshot, orderBy, query } from "../../services/firebaseApi.js";
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LiaArchiveSolid, LiaChartPieSolid, LiaExchangeAltSolid, LiaPlusSolid, LiaSearchSolid, LiaTasksSolid } from 'react-icons/lia';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import { AdministrativeCommandService, AdministrativeDataTable, AdministrativeEmptyState, AdministrativeModuleLayout, PermissionGate } from '../administrative-core';
 import './assets.css';
 

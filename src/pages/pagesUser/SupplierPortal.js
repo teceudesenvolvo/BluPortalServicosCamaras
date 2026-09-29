@@ -9,8 +9,8 @@ import {
     query,
     serverTimestamp,
     where,
-} from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+} from "../../services/firebaseApi.js";
+import { getDownloadURL, storageRef as ref, uploadBytes } from "../../services/firebaseApi.js";
 import {
     LiaCalendarAltSolid,
     LiaClockSolid,
@@ -22,7 +22,7 @@ import {
     LiaTimesSolid,
     LiaUploadSolid,
 } from 'react-icons/lia';
-import { firestore, storage } from '../../firebase';
+import { firestore, storage } from "../../services/firebaseApi.js";
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
 import './SupplierPortal.css';
@@ -52,13 +52,6 @@ const CERTIFICATE_TYPES = [
     ['labor', 'Certidão Negativa de Débitos Trabalhistas (CNDT)'],
     ['bankruptcy', 'Certidão de falência e recuperação judicial'],
     ['other', 'Outra certidão negativa'],
-];
-const CONTRACT_DOCUMENT_TYPES = [
-    ['contract', 'Contrato assinado'],
-    ['addendum', 'Aditivo contratual'],
-    ['apostille', 'Apostilamento'],
-    ['term', 'Termo ou anexo'],
-    ['other', 'Outro documento contratual'],
 ];
 const REQUEST_LABELS = {
     service_order: 'Ordem de serviço',
@@ -168,9 +161,10 @@ const SupplierPortal = () => {
             .forEach(unsubscribe => unsubscribe());
     }, [contracts]);
 
-    const signatureDocuments = contractDocuments.filter(item => item.requiresSupplierSignature);
-    const signatureRequestKey = signatureDocuments
-        .map(item => `${item.contractId}:${item.id}`).sort().join('|');
+    const signatureDocuments = useMemo(
+        () => contractDocuments.filter(item => item.requiresSupplierSignature),
+        [contractDocuments],
+    );
     useEffect(() => {
         if (!signatureDocuments.length) {
             setSignatureReturns([]);
@@ -196,7 +190,7 @@ const SupplierPortal = () => {
             }, error => setFeedback({ error: `Falha ao carregar vias assinadas: ${error.message}`, success: '', busy: false }),
         ));
         return () => subscriptions.forEach(unsubscribe => unsubscribe());
-    }, [signatureRequestKey]);
+    }, [signatureDocuments]);
 
     useEffect(() => {
         if (!profile?.cnpj) return undefined;

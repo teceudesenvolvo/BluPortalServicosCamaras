@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, serverTimestamp } from "../../services/firebaseApi.js";
 import { LiaArrowLeftSolid, LiaPaperPlane, LiaSearchSolid } from 'react-icons/lia';
 import Sidebar from '../../components/Sidebar';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import { printProtocolReceipt } from '../../utils/printReport';
 
 const TIPOS_ASSESSORIA = [

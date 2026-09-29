@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     collection, query, getDocs, getDoc, doc, updateDoc, addDoc, serverTimestamp as fsTimestamp, orderBy, limit
-} from 'firebase/firestore';
+} from "../../services/firebaseApi.js";
 import Chart from 'chart.js/auto'; // Importa Chart.js
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth, firestore } from '../../firebase'; // Importa as instâncias corretas do Firebase
+import { onAuthStateChanged } from "../../services/firebaseApi.js";
+import { auth, firestore } from "../../services/firebaseApi.js"; // Importa as instâncias corretas do Firebase
 import config from '../../config'; // Importa a configuração
 import AdminSidebar from '../../components/AdminSidebar'; // Importa o novo Sidebar de Admin
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';

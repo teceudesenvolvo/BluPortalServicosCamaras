@@ -3,14 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import {
     collection, getDocs, doc, addDoc, updateDoc, deleteDoc,
     query, orderBy, serverTimestamp
-} from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
-import { firestore, auth } from '../../firebase';
+} from "../../services/firebaseApi.js";
+import { onAuthStateChanged } from "../../services/firebaseApi.js";
+import { firestore, auth } from "../../services/firebaseApi.js";
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
+import { requestFirebaseFunction } from '../../services/firebaseApi';
 
 // Ícones
 import {
@@ -18,9 +19,6 @@ import {
     LiaSaveSolid, LiaUploadSolid, LiaImageSolid, LiaMagicSolid,
     LiaBellSolid
 } from "react-icons/lia";
-
-const FUNCTIONS_BASE_URL = process.env.REACT_APP_FUNCTIONS_BASE_URL?.replace(/\/$/, "") ||
-    "https://us-central1-blu-app-camara.cloudfunctions.net";
 
 const AdminNoticiasSite = () => {
     const navigate = useNavigate();
@@ -124,7 +122,6 @@ const AdminNoticiasSite = () => {
         }
 
         setGeneratingAI(true);
-        const endpoint = `${FUNCTIONS_BASE_URL}/generateNews`;
         const prompt = `Escreva uma notícia profissional e detalhada para o portal de uma Câmara Municipal. 
         Título: ${formData.titulo}
         Subtítulo: ${formData.subtitulo}
@@ -140,7 +137,7 @@ const AdminNoticiasSite = () => {
         `;
 
         try {
-            const response = await fetch(endpoint, {
+            const response = await requestFirebaseFunction('generateNews', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt })
@@ -208,7 +205,7 @@ const AdminNoticiasSite = () => {
 
         setNotifyingNewsId(noticiaId);
         try {
-            const response = await fetch(`${FUNCTIONS_BASE_URL}/notifyNewsNow`, {
+            const response = await requestFirebaseFunction('notifyNewsNow', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ noticiaId })

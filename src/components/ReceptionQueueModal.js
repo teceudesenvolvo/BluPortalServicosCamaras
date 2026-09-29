@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, updateDoc, doc } from "../services/firebaseApi.js";
 import { LiaCheckCircleSolid, LiaPauseCircleSolid, LiaTimesSolid, LiaUserClockSolid } from 'react-icons/lia';
-import { firestore, auth } from '../firebase';
+import { firestore, auth } from "../services/firebaseApi.js";
 
 const ReceptionQueueModal = ({ onClose }) => {
     const [tickets, setTickets] = useState([]); const [error, setError] = useState(''); const [loadingId, setLoadingId] = useState('');

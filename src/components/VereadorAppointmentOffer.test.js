@@ -1,8 +1,8 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import VereadorAppointmentOffer from './VereadorAppointmentOffer';
-import { runTransaction } from 'firebase/firestore';
-import { auth } from '../firebase';
+import { runTransaction } from "../services/firebaseApi.js";
+import { auth } from "../services/firebaseApi.js";
 
 jest.mock('../firebase', () => ({ auth: { currentUser: { uid: 'citizen' } }, firestore: {} }));
 jest.mock('firebase/firestore', () => ({ doc: (_, ...parts) => parts.join('/'), runTransaction: jest.fn() }));

@@ -1,8 +1,8 @@
 import React,{useEffect,useMemo,useState}from'react';
-import{collection,onSnapshot,orderBy,query}from'firebase/firestore';
+import{collection,onSnapshot,orderBy,query}from"../../services/firebaseApi.js";
 import{useLocation,useNavigate}from'react-router-dom';
 import{LiaChartPieSolid,LiaClipboardListSolid,LiaPlusSolid,LiaToolsSolid,LiaWrenchSolid}from'react-icons/lia';
-import{firestore}from'../../firebase';
+import{firestore}from"../../services/firebaseApi.js";
 import{AdministrativeCommandService,AdministrativeDataTable,AdministrativeEmptyState,AdministrativeModuleLayout,PermissionGate,useAdministrativeIntegrations}from'../administrative-core';
 import'./maintenance.css';
 const NAV=[{label:'MANUTENÇÃO',items:[{label:'Visão geral',path:'/admin/manutencao',end:true,icon:LiaChartPieSolid},{label:'Chamados',path:'/admin/manutencao/chamados',icon:LiaClipboardListSolid},{label:'Novo chamado',path:'/admin/manutencao/novo',icon:LiaPlusSolid},{label:'Ordens de serviço',path:'/admin/manutencao/ordens',icon:LiaToolsSolid},{label:'Preventivas',path:'/admin/manutencao/preventivas',icon:LiaWrenchSolid}]}];

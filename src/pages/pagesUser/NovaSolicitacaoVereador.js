@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import Sidebar from '../../components/Sidebar';
-import { firestore } from '../../firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { firestore } from "../../services/firebaseApi.js";
+import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc } from "../../services/firebaseApi.js";
 
 // Ícones
 import { LiaPaperPlane, LiaArrowLeftSolid } from "react-icons/lia";

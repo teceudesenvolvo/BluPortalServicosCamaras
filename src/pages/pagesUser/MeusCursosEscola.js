@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where } from "../../services/firebaseApi.js";
 import { LiaBookSolid, LiaPlayCircleSolid } from 'react-icons/lia';
 import Sidebar from '../../components/Sidebar';
-import { auth, firestore } from '../../firebase';
+import { auth, firestore } from "../../services/firebaseApi.js";
 
 const MeusCursosEscola = () => {
   const [courses, setCourses] = useState([]); const [enrollments, setEnrollments] = useState([]); const [progress, setProgress] = useState([]);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Splide, SplideSlide } from '@splidejs/react-splide';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { firestore } from '../firebase';
+import { collection, getDocs, query, orderBy } from "../services/firebaseApi.js";
+import { firestore } from "../services/firebaseApi.js";
 import { LiaArrowRightSolid, LiaUser, LiaUsersSolid } from 'react-icons/lia';
 import { useSystemControl } from '../contexts/SystemControlContext';
 import { fetchLegislativeCouncilors } from '../utils/legislativeCouncilors';

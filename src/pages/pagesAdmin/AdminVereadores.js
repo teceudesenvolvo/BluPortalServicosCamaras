@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import { 
     collection, getDocs, doc, addDoc, updateDoc, deleteDoc, query, orderBy 
-} from 'firebase/firestore';
+} from "../../services/firebaseApi.js";
 import AdminSidebar from '../../components/AdminSidebar';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';

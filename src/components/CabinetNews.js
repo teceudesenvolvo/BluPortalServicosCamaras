@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
-import { addDoc, collection, onSnapshot, query, serverTimestamp, where } from 'firebase/firestore';
-import { firestore } from '../firebase';
+import { addDoc, collection, onSnapshot, query, serverTimestamp, where } from "../services/firebaseApi.js";
+import { firestore } from "../services/firebaseApi.js";
 import { uploadFileToStorage } from '../utils/firebaseStorageUtils';
 import CabinetOverlay from './CabinetOverlay';
 

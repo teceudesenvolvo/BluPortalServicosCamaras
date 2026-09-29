@@ -1,9 +1,9 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Link, useLocation, useNavigate} from 'react-router-dom';
-import {collection, limit, onSnapshot, orderBy, query, where} from 'firebase/firestore';
+import {collection, limit, onSnapshot, orderBy, query, where} from "../services/firebaseApi.js";
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
-import {firestore} from '../firebase';
+import {firestore} from "../services/firebaseApi.js";
 import {useAuth} from '../contexts/FirebaseAuthContext';
 import {useSystemControl} from '../contexts/SystemControlContext';
 import {anexarArquivosAoProcesso, criarProcesso} from '../services/ProcessEngine';

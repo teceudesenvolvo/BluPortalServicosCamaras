@@ -1,11 +1,11 @@
 import CabinetOverlay from '../../components/CabinetOverlay';
 import { canAccessModule } from '../../config/rolePermissions';
 import React, { useEffect, useState } from 'react';
-import { collection, doc, getDoc, getDocs, onSnapshot, query, runTransaction, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, onSnapshot, query, runTransaction, where } from "../../services/firebaseApi.js";
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { useSystemControl } from '../../contexts/SystemControlContext';
 import { isSystemRootEmail } from '../../config/systemModules';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import VereadorAppointmentOffer from '../../components/VereadorAppointmentOffer';
 import AdminSidebar from '../../components/AdminSidebar';
 import { SectorAvailabilityModal } from '../../components/SectorScheduling';

@@ -1,7 +1,7 @@
 import CabinetOverlay from './CabinetOverlay';
 import React, { useEffect, useState } from 'react';
-import { addDoc, collection, onSnapshot, query, serverTimestamp, where } from 'firebase/firestore';
-import { firestore } from '../firebase';
+import { addDoc, collection, onSnapshot, query, serverTimestamp, where } from "../services/firebaseApi.js";
+import { firestore } from "../services/firebaseApi.js";
 
 export default function CabinetCommunication({ gabineteId, canOperate }) {
   const [items, setItems] = useState([]); const [open, setOpen] = useState(false); const [form, setForm] = useState({ title: '', message: '', link: '', channels: ['app'] });

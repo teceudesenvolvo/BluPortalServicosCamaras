@@ -9159,6 +9159,7 @@ color: #fff !important;
 
 .home-header-modern.landing-home-premium {
   min-height: min(820px, 92vh);
+  background-image: linear-gradient(135deg, #07345b, #087db5);
   background-size: cover;
   background-position: center;
   isolation: isolate;

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "../services/firebaseApi.js";
+import { doc, serverTimestamp, setDoc } from "../services/firebaseApi.js";
 import {
   LiaArrowLeftSolid,
   LiaArrowRightSolid,
@@ -13,7 +13,7 @@ import {
   LiaRocketSolid,
   LiaUserShieldSolid,
 } from 'react-icons/lia';
-import { auth, firestore, hasRuntimeFirebaseConfig, runtimeFirebaseConfig } from '../firebase';
+import { auth, firestore, hasRuntimeFirebaseConfig, runtimeFirebaseConfig } from "../services/firebaseApi.js";
 import { buildDefaultModuleSettings, DEFAULT_CMS_SETTINGS } from '../config/systemModules';
 
 const STORAGE_KEY = 'portal-installation-draft-v1';

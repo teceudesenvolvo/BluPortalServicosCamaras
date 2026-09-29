@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp } from "../../services/firebaseApi.js";
+import { getDownloadURL, storageRef as ref, uploadBytes } from "../../services/firebaseApi.js";
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { LiaChartPieSolid, LiaClipboardCheckSolid, LiaExclamationTriangleSolid, LiaFileContractSolid, LiaPlusSolid, LiaSearchSolid, LiaTasksSolid, LiaTimesSolid, LiaUserCheckSolid } from 'react-icons/lia';
-import { firestore, storage } from '../../firebase';
+import { firestore, storage } from "../../services/firebaseApi.js";
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { AdministrativeCommandService, AdministrativeDataTable, AdministrativeEmptyState, AdministrativeModuleLayout, PermissionGate } from '../administrative-core';
 import './contracts.css';
@@ -287,7 +287,10 @@ function ContractForm() {
 function ContractDetail({ contractId }) {
     const [contract, setContract] = useState(null); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
     const [contractDocuments, setContractDocuments] = useState([]);
-    const documentIdsKey = contractDocuments.map(item => item.id).join('|');
+    const documentIdsKey = useMemo(
+        () => contractDocuments.map(item => item.id).join('|'),
+        [contractDocuments],
+    );
     const [supplierReturns, setSupplierReturns] = useState([]);
     const [documentForm, setDocumentForm] = useState({ documentType: 'contract', description: '', sendForSignature: true, file: null });
     const [documentState, setDocumentState] = useState({ saving: false, message: '', error: '' });
@@ -297,11 +300,12 @@ function ContractDetail({ contractId }) {
         setContractDocuments(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
     }, err => setDocumentState({ saving: false, message: '', error: err.message })), [contractId]);
     useEffect(() => {
-        const subscriptions = contractDocuments.map(documentRow => onSnapshot(
-            collection(doc(firestore, 'contracts', contractId, 'documents', documentRow.id), 'supplierReturns'),
+        const documentIds = documentIdsKey.split('|').filter(Boolean);
+        const subscriptions = documentIds.map(documentId => onSnapshot(
+            collection(doc(firestore, 'contracts', contractId, 'documents', documentId), 'supplierReturns'),
             snapshot => setSupplierReturns(current => [
-                ...current.filter(item => item.documentId !== documentRow.id),
-                ...snapshot.docs.map(item => ({ id: item.id, documentId: documentRow.id, ...item.data() })),
+                ...current.filter(item => item.documentId !== documentId),
+                ...snapshot.docs.map(item => ({ id: item.id, documentId, ...item.data() })),
             ]),
             err => setDocumentState({ saving: false, message: '', error: err.message }),
         ));

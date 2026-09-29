@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, where } from "../services/firebaseApi.js";
 import { LiaCalendarAltSolid, LiaCheckSquareSolid, LiaClockSolid, LiaCogSolid, LiaMicrophoneSolid, LiaUsersSolid } from 'react-icons/lia';
-import { firestore } from '../firebase';
+import { firestore } from "../services/firebaseApi.js";
 import { LEGISLATIVE_COLLECTIONS } from '../config/legislativeDataModel';
 
 const clockValue = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });

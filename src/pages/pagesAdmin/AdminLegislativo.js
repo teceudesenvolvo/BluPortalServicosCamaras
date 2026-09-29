@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, doc, getDoc, getDocs, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, onSnapshot, query, where } from "../../services/firebaseApi.js";
 import { LiaBalanceScaleLeftSolid, LiaBuildingSolid, LiaCalendarAltSolid, LiaChartBarSolid, LiaFileAltSolid, LiaGavelSolid, LiaUserTieSolid, LiaUsersSolid } from 'react-icons/lia';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { useSystemControl } from '../../contexts/SystemControlContext';
 import { isSystemRootEmail } from '../../config/systemModules';
 import { LEGISLATIVE_COLLECTIONS } from '../../config/legislativeDataModel';
 import { DEFAULT_LEGISLATIVE_CONFIGURATION, resolveLegislativeContext } from '../../services/LegislativeProcessService';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import AdminSidebar from '../../components/AdminSidebar';
 import CabinetLegislativeManagement from '../../components/CabinetLegislativeManagement';
 

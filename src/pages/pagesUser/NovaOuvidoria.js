@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, serverTimestamp, setDoc } from "../../services/firebaseApi.js";
 import { LiaArrowLeftSolid, LiaCheckCircleSolid, LiaPaperPlane } from 'react-icons/lia';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import config from '../../config';

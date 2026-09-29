@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { addDoc, collection, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
+import { addDoc, collection, getDocs, query, serverTimestamp, where } from "../../services/firebaseApi.js";
 import { LiaBookSolid, LiaNewspaperSolid, LiaPlayCircleSolid, LiaTimesSolid } from 'react-icons/lia';
 import Sidebar from '../../components/Sidebar';
-import { auth, firestore } from '../../firebase';
+import { auth, firestore } from "../../services/firebaseApi.js";
 
 const fetchPublished = async name => (await getDocs(collection(firestore, name))).docs.map(item => ({ id: item.id, ...item.data() })).filter(item => item.status === 'Publicado');
 const videoEmbedUrl = url => { const youtube = (url || '').match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^?&/]+)/); if (youtube) return `https://www.youtube.com/embed/${youtube[1]}`; const vimeo = (url || '').match(/vimeo\.com\/(?:video\/)?(\d+)/); return vimeo ? `https://player.vimeo.com/video/${vimeo[1]}` : url; };

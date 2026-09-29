@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { collection, doc, getDoc, onSnapshot, query, runTransaction, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, query, runTransaction, updateDoc, where } from "../../services/firebaseApi.js";
 import { LiaPaperPlane, LiaPlusSolid, LiaTimesSolid } from 'react-icons/lia';
 import Sidebar from '../../components/Sidebar';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import { printProtocolReceipt } from '../../utils/printReport';
 
 const getStatusClass = (status) => {

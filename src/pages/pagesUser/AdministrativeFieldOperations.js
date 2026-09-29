@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, onSnapshot, orderBy, query } from "../../services/firebaseApi.js";
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     LiaArrowLeftSolid,
@@ -16,7 +16,7 @@ import Sidebar from '../../components/Sidebar';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { useSystemControl } from '../../contexts/SystemControlContext';
 import { canPerformAction } from '../../config/rolePermissions';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import { AdministrativeCommandService } from '../../modules/administrative-core';
 import './AdministrativeFieldOperations.css';
 

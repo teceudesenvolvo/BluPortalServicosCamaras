@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from "../services/firebaseApi.js";
 import { LiaCalendarAltSolid, LiaFileAltSolid, LiaGavelSolid } from 'react-icons/lia';
-import { firestore } from '../firebase';
+import { firestore } from "../services/firebaseApi.js";
 import { LEGISLATIVE_COLLECTIONS } from '../config/legislativeDataModel';
 
 export default function LegislativoPublico() {

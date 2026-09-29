@@ -4,6 +4,15 @@
   border-top: 1px solid #dbe7f2;
 }
 
+.home-section-toggles { margin-top: 20px; }
+.home-content-editors { display: grid; gap: 14px; margin-top: 20px; }
+.home-content-editors fieldset { min-width: 0; padding: 16px; border: 1px solid #dbe7f2; border-radius: 12px; }
+.home-content-editors legend { padding: 0 8px; color: #17324f; font-weight: 800; }
+.home-content-item-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.home-content-add { justify-self: start; }
+[data-theme="dark"] .home-content-editors fieldset { border-color: rgba(125, 190, 232, .22); }
+[data-theme="dark"] .home-content-editors legend { color: #eaf4fd; }
+
 .system-app-home-config h3 { margin: 0 0 6px; color: #17324f; }
 .system-app-home-config p { margin: 0 0 16px; color: #61758e; }
 .system-app-home-slots { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }

@@ -1,7 +1,7 @@
 import { canAccessModule } from '../config/rolePermissions';
 import React, { useState } from 'react';
-import { doc, runTransaction } from 'firebase/firestore';
-import { auth, firestore } from '../firebase';
+import { doc, runTransaction } from "../services/firebaseApi.js";
+import { auth, firestore } from "../services/firebaseApi.js";
 
 export const isFutureCouncilSlot = slot => Boolean(slot?.date && slot?.time && new Date(`${slot.date}T${slot.time}:00-03:00`).getTime() > Date.now());
 

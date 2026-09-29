@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "../../services/firebaseApi.js";
 import { LiaArrowLeftSolid, LiaBalanceScaleLeftSolid, LiaCalendarAltSolid, LiaFileAltSolid, LiaGavelSolid, LiaHistorySolid, LiaUserTieSolid } from 'react-icons/lia';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { LEGISLATIVE_COLLECTIONS } from '../../config/legislativeDataModel';
 import { LEGISLATIVE_STAGES, makeProceeding } from '../../services/LegislativeProcessService';

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, get } from 'firebase/database';
-import { collection, writeBatch, doc, setDoc, getDocs } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
-import { db, firestore, auth } from '../../firebase';
+import { databaseRef as ref, get } from "../../services/firebaseApi.js";
+import { collection, writeBatch, doc, setDoc, getDocs } from "../../services/firebaseApi.js";
+import { onAuthStateChanged } from "../../services/firebaseApi.js";
+import { db, firestore, auth } from "../../services/firebaseApi.js";
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import { LiaArrowLeftSolid } from "react-icons/lia";

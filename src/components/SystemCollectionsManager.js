@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { getApp } from 'firebase/app';
+import {
+    getFirebaseFirestoreCollectionUrl,
+    requestFirebaseRest,
+    runtimeFirebaseConfig,
+} from "../services/firebaseApi.js";
 import { LiaCheckCircleSolid, LiaClipboardSolid, LiaCloudSolid, LiaDatabaseSolid, LiaEyeSolid, LiaRedoAltSolid, LiaSearchSolid, LiaShieldAltSolid } from 'react-icons/lia';
 import FirebaseSetupWizard from './FirebaseSetupWizard';
 import ExternalApiManager from './ExternalApiManager';
@@ -44,9 +48,9 @@ const exampleFor = item => EXAMPLES[item[0]] || (item[1] === 'Configuração' ? 
 
 const SystemCollectionsManager = ({ externalApis = [], onExternalApisChange }) => {
     const [view, setView] = useState('setup'); const [search, setSearch] = useState(''); const [selected, setSelected] = useState(null); const [publicStatus, setPublicStatus] = useState({}); const [checking, setChecking] = useState(false); const [copiedApi, setCopiedApi] = useState('');
-    const { projectId, apiKey } = getApp().options;
-    const publicApiUrl = useCallback(item => `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${item[0]}`, [projectId]);
-    const checkRules = useCallback(async () => { setChecking(true); const results = await Promise.allSettled(COLLECTIONS.map(async item => { const probe = `${publicApiUrl(item)}?pageSize=1&mask.fieldPaths=_public_probe&key=${encodeURIComponent(apiKey || '')}`; const response = await fetch(probe); return [item[0], response.ok]; })); const next = {}; results.forEach((result,index) => { next[COLLECTIONS[index][0]] = result.status === 'fulfilled' && result.value[1]; }); setPublicStatus(next); setChecking(false); }, [apiKey, publicApiUrl]);
+    const apiKey = runtimeFirebaseConfig.apiKey;
+    const publicApiUrl = useCallback(item => getFirebaseFirestoreCollectionUrl(item[0]), []);
+    const checkRules = useCallback(async () => { setChecking(true); const results = await Promise.allSettled(COLLECTIONS.map(async item => { const probe = `${publicApiUrl(item)}?pageSize=1&mask.fieldPaths=_public_probe&key=${encodeURIComponent(apiKey || '')}`; const response = await requestFirebaseRest(probe); return [item[0], response.ok]; })); const next = {}; results.forEach((result,index) => { next[COLLECTIONS[index][0]] = result.status === 'fulfilled' && result.value[1]; }); setPublicStatus(next); setChecking(false); }, [apiKey, publicApiUrl]);
     useEffect(() => { checkRules(); }, [checkRules]);
     const copyPublicApi = async item => { await navigator.clipboard.writeText(publicApiUrl(item)); setCopiedApi(item[0]); setTimeout(() => setCopiedApi(''), 1800); };
     const filtered = useMemo(() => { const term = search.trim().toLowerCase(); return term ? COLLECTIONS.filter(item => item.join(' ').toLowerCase().includes(term)) : COLLECTIONS; }, [search]);

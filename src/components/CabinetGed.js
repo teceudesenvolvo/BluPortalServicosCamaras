@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
-import { firestore } from '../firebase';
+import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "../services/firebaseApi.js";
+import { firestore } from "../services/firebaseApi.js";
 import { uploadFileToStorage } from '../utils/firebaseStorageUtils';
 import CabinetOverlay from './CabinetOverlay';
 

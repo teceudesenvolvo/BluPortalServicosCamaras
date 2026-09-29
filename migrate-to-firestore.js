@@ -1,10 +1,19 @@
 const admin = require('firebase-admin');
 const serviceAccount = require('./path/to/serviceAccountKey.json'); // Baixe do Firebase Console > Configurações do Projeto > Contas de Serviço
 
+const projectId = process.env.FIREBASE_PROJECT_ID;
+const databaseURL = process.env.FIREBASE_DATABASE_URL;
+
+if (!projectId || !databaseURL) {
+  throw new Error(
+    'Configure FIREBASE_PROJECT_ID e FIREBASE_DATABASE_URL para a instância correta.',
+  );
+}
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: 'https://blu-app-camara-default-rtdb.firebaseio.com',
-  projectId: 'blu-app-camara'
+  databaseURL,
+  projectId,
 });
 
 const rtdb = admin.database();

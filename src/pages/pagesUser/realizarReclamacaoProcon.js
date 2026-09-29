@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import Sidebar from '../../components/Sidebar'; // Importa o componente Sidebar real
-import { collection, addDoc, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, serverTimestamp, setDoc } from "../../services/firebaseApi.js";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils'; // Função para upload de arquivos
 import { useSystemControl } from '../../contexts/SystemControlContext';
 import { LiaArrowLeftSolid, LiaShieldAltSolid } from 'react-icons/lia';

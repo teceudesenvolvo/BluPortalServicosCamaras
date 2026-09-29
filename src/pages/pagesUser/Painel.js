@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext'; // Para obter dados do usuário
 import Sidebar from '../../components/Sidebar'; 
-import { doc, getDoc } from 'firebase/firestore';
-import { firestore } from '../../firebase';
+import { doc, getDoc } from "../../services/firebaseApi.js";
+import { firestore } from "../../services/firebaseApi.js";
 import { useSystemControl } from '../../contexts/SystemControlContext';
 import { APP_HOME_MODULE_IDS, DEFAULT_APP_HOME_MODULES, SYSTEM_MODULES } from '../../config/systemModules';
 import { canAccessModule } from '../../config/rolePermissions';

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from "../../services/firebaseApi.js";
 import { useNavigate } from 'react-router-dom';
 import { LiaCalendarCheckSolid, LiaClipboardListSolid, LiaCommentDotsSolid, LiaPlusSolid, LiaShieldAltSolid } from 'react-icons/lia';
 import Sidebar from '../../components/Sidebar';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 
 const ProconPortal = () => {
     const navigate = useNavigate();

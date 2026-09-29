@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { 
     collection, query, getDocs, getDoc, 
     doc, updateDoc, addDoc, serverTimestamp, limit
-} from 'firebase/firestore';
+} from "../../services/firebaseApi.js";
 import Chart from 'chart.js/auto';
-import { onAuthStateChanged } from 'firebase/auth';
-import { firestore, auth } from '../../firebase';
+import { onAuthStateChanged } from "../../services/firebaseApi.js";
+import { firestore, auth } from "../../services/firebaseApi.js";
 import config from '../../config';
 import AdminSidebar from '../../components/AdminSidebar';
 import QueueManagerModal from '../../components/QueueManagerModal';

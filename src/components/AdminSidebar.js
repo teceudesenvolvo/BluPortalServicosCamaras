@@ -33,9 +33,9 @@ import {
     LiaCarSolid,
     LiaFileDownloadSolid,
 } from "react-icons/lia";
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth, firestore } from '../firebase';
-import { collection, doc, getDoc, getDocs, limit, query } from 'firebase/firestore';
+import { onAuthStateChanged } from "../services/firebaseApi.js";
+import { auth, firestore } from "../services/firebaseApi.js";
+import { collection, doc, getDoc, getDocs, limit, query } from "../services/firebaseApi.js";
 import { countUnreadAdminMessages } from '../utils/adminMessages';
 import { useSystemControl } from '../contexts/SystemControlContext';
 import { findModuleByPath, isSystemRootEmail } from '../config/systemModules';

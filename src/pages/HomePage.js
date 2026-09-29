@@ -24,10 +24,9 @@ import Footer from '../components/Footer'; // Importa o novo componente
 import VereadoresSlider from '../components/VereadoresSlider'; // Importa o slider
 import NoticiasSlider from '../components/NoticiasSlider'; // Importa o slider de notícias
 import MaintenancePopup from '../components/MaintenancePopup';
-import Logo from '../assets/logo-paraipaba.png';
 import { useSystemControl } from '../contexts/SystemControlContext';
-import HeroBackground from '../assets/fachada2-cm.jpg';
-import { appFunctionsBaseUrl, buildPlayerUrl, fetchTvCamaraVideos, formatVideoDate } from '../utils/tvCamara';
+import { buildPlayerUrl, fetchTvCamaraVideos, formatVideoDate } from '../utils/tvCamara';
+import { requestFirebaseFunction } from '../services/firebaseApi';
 
 const ServiceCard = ({ icon, title, description, tag, onClick }) => {
     return (
@@ -47,15 +46,17 @@ const ServiceCard = ({ icon, title, description, tag, onClick }) => {
     );
 };
 
-const BALCAO_BALANCE_ENDPOINTS = [
-    `${appFunctionsBaseUrl}/getBalcaoPublicBalance`,
-    'https://us-central1-blu-app-camara.cloudfunctions.net/getBalcaoPublicBalance',
-].filter((endpoint, index, endpoints) => endpoint && endpoints.indexOf(endpoint) === index);
-
 // Componente Principal: Home Page
 const HomePage = () => {
     const { settings } = useSystemControl();
-    const cmsLogo = settings.branding?.logoUrl || Logo;
+    const cmsLogo = settings.branding?.logoUrl || settings.branding?.compactLogoUrl || '';
+    const home = { ...settings.home };
+    const integrations = settings.integrations || {};
+    const appLinks = [
+        { label: 'App Store', url: integrations.iosStoreUrl },
+        { label: 'Google Play', url: integrations.androidStoreUrl },
+        { label: 'Baixar aplicativo', url: integrations.appDownloadUrl },
+    ].filter(item => String(item.url || '').trim());
     const navigate = useNavigate();
     const [showAppPopup, setShowAppPopup] = useState(false);
     const [tvVideos, setTvVideos] = useState([]);
@@ -67,8 +68,10 @@ const HomePage = () => {
     const featuredPlayerUrl = buildPlayerUrl(featuredVideo?.videoId);
 
     useEffect(() => {
-        setShowAppPopup(true);
-    }, []);
+        let dismissed = false;
+        try { dismissed = localStorage.getItem('app-popup-shown') === 'true'; } catch (_) { /* storage indisponível */ }
+        setShowAppPopup(Boolean(home.appPopupEnabled && appLinks.length && !dismissed));
+    }, [home.appPopupEnabled, appLinks.length]);
 
     useEffect(() => {
         let mounted = true;
@@ -106,20 +109,17 @@ const HomePage = () => {
         let mounted = true;
 
         const fetchBalcaoBalance = async () => {
-            for (const endpoint of BALCAO_BALANCE_ENDPOINTS) {
-                try {
-                    const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}t=${Date.now()}`;
-                    const response = await fetch(url, { cache: 'no-store' });
-                    if (!response.ok) throw new Error(`Falha HTTP ${response.status}`);
-                    const payload = await response.json();
+            try {
+                const response = await requestFirebaseFunction(
+                    `getBalcaoPublicBalance?t=${Date.now()}`,
+                    { cache: 'no-store' },
+                );
+                if (!response.ok) throw new Error(`Falha HTTP ${response.status}`);
+                const payload = await response.json();
 
-                    if (mounted && payload?.ok) {
-                        setBalcaoBalance(payload);
-                        return;
-                    }
-                } catch (error) {
-                    console.error('Falha ao carregar balanço do Balcão:', error);
-                }
+                if (mounted && payload?.ok) setBalcaoBalance(payload);
+            } catch (error) {
+                console.error('Falha ao carregar balanço do Balcão:', error);
             }
         };
 
@@ -135,45 +135,34 @@ const HomePage = () => {
         setShowAppPopup(false);
     };
 
-    const services = [
-        {
-            icon: <LiaUserFriendsSolid />,
-            title: "Balcão do Cidadão",
-            tag: "Atendimento digital",
-            description: "Solicite documentos e agende atendimentos de forma rápida.",
-            action: () => navigate('/login'),
-        },
-        {
-            icon: <LiaVoteYeaSolid />,
-            title: "Ponto de Inclusão Eleitoral (PIEL)",
-            tag: "Cidadania",
-            description: "Consulte informativos sobre seu título de eleitor, local de votação e mais.",
-            action: () => navigate('/piel'),
-        },
-        {
-            icon: <LiaUserAstronautSolid />,
-            title: "Ouvidoria",
-            tag: "Comunicação direta",
-            description: "Envie suas sugestões, reclamações, elogios ou críticas.",
-            action: () => navigate('/ouvidoria-publica'),
-        }
-    ];
+    const serviceIcons = { balcao: <LiaUserFriendsSolid />, piel: <LiaVoteYeaSolid />, ouvidoria: <LiaUserAstronautSolid /> };
+    const quickIcons = { esic: <LiaUserAstronautSolid />, agendamentos: <LiaCalendarCheckSolid />, mensagens: <LiaCommentsSolid />, noticias: <LiaNewspaperSolid />, tvCamara: <LiaTvSolid /> };
+    const services = (home.services || []).map(item => ({
+        ...item,
+        icon: serviceIcons[item.id] || <LiaArrowRightSolid />,
+        action: () => handleHomeNavigation(item.path),
+    }));
+    const quickAccessItems = (home.quickLinks || []).map(item => ({
+        ...item,
+        icon: quickIcons[item.id] || <LiaArrowRightSolid />,
+    }));
 
-    const quickAccessItems = [
-        { icon: <LiaUserAstronautSolid />, title: 'e-SIC', text: 'Solicite informações públicas', path: '/esic-publico' },
-        { icon: <LiaCalendarCheckSolid />, title: 'Agendamentos', text: 'Acompanhe datas e retornos', path: '/login' },
-        { icon: <LiaCommentsSolid />, title: 'Mensagens', text: 'Fale com os setores da Câmara', path: '/login' },
-        { icon: <LiaNewspaperSolid />, title: 'Notícias', text: 'Veja avisos e publicações', path: '#noticias' },
-        { icon: <LiaTvSolid />, title: 'TV Câmara', text: 'Assista sessões e vídeos', path: '/tv-camara' },
-    ];
+    const interpolate = value => String(value || '')
+        .replaceAll('{{nome}}', settings.tenant?.name || '')
+        .replaceAll('{{municipio}}', settings.tenant?.city || '')
+        .replaceAll('{{uf}}', settings.tenant?.state || '');
 
-    const handleQuickAccess = (path) => {
+    function handleHomeNavigation(path) {
         if (path === '#noticias') {
             document.getElementById('noticias')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return;
         }
+        const safePath = String(path || '').trim();
+        if (safePath.startsWith('/') && !safePath.startsWith('//')) navigate(safePath);
+    }
 
-        navigate(path);
+    const handleQuickAccess = (path) => {
+        handleHomeNavigation(path);
     };
 
     return (
@@ -182,31 +171,26 @@ const HomePage = () => {
             {showAppPopup && (
                 <div style={popupStyles.overlay}>
                     <div style={popupStyles.content}>
-                        <h2 style={popupStyles.title}>Baixe nosso App!</h2>
-                        <p style={popupStyles.text}>Acesse os serviços da Câmara Municipal direto do seu celular com muito mais praticidade.</p>
+                        <h2 style={popupStyles.title}>{home.appPopupTitle}</h2>
+                        <p style={popupStyles.text}>{home.appPopupDescription}</p>
                         <div style={popupStyles.buttonContainer}>
-                            <a href="https://apps.apple.com/br/app/cm-paraipaba/id6769832252" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                                <button style={popupStyles.downloadButton}>App Store</button>
-                            </a>
-                            <a href="https://play.google.com/store/apps/details?id=com.blutecnologias.appcamara&pcampaignid=web_share" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                                <button style={popupStyles.downloadButton}>Google Play</button>
-                            </a>
+                            {appLinks.map(item => <a key={item.label} href={item.url} target="_blank" rel="noopener noreferrer" style={popupStyles.downloadButton}>{item.label}</a>)}
                             <button style={popupStyles.dismissButton} onClick={handleDismissPopup}>Agora não</button>
                         </div>
                     </div>
                 </div>
             )}
-            <header className="home-header-modern landing-home-premium" style={{ backgroundImage: `url(${HeroBackground})` }}>
+            <header className="home-header-modern landing-home-premium" style={settings.branding?.homeHeroUrl ? { backgroundImage: `url(${settings.branding.homeHeroUrl})` } : undefined}>
                 <div className="header-blur-overlay"></div>
                 <div className="nav-container">
                     <nav className="home-nav">
                         <div className="nav-logo">
-                            <img src={cmsLogo} alt={settings.branding?.logoAlt || 'Logo da Câmara Municipal'} />
+                            {cmsLogo && <img src={cmsLogo} alt={settings.branding?.logoAlt || 'Logo da Câmara Municipal'} />}
                             <span>{settings.tenant?.name}</span>
                         </div>
                         <div className="nav-actions">
-                            <button className="btn-nav-login" onClick={() => navigate('/login')}>Entrar</button>
-                            <button className="btn-nav-signup" onClick={() => navigate('/cadastro')}>Cadastrar</button>
+                            <button className="btn-nav-login" onClick={() => navigate('/login')}>{home.loginLabel}</button>
+                            <button className="btn-nav-signup" onClick={() => navigate('/cadastro')}>{home.signupLabel}</button>
                         </div>
                     </nav>
                 </div>
@@ -214,34 +198,34 @@ const HomePage = () => {
                     <div className="hero-content-premium">
                         <span className="hero-eyebrow">
                             <LiaShieldAltSolid />
-                            Portal oficial de serviços digitais
+                            {home.heroEyebrow}
                         </span>
-                        <h1>{settings.tenant?.name} mais próxima de você.</h1>
-                        <p>Acesse atendimentos, acompanhe solicitações, assista à TV Câmara e receba informações oficiais em uma experiência moderna, simples e segura.</p>
+                        <h1>{interpolate(home.heroTitle)}</h1>
+                        <p>{home.heroDescription}</p>
 
                         <div className="hero-actions-premium">
-                            <button className="btn-hero-primary" onClick={() => navigate('/cadastro')}>
-                                Criar acesso
+                            <button className="btn-hero-primary" onClick={() => handleHomeNavigation(home.primaryActionPath)}>
+                                {home.primaryActionLabel}
                                 <LiaArrowRightSolid />
                             </button>
-                            <button className="btn-hero-secondary" onClick={() => navigate('/login')}>
-                                Entrar no portal
+                            <button className="btn-hero-secondary" onClick={() => handleHomeNavigation(home.secondaryActionPath)}>
+                                {home.secondaryActionLabel}
                             </button>
                         </div>
 
                         <div className="hero-trust-row">
-                            <span><LiaBellSolid /> Serviços públicos online</span>
-                            <span><LiaMobileAltSolid /> App oficial disponível</span>
+                            <span><LiaBellSolid /> {home.trustServicesLabel}</span>
+                            <span><LiaMobileAltSolid /> {home.trustAppLabel}</span>
                             <span><LiaMapMarkedAltSolid /> {settings.tenant?.city} - {settings.tenant?.state}</span>
                         </div>
                     </div>
 
                     <div className="hero-panel-premium">
                         <div className="hero-panel-header">
-                            <img src={cmsLogo} alt={settings.branding?.logoAlt || settings.tenant?.name || 'Câmara Municipal'} />
+                            {cmsLogo && <img src={cmsLogo} alt={settings.branding?.logoAlt || settings.tenant?.name || 'Câmara Municipal'} />}
                             <span>
-                                <strong>Portal de Serviços</strong>
-                                <small>Atendimento integrado</small>
+                                <strong>{home.panelTitle}</strong>
+                                <small>{home.panelSubtitle}</small>
                             </span>
                         </div>
                         <div className="hero-panel-grid">
@@ -260,26 +244,15 @@ const HomePage = () => {
             </header>
 
             <main className="home-main-content">
-                <section className="landing-stats-section" aria-label="Destaques do portal">
-                    <article>
-                        <strong>24h</strong>
-                        <span>Portal disponível para iniciar solicitações</span>
-                    </article>
-                    <article>
-                        <strong>4</strong>
-                        <span>Canais digitais em um só lugar</span>
-                    </article>
-                    <article>
-                        <strong>100%</strong>
-                        <span>Foco em transparência e acompanhamento</span>
-                    </article>
-                </section>
+                {home.showStats && <section className="landing-stats-section" aria-label="Destaques do portal">
+                    {(home.stats || []).map((item, index) => <article key={item.id || index}><strong>{item.value}</strong><span>{item.label}</span></article>)}
+                </section>}
 
-                <section className="services-section-modern">
+                {home.showServices && <section className="services-section-modern">
                     <div className="landing-section-heading">
-                        <span>Resolva online</span>
-                        <h2>Serviços essenciais com poucos cliques</h2>
-                        <p>Uma central digital para iniciar atendimentos, acompanhar retornos e manter contato com a Câmara.</p>
+                        <span>{home.servicesEyebrow}</span>
+                        <h2>{home.servicesTitle}</h2>
+                        <p>{home.servicesDescription}</p>
                     </div>
                     <div className="services-container-modern">
                         {services.map(service => (
@@ -293,60 +266,58 @@ const HomePage = () => {
                             />
                         ))}
                     </div>
-                </section>
+                </section>}
 
-                <section className="home-balcao-balance-section">
+                {home.showBalance && <section className="home-balcao-balance-section">
                     <div className="home-balcao-balance-copy">
                         <span className="home-balcao-balance-eyebrow">
                             <LiaUserFriendsSolid />
-                            Balcão do Cidadão
+                            {home.balanceEyebrow}
                         </span>
-                        <h2>Balanço mensal dos atendimentos</h2>
-                        <p>
-                            Acompanhe o movimento do Balcão do Cidadão no mês atual, com dados consolidados das solicitações digitais.
-                        </p>
+                        <h2>{home.balanceTitle}</h2>
+                        <p>{home.balanceDescription}</p>
                     </div>
 
                     <div className="home-balcao-balance-grid">
                         <article>
                             <LiaClipboardListSolid />
-                            <span>{balcaoBalance?.period?.label || 'Mês atual'}</span>
+                            <span>{balcaoBalance?.period?.label || home.balancePeriodLabel}</span>
                             <strong>{balcaoBalance?.counts?.total ?? '--'}</strong>
-                            <small>solicitações registradas</small>
+                            <small>{home.balanceTotalLabel}</small>
                         </article>
                         <article>
                             <LiaHourglassHalfSolid />
-                            <span>Aguardando</span>
+                            <span>{home.balanceWaitingLabel}</span>
                             <strong>{balcaoBalance?.counts?.aguardando ?? '--'}</strong>
-                            <small>em atendimento</small>
+                            <small>{home.balanceWaitingDetail}</small>
                         </article>
                         <article>
                             <LiaCalendarCheckSolid />
-                            <span>Agendados</span>
+                            <span>{home.balanceScheduledLabel}</span>
                             <strong>{balcaoBalance?.counts?.agendados ?? '--'}</strong>
-                            <small>com data marcada</small>
+                            <small>{home.balanceScheduledDetail}</small>
                         </article>
                         <article>
                             <LiaShieldAltSolid />
-                            <span>Concluídos</span>
+                            <span>{home.balanceCompletedLabel}</span>
                             <strong>{balcaoBalance?.counts?.concluidos ?? '--'}</strong>
-                            <small>finalizados no mês</small>
+                            <small>{home.balanceCompletedDetail}</small>
                         </article>
                     </div>
-                </section>
+                </section>}
 
-                <section className="home-tv-camara-section">
+                {home.showTv && <section className="home-tv-camara-section">
                     <div className="home-tv-camara-copy">
                         <span className="home-tv-camara-eyebrow">
                             <LiaTvSolid />
-                            TV Câmara
+                            {home.tvEyebrow}
                         </span>
-                        <h2>Acompanhe sessões, pronunciamentos e conteúdos oficiais</h2>
-                        <p>A TV Câmara fica integrada ao portal para aproximar o cidadão das discussões, notícias e transmissões do legislativo.</p>
+                        <h2>{home.tvTitle}</h2>
+                        <p>{home.tvDescription}</p>
 
                         <div className="home-tv-camara-actions">
-                            <button className="btn-nav-signup" onClick={() => navigate('/tv-camara')}>
-                                Ver TV Câmara
+                            <button className="btn-nav-signup" onClick={() => handleHomeNavigation('/tv-camara')}>
+                                {home.tvButtonLabel}
                             </button>
                             {featuredVideo?.videoId && (
                                 <a
@@ -356,7 +327,7 @@ const HomePage = () => {
                                     className="home-tv-camara-link"
                                 >
                                     <LiaExternalLinkAltSolid />
-                                    Abrir no YouTube
+                                    {home.tvYoutubeLabel}
                                 </a>
                             )}
                         </div>
@@ -367,12 +338,12 @@ const HomePage = () => {
                             {tvLoading ? (
                                 <div className="home-tv-camara-state">
                                     <LiaTvSolid />
-                                    <strong>Carregando TV Câmara...</strong>
+                                    <strong>{home.tvLoadingLabel}</strong>
                                 </div>
                             ) : tvError || !featuredVideo || !featuredPlayerUrl ? (
                                 <div className="home-tv-camara-state">
                                     <LiaTvSolid />
-                                    <strong>{tvError || 'Nenhum vídeo encontrado.'}</strong>
+                                    <strong>{tvError || home.tvEmptyLabel}</strong>
                                 </div>
                             ) : (
                                 <iframe
@@ -387,20 +358,20 @@ const HomePage = () => {
                         <div className="home-tv-camara-meta">
                             <span>
                                 <LiaPlayCircleSolid />
-                                {featuredVideo ? formatVideoDate(featuredVideo.publishedAt) : 'Último vídeo'}
+                                {featuredVideo ? formatVideoDate(featuredVideo.publishedAt) : home.tvLatestLabel}
                             </span>
                             <strong>{featuredVideo?.title || 'TV Câmara'}</strong>
                         </div>
                     </div>
-                </section>
+                </section>}
 
-                 <section id="noticias" className="noticias-section-modern">
+                 {home.showNews && <section id="noticias" className="noticias-section-modern">
                     <NoticiasSlider />
-                </section>
+                </section>}
 
-                <section className="vereadores-slider-section">
+                {home.showCouncilors && <section className="vereadores-slider-section">
                     <VereadoresSlider />
-                </section>
+                </section>}
 
                 
             </main>

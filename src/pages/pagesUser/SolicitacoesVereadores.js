@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { addDoc, collection, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { addDoc, collection, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where } from "../../services/firebaseApi.js";
+import { getDownloadURL, storageRef as ref, uploadBytes } from "../../services/firebaseApi.js";
 import { LiaBullhornSolid, LiaCalendarSolid, LiaCommentsSolid, LiaIdCardSolid } from 'react-icons/lia';
 import Sidebar from '../../components/Sidebar';
 import VereadorAppointmentOffer from '../../components/VereadorAppointmentOffer';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { firestore, storage } from '../../firebase';
+import { firestore, storage } from "../../services/firebaseApi.js";
 import { DEMAND_STATUSES, statusLabel } from '../../config/cabinetMandate';
 
 const TABS = ['Visão geral', 'Solicitar reunião', 'Enviar demanda', 'Visitante', 'Mensagens'];

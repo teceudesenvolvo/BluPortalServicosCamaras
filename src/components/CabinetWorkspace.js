@@ -1,10 +1,10 @@
 import CabinetOverlay from './CabinetOverlay';
 import React, { useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, getDoc, onSnapshot, query, runTransaction, serverTimestamp, setDoc, updateDoc, where, writeBatch } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
+import { addDoc, collection, deleteDoc, doc, getDoc, onSnapshot, query, runTransaction, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "../services/firebaseApi.js";
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
-import { firestore, functions } from '../firebase';
+import { firestore } from "../services/firebaseApi.js";
+import { callFirebaseFunction } from '../services/firebaseApi';
 import CabinetMap from './CabinetMap';
 import CabinetGed from './CabinetGed';
 import CabinetReceivedLetters from './CabinetReceivedLetters';
@@ -51,7 +51,7 @@ export default function CabinetWorkspace({ gabineteId, authorName, items, canMan
     const appointments=items.filter(item=>item.appointmentDate||['Agendamento Liberado','Datas Liberadas','Agendado'].includes(item.status));
     const demands=items.filter(item=>(item.tipoDemanda||item.dadosSolicitacao?.categoriaDemanda||'Atendimento no gabinete')!=='Atendimento no gabinete').map(item=>({...item,address:item.dadosUsuario?.address||item.dadosUsuario?.endereco}));
     const close=()=>{setModal(null);setError('');setFoundUser(null)};
-    const searchUser=async event=>{event.preventDefault();setSaving(true);setError('');try{const result=await httpsCallable(functions,'buscarUsuarioParaGabinete')({email:teamForm.email.trim().toLowerCase()});if(!result.data.found)throw new Error('Nenhum usuário encontrado com este e-mail.');setFoundUser(result.data.user);}catch(err){setError(err.message)}finally{setSaving(false)}};
+    const searchUser=async event=>{event.preventDefault();setSaving(true);setError('');try{const result=await callFirebaseFunction('buscarUsuarioParaGabinete',{email:teamForm.email.trim().toLowerCase()});if(!result.data.found)throw new Error('Nenhum usuário encontrado com este e-mail.');setFoundUser(result.data.user);}catch(err){setError(err.message)}finally{setSaving(false)}};
     const requireCabinet=()=>{if(gabineteId)return true;setError('Selecione ou aguarde o carregamento de um gabinete antes de continuar.');return false};
     const confirmTeam=async()=>{if(!foundUser||!requireCabinet())return;setSaving(true);try{await setDoc(doc(firestore,'gabinetes-equipe',`${gabineteId}_${foundUser.id}`),{gabineteId,vereadorId:gabineteId,userId:foundUser.id,email:foundUser.email||teamForm.email.trim().toLowerCase(),nome:foundUser.name||foundUser.email,nivelAcesso:teamForm.access,ativo:true,criadoEm:serverTimestamp()});setTeamForm({email:'',access:'operacional'});close()}catch(err){setError(err.message)}finally{setSaving(false)}};
     const addList=async event=>{event.preventDefault();if(!newList.trim()||!requireCabinet())return;setSaving(true);setError('');try{await addDoc(collection(firestore,'gabinetes-listas'),{gabineteId,titulo:newList.trim(),ordem:lists.length,criadoEm:serverTimestamp()});setNewList('');close()}catch(err){setError(err.code==='permission-denied'?'Seu nível de acesso não permite criar listas ou as regras ainda não foram publicadas.':err.message)}finally{setSaving(false)}};

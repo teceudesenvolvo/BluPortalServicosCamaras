@@ -1,7 +1,6 @@
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../firebase';
+import { callFirebaseFunction } from './firebaseApi';
 
-const call = name => httpsCallable(functions, name);
+const call = (name, data) => callFirebaseFunction(name, data);
 
 const withFriendlyError = action => async (...args) => {
   try {
@@ -21,12 +20,12 @@ const withFriendlyError = action => async (...args) => {
  * conhecer Jitsi, URLs de sala ou o formato do JWT do provedor.
  */
 export const VideoConferenceService = {
-  createRoom: withFriendlyError(payload => call('createVideoConference')(payload).then(result => result.data)),
-  generateJoinToken: withFriendlyError(conferenceId => call('getVideoConferenceJoinToken')({ conferenceId }).then(result => result.data)),
-  startRecording: withFriendlyError(conferenceId => call('changeVideoConferenceStatus')({ conferenceId, action: 'startRecording' }).then(result => result.data)),
-  stopRecording: withFriendlyError(conferenceId => call('changeVideoConferenceStatus')({ conferenceId, action: 'stopRecording' }).then(result => result.data)),
-  closeRoom: withFriendlyError(conferenceId => call('changeVideoConferenceStatus')({ conferenceId, action: 'closeRoom' }).then(result => result.data)),
-  startTranscription: withFriendlyError(conferenceId => call('changeVideoConferenceStatus')({ conferenceId, action: 'startTranscription' }).then(result => result.data)),
+  createRoom: withFriendlyError(payload => call('createVideoConference', payload).then(result => result.data)),
+  generateJoinToken: withFriendlyError(conferenceId => call('getVideoConferenceJoinToken', { conferenceId }).then(result => result.data)),
+  startRecording: withFriendlyError(conferenceId => call('changeVideoConferenceStatus', { conferenceId, action: 'startRecording' }).then(result => result.data)),
+  stopRecording: withFriendlyError(conferenceId => call('changeVideoConferenceStatus', { conferenceId, action: 'stopRecording' }).then(result => result.data)),
+  closeRoom: withFriendlyError(conferenceId => call('changeVideoConferenceStatus', { conferenceId, action: 'closeRoom' }).then(result => result.data)),
+  startTranscription: withFriendlyError(conferenceId => call('changeVideoConferenceStatus', { conferenceId, action: 'startTranscription' }).then(result => result.data)),
 };
 
 export const VIDEO_CONFERENCE_STATUS = {

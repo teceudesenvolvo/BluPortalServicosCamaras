@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword } from "../services/firebaseApi.js";
+import { doc, serverTimestamp, setDoc } from "../services/firebaseApi.js";
 import { Link, useNavigate } from 'react-router-dom';
-import { auth, firestore } from '../firebase';
+import { auth, firestore } from "../services/firebaseApi.js";
 
 const CompanyRegistration = () => {
     const navigate = useNavigate();

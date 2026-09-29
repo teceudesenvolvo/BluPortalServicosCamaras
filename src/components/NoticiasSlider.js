@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
-import { firestore } from '../firebase';
+import { collection, getDocs, query, where, orderBy, limit } from "../services/firebaseApi.js";
+import { firestore } from "../services/firebaseApi.js";
 import { LiaImageSolid, LiaCalendarSolid } from 'react-icons/lia';
 
 const NoticiasSlider = () => {

@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
     collection, getDocs, doc, addDoc, updateDoc, deleteDoc, 
     serverTimestamp as fsTimestamp
-} from 'firebase/firestore';
-import { firestore } from '../../firebase';
+} from "../../services/firebaseApi.js";
+import { firestore } from "../../services/firebaseApi.js";
 import AdminSidebar from '../../components/AdminSidebar';
 import QueueManagerModal from '../../components/QueueManagerModal';
 import { LiaPlusSolid, LiaTimesSolid, LiaEditSolid, LiaTrashAltSolid, LiaSaveSolid, LiaUsersCogSolid } from "react-icons/lia";

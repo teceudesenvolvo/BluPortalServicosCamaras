@@ -6,7 +6,7 @@ import {
     runTransaction,
     setDoc,
     updateDoc,
-} from 'firebase/firestore';
+} from "../services/firebaseApi.js";
 import {
     LiaBullhornSolid,
     LiaCheckCircleSolid,
@@ -19,7 +19,7 @@ import {
     LiaTimesSolid,
     LiaUserClockSolid,
 } from 'react-icons/lia';
-import { auth, firestore } from '../firebase';
+import { auth, firestore } from "../services/firebaseApi.js";
 import { buildAlternatingQueue, getLastCalledPriority } from '../utils/queueOrdering';
 import { useSystemControl } from '../contexts/SystemControlContext';
 

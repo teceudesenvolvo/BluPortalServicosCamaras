@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { addDoc, arrayUnion, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayUnion, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "../../services/firebaseApi.js";
 import { LiaArrowLeftSolid, LiaCalendarAltSolid, LiaClipboardListSolid, LiaFileAltSolid, LiaGavelSolid, LiaMicrophoneSlashSolid, LiaMicrophoneSolid, LiaMinusSolid, LiaPlusSolid, LiaUndoSolid, LiaUserPlusSolid, LiaUsersSolid, LiaVideoSolid } from 'react-icons/lia';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import { LEGISLATIVE_COLLECTIONS } from '../../config/legislativeDataModel';
 import { VideoConferenceService } from '../../services/VideoConferenceService';
 import { LEGISLATIVE_STAGES, makeProceeding } from '../../services/LegislativeProcessService';

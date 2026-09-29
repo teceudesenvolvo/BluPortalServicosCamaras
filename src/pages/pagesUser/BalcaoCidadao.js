@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import {
     collection, query, where, doc, getDoc, deleteDoc,
     updateDoc, serverTimestamp, onSnapshot, runTransaction
-} from 'firebase/firestore';
+} from "../../services/firebaseApi.js";
 import Sidebar from '../../components/Sidebar';
 import config from '../../config';
 import { uploadFileToStorage, deleteFileFromStorage } from '../../utils/firebaseStorageUtils';

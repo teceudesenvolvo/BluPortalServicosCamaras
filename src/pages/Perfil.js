@@ -2,10 +2,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Importações do Firebase
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { signOut, sendPasswordResetEmail } from 'firebase/auth';
+import { doc, getDoc, updateDoc } from "../services/firebaseApi.js";
+import { signOut, sendPasswordResetEmail } from "../services/firebaseApi.js";
 import { useAuth } from '../contexts/FirebaseAuthContext';
-import { auth, firestore } from '../firebase';
+import { auth, firestore } from "../services/firebaseApi.js";
 import Sidebar from '../components/Sidebar'; // Sidebar do Cidadão
 import config from '../config'; // Importa a configuração
 import AdminSidebar from '../components/AdminSidebar'; // Sidebar do Admin

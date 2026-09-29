@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where } from "../../services/firebaseApi.js";
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import {
@@ -9,7 +9,7 @@ import {
     LiaShieldAltSolid, LiaTableSolid, LiaTasksSolid, LiaTimesSolid, LiaUsersSolid,
 } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import { useSystemControl } from '../../contexts/SystemControlContext';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { canAccessModule } from '../../config/rolePermissions';

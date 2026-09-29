@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, doc, getDoc, onSnapshot, runTransaction, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, onSnapshot, runTransaction, serverTimestamp, setDoc, updateDoc } from "../../services/firebaseApi.js";
 import {
     LiaBuildingSolid,
     LiaCalendarAltSolid,
@@ -14,7 +14,7 @@ import {
 } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
 import QueueManagerModal from '../../components/QueueManagerModal';
-import { auth, firestore } from '../../firebase';
+import { auth, firestore } from "../../services/firebaseApi.js";
 import { buildSupplierRanking, getComplaintSupplier } from '../../utils/proconAnalytics';
 import { parseTimes, WEEK_DAYS } from '../../utils/proconSchedule';
 

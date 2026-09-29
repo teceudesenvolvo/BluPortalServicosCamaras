@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs } from 'firebase/firestore';
-import { firestore } from '../../firebase';
+import { collection, getDocs } from "../../services/firebaseApi.js";
+import { firestore } from "../../services/firebaseApi.js";
 import Footer from '../../components/Footer';
 import Logo from '../../assets/logo-paraipaba.png';
 import HeroBackground from '../../assets/fachada2-cm.jpg';

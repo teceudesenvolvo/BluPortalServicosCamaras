@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, setDoc, updateDoc, where } from "../services/firebaseApi.js";
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import { LiaCalendarAltSolid, LiaFileAltSolid, LiaGavelSolid, LiaPlusSolid, LiaUsersSolid } from 'react-icons/lia';
-import { firestore } from '../firebase';
+import { firestore } from "../services/firebaseApi.js";
 import { LEGISLATIVE_COLLECTIONS, legislativeCounterPath } from '../config/legislativeDataModel';
 import { DEFAULT_LEGISLATIVE_CONFIGURATION, LEGISLATIVE_STAGES, makeProceeding, transitionOptions } from '../services/LegislativeProcessService';
 import { uploadFileToStorage } from '../utils/firebaseStorageUtils';

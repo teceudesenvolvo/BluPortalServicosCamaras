@@ -3,15 +3,15 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
     addDoc, collection, doc, onSnapshot, query, serverTimestamp, setDoc,
     updateDoc, where,
-} from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+} from "../../services/firebaseApi.js";
+import { getDownloadURL, storageRef as ref, uploadBytes } from "../../services/firebaseApi.js";
 import {
     LiaArchiveSolid, LiaDownloadSolid, LiaFileAltSolid, LiaFileUploadSolid,
     LiaPlusSolid, LiaSearchSolid, LiaTimesSolid, LiaHomeSolid,
     LiaClockSolid, LiaFolderOpenSolid, LiaHistorySolid, LiaFolderSolid,
     LiaListSolid, LiaThLargeSolid, LiaCloudUploadAltSolid,
 } from 'react-icons/lia';
-import { firestore, storage } from '../../firebase';
+import { firestore, storage } from "../../services/firebaseApi.js";
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { useSystemControl } from '../../contexts/SystemControlContext';
 import { canPerformAction } from '../../config/rolePermissions';

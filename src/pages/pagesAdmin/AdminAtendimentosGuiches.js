@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from "../../services/firebaseApi.js";
 import Chart from 'chart.js/auto';
 import {
     LiaCalendarAltSolid,
@@ -15,7 +15,7 @@ import {
 } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
 import { useTheme } from '../../contexts/ThemeContext';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import { printTableReport } from '../../utils/printReport';
 import { isWalkIn, mergeCompletedWalkIns } from '../../utils/attendanceCalendar';
 import { buildAttendanceConsultancy, buildAttendantTimeStats, buildDailyTimeSeries, getAttendanceTimes } from '../../utils/attendanceInsights';

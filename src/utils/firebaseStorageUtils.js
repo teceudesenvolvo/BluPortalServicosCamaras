@@ -1,6 +1,6 @@
 // Adicione estas importações se não existirem no firebaseStorageUtils.js
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage } from '../firebase';
+import { storageRef as ref, uploadBytes, getDownloadURL, deleteObject } from "../services/firebaseApi.js";
+import { storage } from "../services/firebaseApi.js";
 import { v4 as uuidv4 } from 'uuid'; // Precisamos de um ID único para evitar sobrepor arquivos
 
 /**

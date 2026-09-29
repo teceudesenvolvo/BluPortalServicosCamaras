@@ -33,12 +33,11 @@
     "logoAlt": "Câmara Municipal de Paraipaba"
   },
   "integrations": {
-    "functionsBaseUrl": "",
     "publicApiUrl": "",
     "youtubeApiUrl": "",
     "appDownloadUrl": "https://servicos.camaraparaipaba.ce.gov.br/download-app",
-    "androidStoreUrl": "",
-    "iosStoreUrl": "",
+    "androidStoreUrl": "https://play.google.com/store/apps/details?id=com.blutecnologias.appcamara&pcampaignid=web_share",
+    "iosStoreUrl": "https://apps.apple.com/br/app/cm-paraipaba/id6769832252",
     "privacyUrl": "",
     "supportEmail": ""
   }

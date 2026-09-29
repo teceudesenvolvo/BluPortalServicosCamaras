@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { addDoc, collection, deleteDoc, doc, getDocs, orderBy, query, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDocs, orderBy, query, serverTimestamp, updateDoc } from "../../services/firebaseApi.js";
 import { LiaAngleLeftSolid, LiaBookSolid, LiaNewspaperSolid, LiaPlusSolid, LiaSearchSolid, LiaTimesSolid } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';

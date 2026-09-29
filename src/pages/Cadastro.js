@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { addDoc, collection, doc, getDocs, query, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
+import { createUserWithEmailAndPassword } from "../services/firebaseApi.js";
+import { addDoc, collection, doc, getDocs, query, serverTimestamp, setDoc, where, writeBatch } from "../services/firebaseApi.js";
 
 // Importa o hook de autenticação e a instância do auth
 import { useAuth } from '../contexts/FirebaseAuthContext';
-import { auth, firestore } from '../firebase';
+import { auth, firestore } from "../services/firebaseApi.js";
 import config from '../config';
 
 import Brasao from '../assets/logo-paraipaba.png';

@@ -1,7 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {Link, Navigate} from 'react-router-dom';
-import {httpsCallable} from 'firebase/functions';
-import {functions} from '../../firebase';
+import {callFirebaseFunction} from '../../services/firebaseApi';
 import {useAuth} from '../../contexts/FirebaseAuthContext';
 import {useSystemControl} from '../../contexts/SystemControlContext';
 import {isSystemRootEmail} from '../../config/systemModules';
@@ -9,7 +8,7 @@ import Sidebar from '../../components/Sidebar';
 import AdminSidebar from '../../components/AdminSidebar';
 import CabinetOverlay from '../../components/CabinetOverlay';
 import './esic.css';
-const api = async data => (await httpsCallable(functions, 'esic')(data)).data;
+const api = async data => (await callFirebaseFunction('esic', data)).data;
 const date = value => value ? new Date(value).toLocaleString('pt-BR') : '—';
 const statuses = ['Recebido','Em análise','Respondido','Em recurso','Concluído'];
 const configLabels = {responsavel:'Responsável pelo SIC',email:'E-mail de atendimento',telefone:'Telefone',endereco:'Endereço do atendimento presencial',horario:'Horário de atendimento',regulamento:'Link da regulamentação local',autoridadeRecursal:'E-mail do usuário responsável pelos recursos'};

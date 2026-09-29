@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, setDoc, updateDoc } from "../../services/firebaseApi.js";
+import { onAuthStateChanged } from "../../services/firebaseApi.js";
 import { LiaArrowLeftSolid, LiaCogSolid, LiaPaperPlane, LiaSearchSolid, LiaTimesSolid, LiaUsersCogSolid } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
 import QueueManagerModal from '../../components/QueueManagerModal';
-import { auth, firestore } from '../../firebase';
+import { auth, firestore } from "../../services/firebaseApi.js";
 import ServiceOperationsNav from '../../components/ServiceOperationsNav';
 
 const STATUSES = ['Recebida', 'Em Análise', 'Agendamento Liberado', 'Agendado', 'Concluída', 'Cancelada'];

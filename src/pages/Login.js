@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "../services/firebaseApi.js";
 
 // Importa o hook de autenticação e a instância do auth
 import { useAuth } from '../contexts/FirebaseAuthContext';
-import { auth } from '../firebase';
+import { auth } from "../services/firebaseApi.js";
  
 import Brasao from '../assets/logo-paraipaba.png'; // Logo redonda/brasão
 import Logo from '../assets/logo-paraipaba-azul.png'; // Logo horizontal

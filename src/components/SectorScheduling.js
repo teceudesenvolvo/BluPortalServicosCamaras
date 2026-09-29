@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { doc, getDoc, runTransaction, setDoc } from 'firebase/firestore';
+import { doc, getDoc, runTransaction, setDoc } from "../services/firebaseApi.js";
 import { LiaCalendarCheckSolid, LiaTimesSolid } from 'react-icons/lia';
-import { firestore } from '../firebase';
+import { firestore } from "../services/firebaseApi.js";
 
 const DAYS = [
     ['monday', 'Segunda-feira'], ['tuesday', 'Terça-feira'],

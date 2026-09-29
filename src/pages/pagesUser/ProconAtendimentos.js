@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from "../../services/firebaseApi.js";
 import { useNavigate } from 'react-router-dom';
 import { LiaArrowLeftSolid, LiaBuildingSolid, LiaCalendarAltSolid, LiaClipboardListSolid, LiaFileAltSolid, LiaPlusSolid, LiaTimesSolid } from 'react-icons/lia';
 import Sidebar from '../../components/Sidebar';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { useSystemControl } from '../../contexts/SystemControlContext';
-import { firestore } from '../../firebase';
+import { firestore } from "../../services/firebaseApi.js";
 
 const toDate = value => value?.toDate ? value.toDate() : new Date(value);
 const formatDate = value => {

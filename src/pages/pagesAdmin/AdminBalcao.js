@@ -4,10 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { 
     collection, doc, getDocs, query, orderBy, limit, getDoc, 
     updateDoc, setDoc, addDoc, serverTimestamp, writeBatch
-} from 'firebase/firestore';
+} from "../../services/firebaseApi.js";
 import Chart from 'chart.js/auto';
-import { onAuthStateChanged } from 'firebase/auth';
-import { firestore, auth } from '../../firebase';
+import { onAuthStateChanged } from "../../services/firebaseApi.js";
+import { firestore, auth } from "../../services/firebaseApi.js";
 import config from '../../config';
 import { getWalkInLimit } from '../../utils/walkInLimit';
 import AdminSidebar from '../../components/AdminSidebar';
@@ -20,6 +20,7 @@ import {
 } from "react-icons/lia";
 import { uploadFileToStorage } from '../../utils/firebaseStorageUtils';
 import { useTheme } from '../../contexts/ThemeContext';
+import { requestFirebaseFunction } from '../../services/firebaseApi';
 
 // Lightbox para visualizar arquivos inline
 const FileViewerModal = ({ file, onClose }) => {
@@ -920,12 +921,11 @@ const AdminBalcaoDashboard = () => {
         const fetchAuthCount = async () => {
             try {
                 const token = await auth.currentUser.getIdToken();
-                const baseUrl = process.env.REACT_APP_FUNCTIONS_BASE_URL?.replace(/\/$/, '') || 'https://us-central1-blu-app-camara.cloudfunctions.net';
                 let lastError;
 
                 for (let attempt = 0; attempt < 3; attempt += 1) {
                     try {
-                        const response = await fetch(`${baseUrl}/getAdminAuthUserCount?v=2`, {
+                        const response = await requestFirebaseFunction('getAdminAuthUserCount?v=2', {
                             method: 'GET',
                             cache: 'no-store',
                             headers: {
