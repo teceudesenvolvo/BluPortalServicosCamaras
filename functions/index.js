@@ -10,9 +10,11 @@ const admin = require("firebase-admin"); // Keep admin for database operations
 const {Logging} = require("@google-cloud/logging");
 const {SecretManagerServiceClient} = require("@google-cloud/secret-manager");
 const {
+  buildBalcaoCompletedSummary,
   becameDocumentReady,
   escapeHtml,
   getReceptionEmail,
+  isDocumentReadyCompletionDue,
   isReceptionWalkIn,
 } = require("./documentReadyAutomation");
 admin.initializeApp();
@@ -2554,18 +2556,38 @@ function processDeletion(snapshot, promises, collName) {
     }
   }
 
+  if (collName === "balcao-cidadao" && data?.status === "Concluído") {
+    const db = admin.firestore();
+    const batch = db.batch();
+    batch.set(
+        db.collection("balcao-atendimentos-concluidos").doc(snapshot.id),
+        buildBalcaoCompletedSummary(
+            data,
+            snapshot.id,
+            data.concluidoAutomaticamenteEm ||
+              data.atendimentoPresencialConcluidoEm ||
+              data.ultimaAtualizacao ||
+              admin.firestore.FieldValue.serverTimestamp(),
+        ),
+    );
+    batch.delete(snapshot.ref);
+    promises.push(batch.commit());
+    return;
+  }
+
   promises.push(snapshot.ref.delete());
 }
 
 // Concludes requests five days after the document-ready notification.
 exports.concluirDocumentosProntosBalcao = onSchedule(
     {
-      schedule: "15 2 * * *",
+      schedule: "0 * * * *",
       timeZone: "America/Fortaleza",
     },
     async () => {
       const db = admin.firestore();
       const now = Date.now();
+      const cleanupPromises = [];
       const readySnapshot = await db.collection("balcao-cidadao")
           .where("status", "==", "Documento Pronto")
           .get();
@@ -2576,29 +2598,22 @@ exports.concluirDocumentosProntosBalcao = onSchedule(
 
       for (const requestDoc of readySnapshot.docs) {
         const data = requestDoc.data() || {};
-        const deadline = data.documentoProntoConclusaoPrevistaEm;
-        const notifiedAt = data.documentoProntoNotificadoEm;
-        const deadlineMs = deadline?.toMillis ? deadline.toMillis() :
-          new Date(deadline || 0).getTime();
-        const notifiedAtMs = notifiedAt?.toMillis ? notifiedAt.toMillis() :
-          new Date(notifiedAt || 0).getTime();
-        const effectiveDeadline = deadlineMs ||
-          (notifiedAtMs ? notifiedAtMs + 5 * 24 * 60 * 60 * 1000 : 0);
+        if (!isDocumentReadyCompletionDue(data, now)) continue;
 
-        if (!effectiveDeadline || effectiveDeadline > now) continue;
-
-        batch.update(requestDoc.ref, {
-          status: "Concluído",
-          concluidoAutomaticamenteEm:
+        const summaryRef = db.collection("balcao-atendimentos-concluidos")
+            .doc(requestDoc.id);
+        batch.set(summaryRef, buildBalcaoCompletedSummary(
+            data,
+            requestDoc.id,
             admin.firestore.FieldValue.serverTimestamp(),
-          motivoConclusaoAutomatica:
-            "Cinco dias após a notificação de documento pronto",
-          deletionTimestamp: now + 5 * 24 * 60 * 60 * 1000,
-        });
+        ));
+        batch.delete(requestDoc.ref);
+        cleanupFiles({...data, id: requestDoc.id}, cleanupPromises);
         operations += 1;
         completed += 1;
 
-        if (operations >= 450) {
+        // Cada solicitação usa duas escritas Firestore (resumo e exclusão).
+        if (operations >= 200) {
           await batch.commit();
           batch = db.batch();
           operations = 0;
@@ -2606,6 +2621,7 @@ exports.concluirDocumentosProntosBalcao = onSchedule(
       }
 
       if (operations > 0) await batch.commit();
+      await Promise.all(cleanupPromises);
       console.log(`${completed} documento(s) pronto(s) concluído(s).`);
     },
 );

@@ -21,7 +21,6 @@ export const mergeCompletedWalkIns = (records, tickets) => {
             });
             return;
         }
-        if (!isWalkIn(ticket)) return;
         if (!ticket.concluidoEm) return;
         const id = `fila:${ticket.id}`;
         merged.set(id, {
@@ -36,8 +35,8 @@ export const mergeCompletedWalkIns = (records, tickets) => {
             chamadoEm: ticket.chamadoEm,
             atendimentoIniciadoEm: ticket.atendimentoIniciadoEm || ticket.chamadoEm,
             concluidoEm: ticket.concluidoEm,
-            semAgendamento: true,
-            tipoEntrada: 'Encaixe',
+            semAgendamento: isWalkIn(ticket),
+            tipoEntrada: ticket.tipoEntrada || (isWalkIn(ticket) ? 'Encaixe' : ''),
         });
     });
     return [...merged.values()];

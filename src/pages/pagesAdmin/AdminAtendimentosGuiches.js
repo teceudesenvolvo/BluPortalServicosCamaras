@@ -78,9 +78,8 @@ const AdminAtendimentosGuiches = () => {
     const [agendaAttendant, setAgendaAttendant] = useState('all');
     const [agendaEntryType, setAgendaEntryType] = useState('all');
     const [reportOpen, setReportOpen] = useState(false);
-    const [reportPeriod, setReportPeriod] = useState('monthly');
-    const [reportDate, setReportDate] = useState(dateKey(new Date()));
-    const [reportMonth, setReportMonth] = useState(monthKey(new Date()));
+    const [reportStartDate, setReportStartDate] = useState(dateKey(new Date()));
+    const [reportEndDate, setReportEndDate] = useState(dateKey(new Date()));
     const [reportCounter, setReportCounter] = useState('all');
     const [reportAttendant, setReportAttendant] = useState('all');
     const attendances = useMemo(() => mergeCompletedWalkIns(calendarRecords, queueTickets), [calendarRecords, queueTickets]);
@@ -349,9 +348,9 @@ const AdminAtendimentosGuiches = () => {
 
     const reportRows = useMemo(() => attendances.filter(item => {
         const itemDate = dateKey(item.dataAtendimento);
-        const matchesPeriod = reportPeriod === 'daily'
-            ? itemDate === reportDate
-            : Boolean(reportMonth) && itemDate.startsWith(reportMonth);
+        const matchesPeriod = Boolean(reportStartDate && reportEndDate)
+            && itemDate >= reportStartDate
+            && itemDate <= reportEndDate;
         if (!matchesPeriod || !matchesCounter(item, reportCounter)) return false;
         if (reportAttendant === 'all') return true;
         if (reportAttendant.startsWith('uid:')) return item.atendenteUid === reportAttendant.slice(4);
@@ -360,21 +359,19 @@ const AdminAtendimentosGuiches = () => {
         const dateDifference = (toDate(a.dataAtendimento)?.getTime() || 0) - (toDate(b.dataAtendimento)?.getTime() || 0);
         if (dateDifference) return dateDifference;
         return (toDate(a.horarioInicio)?.getTime() || 0) - (toDate(b.horarioInicio)?.getTime() || 0);
-    }), [attendances, matchesCounter, reportAttendant, reportCounter, reportDate, reportMonth, reportPeriod, getAttendantName]);
+    }), [attendances, matchesCounter, reportAttendant, reportCounter, reportStartDate, reportEndDate, getAttendantName]);
 
     const openReport = () => {
-        setReportDate(selectedDate);
-        setReportMonth(selectedMonth);
-        setReportPeriod('daily');
+        setReportStartDate(selectedDate);
+        setReportEndDate(selectedDate);
         setReportCounter(selectedCounter);
         setReportAttendant('all');
         setReportOpen(true);
     };
 
     const generateReport = () => {
-        const periodLabel = reportPeriod === 'daily'
-            ? `Dia ${toDate(`${reportDate}T12:00:00`)?.toLocaleDateString('pt-BR')}`
-            : `${MONTHS[Number(reportMonth.slice(5, 7)) - 1]} de ${reportMonth.slice(0, 4)}`;
+        const formatDateLabel = value => toDate(`${value}T12:00:00`)?.toLocaleDateString('pt-BR') || value;
+        const periodLabel = `Período de ${formatDateLabel(reportStartDate)} a ${formatDateLabel(reportEndDate)}`;
         const counterLabel = reportCounter === 'all'
             ? 'Todos os guichês'
             : counterOptions.find(item => item.value === reportCounter)?.name || 'Guichê selecionado';
@@ -528,22 +525,15 @@ const AdminAtendimentosGuiches = () => {
                             <header className="modal-header">
                                 <div>
                                     <h3 id="counter-report-title">Gerar relatório de atendimentos</h3>
-                                    <p>Escolha o período, o guichê e o atendente que deseja analisar.</p>
+                                    <p>Informe as datas inicial e final para reunir os atendimentos do período.</p>
                                 </div>
                                 <button type="button" className="modal-close-btn" onClick={() => setReportOpen(false)} aria-label="Fechar">
                                     <LiaTimesSolid />
                                 </button>
                             </header>
                             <div className="counter-report-form">
-                                <label>
-                                    <span>Tipo de relatório</span>
-                                    <select value={reportPeriod} onChange={event => setReportPeriod(event.target.value)}>
-                                        <option value="daily">Diário</option>
-                                        <option value="monthly">Mensal</option>
-                                    </select>
-                                </label>
-                                {reportPeriod === 'daily' && <label><span>Data</span><input type="date" value={reportDate} onChange={event => setReportDate(event.target.value)} /></label>}
-                                {reportPeriod === 'monthly' && <label><span>Mês</span><input type="month" value={reportMonth} onChange={event => setReportMonth(event.target.value)} /></label>}
+                                <label><span>Data inicial</span><input type="date" value={reportStartDate} max={reportEndDate || undefined} onChange={event => setReportStartDate(event.target.value)} /></label>
+                                <label><span>Data final</span><input type="date" value={reportEndDate} min={reportStartDate || undefined} onChange={event => setReportEndDate(event.target.value)} /></label>
                                 <label>
                                     <span>Guichê</span>
                                     <select value={reportCounter} onChange={event => setReportCounter(event.target.value)}>
@@ -565,7 +555,7 @@ const AdminAtendimentosGuiches = () => {
                             </div>
                             <footer className="counter-report-actions">
                                 <button type="button" className="btn-secondary" onClick={() => setReportOpen(false)}>Cancelar</button>
-                                <button type="button" className="btn-primary" disabled={reportPeriod === 'daily' ? !reportDate : !reportMonth} onClick={generateReport}><LiaPrintSolid /> Imprimir / Salvar PDF</button>
+                                <button type="button" className="btn-primary" disabled={!reportStartDate || !reportEndDate || reportEndDate < reportStartDate} onClick={generateReport}><LiaPrintSolid /> Imprimir / Salvar PDF</button>
                             </footer>
                         </section>
                     </div>

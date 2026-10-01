@@ -15,6 +15,19 @@ test('includes completed walk-ins on the completion date and excludes waiting/ab
     expect(result).toHaveLength(1);
     expect(result[0].dataAtendimento).toBe(ticket.concluidoEm);
 });
+test('includes all completed queue attendances even if they have no counter session', () => {
+    const result = mergeCompletedWalkIns([], [{
+        ...ticket,
+        id: 'scheduled-ticket',
+        sessaoGuicheId: '',
+        semAgendamento: false,
+        tipoEntrada: 'Agendado',
+    }]);
+    expect(result).toHaveLength(1);
+    expect(result[0].dataAtendimento).toBe(ticket.concluidoEm);
+    expect(result[0].semAgendamento).toBe(false);
+    expect(result[0].tipoEntrada).toBe('Agendado');
+});
 test('enriches existing calendar entries without counting the ticket twice', () => {
     const result = mergeCompletedWalkIns([{ id: 's1_t1', nome: 'Cidadão' }], [ticket]);
     expect(result).toEqual([{

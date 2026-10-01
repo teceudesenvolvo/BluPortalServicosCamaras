@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { 
     collection, doc, getDocs, query, orderBy, limit, startAfter, 
-    updateDoc, addDoc, where, getDoc, deleteDoc, serverTimestamp, runTransaction, setDoc
+    updateDoc, addDoc, where, getDoc, deleteDoc, serverTimestamp, runTransaction,
+    setDoc, writeBatch
 } from "../../services/firebaseApi.js";
 import { onAuthStateChanged } from "../../services/firebaseApi.js";
 import { firestore, auth } from "../../services/firebaseApi.js";
@@ -658,6 +659,7 @@ const AdminBalcaoSolicitacoes = () => {
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [loading, setLoading] = useState(true);
     const [solicitacoes, setSolicitacoes] = useState([]);
+    const [completedSummaries, setCompletedSummaries] = useState([]);
     const [firstKey, setFirstKey] = useState(null); // Chave do primeiro item da página atual
     const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
     const [selectionMode, setSelectionMode] = useState(false);
@@ -692,6 +694,35 @@ const AdminBalcaoSolicitacoes = () => {
         });
         return () => unsubscribe();
     }, [navigate]);
+
+    const fetchCompletedSummaries = useCallback(async () => {
+        try {
+            const snapshot = await getDocs(collection(firestore, 'balcao-atendimentos-concluidos'));
+            setCompletedSummaries(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
+        } catch (error) {
+            console.error('Erro ao carregar o histórico resumido do Balcão:', error);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (isAuthReady) fetchCompletedSummaries();
+    }, [fetchCompletedSummaries, isAuthReady]);
+
+    const archiveCompletedSolicitacao = async (item) => {
+        const batch = writeBatch(firestore);
+        const requestRef = doc(firestore, 'balcao-cidadao', item.id);
+        const summaryRef = doc(firestore, 'balcao-atendimentos-concluidos', item.id);
+        const requester = item.dadosUsuario || {};
+        const beneficiary = item.dadosBeneficiario || {};
+        batch.set(summaryRef, {
+            nome: beneficiary.name || requester.name || '',
+            cpf: beneficiary.cpf || requester.cpf || '',
+            protocolo: item.protocolo || item.id,
+            concluidoEm: serverTimestamp(),
+        });
+        batch.delete(requestRef);
+        await batch.commit();
+    };
 
     const fetchSolicitacoes = useCallback(async (cursor = null, filtering = false) => {
         setLoading(true);
@@ -748,7 +779,6 @@ const AdminBalcaoSolicitacoes = () => {
         setCurrentPage(1);
         setCursors([null]);
         fetchSolicitacoes(null, hasActiveFilters);
-
         // Limpeza automática de solicitações antigas (com deletionTimestamp expirado)
         const cleanupOldSolicitacoes = async () => {
             try {
@@ -841,20 +871,40 @@ const AdminBalcaoSolicitacoes = () => {
     };
 
     const handlePrintFilteredResults = () => {
+        const archivedRows = completedSummaries
+            .filter(item => filterStatus === 'Todas' || filterStatus === 'Concluído')
+            .filter(item => filterAssunto === 'Todos')
+            .filter(item => {
+                const term = searchTerm.trim().toLocaleLowerCase('pt-BR');
+                const itemTime = getMessageTimestamp(item.concluidoEm);
+                const matchesTerm = !term || [item.nome, item.cpf, item.protocolo]
+                    .some(value => String(value || '').toLocaleLowerCase('pt-BR').includes(term));
+                const beneficiaryTerm = filterBeneficiario.trim().toLocaleLowerCase('pt-BR');
+                const matchesBeneficiary = !beneficiaryTerm
+                    || String(item.nome || '').toLocaleLowerCase('pt-BR').includes(beneficiaryTerm);
+                const matchesFrom = !filterDateFrom || itemTime >= new Date(`${filterDateFrom}T00:00:00`).getTime();
+                const matchesTo = !filterDateTo || itemTime <= new Date(`${filterDateTo}T23:59:59.999`).getTime();
+                return matchesTerm && matchesBeneficiary && matchesFrom && matchesTo;
+            });
+        const reportItems = [
+            ...filteredSolicitacoes,
+            ...archivedRows.map(item => ({ ...item, status: 'Concluído', timestamp: getMessageTimestamp(item.concluidoEm), archivedSummary: true })),
+        ].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         printTableReport({
             title: 'Relatório de Solicitações do Balcão',
-            subtitle: `Resultados do filtro atual. Status: ${filterStatus}. Assunto: ${filterAssunto}. Beneficiário: ${filterBeneficiario || 'Todos'}.`,
+            subtitle: `Resultados do filtro atual. Status: ${filterStatus}. Assunto: ${filterAssunto}. Beneficiário: ${filterBeneficiario || 'Todos'}. Inclui ${archivedRows.length} registros concluídos resumidos.`,
             columns: [
                 { label: '#', width: '4%', render: (_, index) => index + 1 },
-                { label: 'Protocolo', width: '12%', render: (item) => item.id },
-                { label: 'Solicitante', width: '16%', render: (item) => getDisplayRequesterName(item) },
-                { label: 'Beneficiário', width: '16%', render: (item) => item.dadosBeneficiario?.name || item.dadosUsuario?.name || 'N/A' },
-                { label: 'Assunto', width: '14%', render: (item) => item.dadosSolicitacao?.assunto || 'Sem assunto' },
+                { label: 'Protocolo', width: '12%', render: (item) => item.protocolo || item.id },
+                { label: 'Solicitante', width: '16%', render: (item) => item.archivedSummary ? item.nome || 'N/A' : getDisplayRequesterName(item) },
+                { label: 'Beneficiário', width: '16%', render: (item) => item.nome || item.dadosBeneficiario?.name || item.dadosUsuario?.name || 'N/A' },
+                { label: 'CPF', width: '12%', render: (item) => item.cpf || item.dadosBeneficiario?.cpf || item.dadosUsuario?.cpf || 'N/A' },
+                { label: 'Assunto', width: '14%', render: (item) => item.archivedSummary ? 'Atendimento concluído' : item.dadosSolicitacao?.assunto || 'Sem assunto' },
                 { label: 'Status', width: '13%', render: (item) => item.status || 'Pendente' },
                 { label: 'Data', width: '12%', render: (item) => item.timestamp ? new Date(item.timestamp).toLocaleString('pt-BR') : 'N/A' },
                 { label: 'Observações', width: '13%', render: () => '' },
             ],
-            rows: filteredSolicitacoes,
+            rows: reportItems,
         });
     };
 
@@ -919,6 +969,14 @@ const AdminBalcaoSolicitacoes = () => {
         try {
             const selectedRequests = solicitacoes.filter(item => selectedItems.includes(item.id));
             await Promise.all(selectedRequests.map(async item => {
+                if (bulkStatus === 'Concluído') {
+                    await archiveCompletedSolicitacao(item);
+                    await sendNotification(item, {
+                        title: 'Solicitação concluída',
+                        body: `Sua solicitação (Protocolo: ${item.id}) foi concluída.`,
+                    });
+                    return;
+                }
                 const updateData = bulkStatus === 'Documento Pronto' ? getDocumentReadyFields() : {
                     status: bulkStatus,
                     deletionTimestamp: ['Concluído', 'Cancelado'].includes(bulkStatus)
@@ -937,6 +995,7 @@ const AdminBalcaoSolicitacoes = () => {
             setBulkStatus('');
             setSelectionMode(false);
             await fetchSolicitacoes(null, hasActiveFilters);
+            await fetchCompletedSummaries();
             alert('Solicitações atualizadas com sucesso.');
         } catch (error) {
             console.error('Erro ao atualizar solicitações em lote:', error);
@@ -948,6 +1007,19 @@ const AdminBalcaoSolicitacoes = () => {
 
     const handleStatusChange = async (id, newStatus) => {
         try {
+            const currentRequest = solicitacoes.find(item => item.id === id) || selectedSolicitacao;
+            if (newStatus === 'Concluído' && currentRequest) {
+                await archiveCompletedSolicitacao({ ...currentRequest, id });
+                await sendNotification(
+                    { ...currentRequest, id, status: newStatus },
+                    { title: 'Solicitação concluída', body: `Sua solicitação (Protocolo: ${id}) foi concluída.` }
+                );
+                await fetchCompletedSummaries();
+                alert('Solicitação concluída. Os dados pessoais foram reduzidos ao resumo necessário para relatórios.');
+                setSelectedSolicitacao(null);
+                await fetchSolicitacoes();
+                return;
+            }
             const itemRef = doc(firestore, 'balcao-cidadao', id);
             let updateData = { status: newStatus };
             if (newStatus === 'Documento Pronto') {
@@ -1243,7 +1315,7 @@ const AdminBalcaoSolicitacoes = () => {
                             <LiaArrowLeftSolid size={18} /> Voltar ao Dashboard
                         </button>
                         <h1>Solicitações Recentes</h1>
-                        <p>Balcão do Cidadão — {filteredSolicitacoes.length} solicitaç{filteredSolicitacoes.length === 1 ? 'ão' : 'ões'} encontrada{filteredSolicitacoes.length === 1 ? '' : 's'}</p>
+                        <p>Balcão do Cidadão — {filteredSolicitacoes.length} solicitaç{filteredSolicitacoes.length === 1 ? 'ão' : 'ões'} encontrada{filteredSolicitacoes.length === 1 ? '' : 's'} · {completedSummaries.length} concluídos preservados para relatório</p>
                     </div>
                     <div className="admin-balcao-header-actions">
                         <button onClick={() => setShowQueueManager(true)} className="admin-action-button action-queue" title="Organizar fila de atendimento">

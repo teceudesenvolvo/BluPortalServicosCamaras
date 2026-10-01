@@ -9,7 +9,7 @@ import FirebaseSetupWizard from './FirebaseSetupWizard';
 import ExternalApiManager from './ExternalApiManager';
 
 const COLLECTIONS = [
-    ['balcao-cidadao','Atendimento','Solicitações do Balcão do Cidadão'], ['assessoria-microempreendedor','Atendimento','Solicitações do Microempreendedor'], ['atendimento-juridico','Atendimento','Atendimentos jurídicos'], ['ouvidoria','Atendimento','Manifestações da Ouvidoria'], ['procuradoria-mulher','Atendimento','Solicitações da Procuradoria da Mulher'], ['solicitacoes-vereadores','Atendimento','Solicitações aos vereadores'],
+    ['balcao-cidadao','Atendimento','Solicitações do Balcão do Cidadão'], ['balcao-atendimentos-concluidos','Atendimento','Resumos mínimos de atendimentos concluídos do Balcão'], ['assessoria-microempreendedor','Atendimento','Solicitações do Microempreendedor'], ['atendimento-juridico','Atendimento','Atendimentos jurídicos'], ['ouvidoria','Atendimento','Manifestações da Ouvidoria'], ['procuradoria-mulher','Atendimento','Solicitações da Procuradoria da Mulher'], ['solicitacoes-vereadores','Atendimento','Solicitações aos vereadores'],
     ['atendimento-calendario','Operação','Agenda consolidada de atendimentos'], ['atendimento-fila','Operação','Fila operacional dos guichês'], ['atendimento-guiches','Operação','Guichês e posições de atendimento'], ['atendimento-guiche-relatorios','Operação','Sessões e métricas dos guichês'], ['atendimento-avaliacoes','Operação','Avaliações dos atendimentos'],
     ['balcao-config','Configuração','Configuração do Balcão'], ['availability','Configuração','Disponibilidade da agenda'], ['blockedDates','Configuração','Datas bloqueadas'], ['bookedSlots','Configuração','Horários reservados'], ['ouvidoria-config','Configuração','Configuração da Ouvidoria'], ['procuradoria-config','Configuração','Configuração da Procuradoria'],
     ['users','Sistema','Usuários do portal'], ['notifications','Sistema','Notificações do aplicativo'], ['mail','Sistema','Fila de envio de e-mails'], ['noticias','Conteúdo','Notícias do portal'], ['vereadores','Conteúdo','Cadastro de vereadores'], ['piel','Conteúdo','Informativos do PIEL'], ['tv-camara-playlist','Conteúdo','Vídeos da TV Câmara'], ['tv-camara-logs','Sistema','Registros da integração de vídeo'],
@@ -18,6 +18,7 @@ const COLLECTIONS = [
 
 const EXAMPLES = {
     'balcao-cidadao': { userId: 'uid-do-cidadao', protocolo: 'BAL-2026-0001', status: 'Agendado', dadosSolicitacao: { assunto: 'Emissão de documento', tipoDocumento: 'cin' }, dataSolicitacao: 'Timestamp' },
+    'balcao-atendimentos-concluidos': { nome: 'Nome do cidadão', cpf: '000.000.000-00', protocolo: 'BAL-2026-0001', concluidoEm: 'Timestamp' },
     'assessoria-microempreendedor': { userId: 'uid-do-cidadao', protocolo: 'MEI-2026-0001', status: 'Em análise', assunto: 'Formalização MEI', createdAt: 'Timestamp' },
     'atendimento-juridico': { userId: 'uid-do-cidadao', protocolo: 'JUR-2026-0001', assunto: 'Orientação jurídica', status: 'Pendente', createdAt: 'Timestamp' },
     ouvidoria: { userId: 'uid-do-cidadao', protocolo: 'OUV-2026-0001', tipoManifestacao: 'Solicitação', assunto: 'Assunto', descricao: 'Descrição', status: 'Pendente', createdAt: 'Timestamp' },
