@@ -5088,13 +5088,35 @@ body{
 .counter-report-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .counter-report-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; }
 .counter-calendar-summary { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 22px; margin-bottom: 22px; }
-.counter-calendar-summary article { display: flex; flex: 1 1 210px; align-items: center; gap: 15px; min-width: 0; padding: 20px; border: 1px solid rgba(2,90,161,.12); border-radius: 16px; background: rgba(255,255,255,.7); backdrop-filter: blur(18px); box-shadow: 0 16px 36px rgba(2,47,86,.08); }
+.counter-calendar-summary article, .counter-calendar-summary .counter-summary-card { display: flex; flex: 1 1 210px; align-items: center; gap: 15px; min-width: 0; padding: 20px; border: 1px solid rgba(2,90,161,.12); border-radius: 16px; background: rgba(255,255,255,.7); backdrop-filter: blur(18px); box-shadow: 0 16px 36px rgba(2,47,86,.08); }
+.counter-calendar-summary .counter-summary-card { color: inherit; font: inherit; text-align: left; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+.counter-calendar-summary .counter-summary-card:hover { transform: translateY(-2px); border-color: rgba(2,132,199,.42); box-shadow: 0 18px 40px rgba(2,47,86,.13); }
+.counter-calendar-summary .counter-summary-card:focus-visible { outline: 3px solid rgba(14,165,233,.55); outline-offset: 3px; }
 .counter-calendar-summary svg { flex: 0 0 auto; padding: 12px; border-radius: 13px; background: linear-gradient(135deg, #025aa1, #0ea5e9); color: #fff; font-size: 3.1rem; }
-.counter-calendar-summary article.missed svg { background: linear-gradient(135deg, #b91c1c, #ef4444); }
-.counter-calendar-summary article.walk-in svg { background: linear-gradient(135deg, #047857, #22c55e); }
+.counter-calendar-summary article.missed svg, .counter-calendar-summary .counter-summary-card.missed svg { background: linear-gradient(135deg, #b91c1c, #ef4444); }
+.counter-calendar-summary article.walk-in svg, .counter-calendar-summary .counter-summary-card.walk-in svg { background: linear-gradient(135deg, #047857, #22c55e); }
 .counter-calendar-summary span, .counter-calendar-summary strong { display: block; }
 .counter-calendar-summary span { color: #64748b; font-weight: 800; }
 .counter-calendar-summary strong { color: #10233f; font-size: 1.8rem; }
+.counter-summary-modal { width: min(96vw, 1120px); max-height: min(90vh, 820px); padding: 24px; overflow: auto; }
+.counter-summary-modal .modal-header { align-items: flex-start; }
+.counter-summary-modal .modal-header h3 { margin: 0; }
+.counter-summary-modal .modal-header p { margin: 6px 0 0; color: #64748b; }
+.counter-summary-table-wrap { width: 100%; overflow-x: auto; margin-top: 18px; }
+.counter-summary-table { width: 100%; border-collapse: collapse; text-align: left; }
+.counter-summary-table th, .counter-summary-table td { padding: 11px 12px; border-bottom: 1px solid rgba(100,116,139,.16); vertical-align: middle; }
+.counter-summary-table th { color: #64748b; font-size: .76rem; letter-spacing: .04em; text-transform: uppercase; }
+.counter-summary-table td { color: #263b52; font-size: .9rem; }
+.counter-summary-table select { min-width: 170px; min-height: 38px; padding: 0 9px; border: 1px solid rgba(2,90,161,.22); border-radius: 9px; background: rgba(255,255,255,.9); color: #10233f; font: inherit; }
+.counter-summary-table select:disabled { opacity: .62; cursor: not-allowed; }
+.counter-summary-table input[type="checkbox"] { width: 18px; height: 18px; accent-color: #0284c7; cursor: pointer; }
+.counter-summary-bulk-actions { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 14px; margin-top: 18px; }
+.counter-summary-bulk-actions label { display: grid; gap: 6px; min-width: min(100%, 270px); color: #64748b; font-size: .84rem; font-weight: 800; }
+.counter-summary-bulk-actions select { min-height: 40px; padding: 0 10px; border: 1px solid rgba(2,90,161,.22); border-radius: 9px; background: rgba(255,255,255,.9); color: #10233f; font: inherit; }
+.counter-summary-bulk-actions > span { padding-bottom: 10px; color: #64748b; font-weight: 700; }
+.counter-summary-bulk-actions select:disabled { opacity: .62; cursor: not-allowed; }
+.counter-summary-empty { padding: 28px !important; text-align: center; color: #64748b !important; }
+.counter-summary-feedback { margin: 14px 0 0; color: #025aa1; font-weight: 800; }
 .counter-calendar-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 18px; }
 .counter-calendar-layout > *, .counter-ranking-layout > * { min-width: 0; max-width: 100%; box-sizing: border-box; overflow: hidden; }
 .counter-month-card, .counter-day-card, .counter-ranking-chart, .counter-ranking-list { padding: 22px; }
@@ -5197,11 +5219,22 @@ body{
 [data-theme="dark"] .counter-ranking-list article span { color: #b7c9dc; }
 [data-theme="dark"] .counter-calendar-month-filter select,
 [data-theme="dark"] .counter-calendar-summary article,
+[data-theme="dark"] .counter-calendar-summary .counter-summary-card,
 [data-theme="dark"] .counter-calendar-grid button,
 [data-theme="dark"] .counter-day-list article { background: rgba(13,48,75,.76); border-color: rgba(125,190,232,.18); color: #f8fafc; }
 [data-theme="dark"] .counter-calendar-summary strong,
+[data-theme="dark"] .counter-calendar-summary .counter-summary-card,
 [data-theme="dark"] .counter-calendar-grid button,
 [data-theme="dark"] .counter-day-list article strong { color: #f8fafc; }
+[data-theme="dark"] .counter-summary-modal .modal-header p,
+[data-theme="dark"] .counter-summary-table th,
+[data-theme="dark"] .counter-summary-empty { color: #b7c9dc !important; }
+[data-theme="dark"] .counter-summary-table td { color: #e6f2ff; border-color: rgba(125,190,232,.18); }
+[data-theme="dark"] .counter-summary-table select { border-color: rgba(125,190,232,.24); background: rgba(8,39,64,.9); color: #f8fafc; }
+[data-theme="dark"] .counter-summary-bulk-actions label,
+[data-theme="dark"] .counter-summary-bulk-actions > span { color: #b7c9dc; }
+[data-theme="dark"] .counter-summary-bulk-actions select { border-color: rgba(125,190,232,.24); background: rgba(8,39,64,.9); color: #f8fafc; }
+[data-theme="dark"] .counter-summary-feedback { color: #7dd3fc; }
 [data-theme="dark"] .counter-calendar-grid button.selected { background: #0877b9; }
 [data-theme="dark"] .counter-agenda-filters { background: rgba(8,39,64,.62); border-color: rgba(125,190,232,.18); }
 [data-theme="dark"] .counter-agenda-filters label > span { color: #b7c9dc; }

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { collection, onSnapshot, query, where } from "../../services/firebaseApi.js";
+import { collection, deleteDoc, doc, onSnapshot, query, setDoc, updateDoc, where } from "../../services/firebaseApi.js";
 import Chart from 'chart.js/auto';
 import {
     LiaCalendarAltSolid,
@@ -15,7 +15,7 @@ import {
 } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
 import { useTheme } from '../../contexts/ThemeContext';
-import { firestore } from "../../services/firebaseApi.js";
+import { auth, firestore } from "../../services/firebaseApi.js";
 import { printTableReport } from '../../utils/printReport';
 import { isWalkIn, mergeCompletedWalkIns } from '../../utils/attendanceCalendar';
 import { buildAttendanceConsultancy, buildAttendantTimeStats, buildDailyTimeSeries, getAttendanceTimes } from '../../utils/attendanceInsights';
@@ -78,6 +78,12 @@ const AdminAtendimentosGuiches = () => {
     const [agendaAttendant, setAgendaAttendant] = useState('all');
     const [agendaEntryType, setAgendaEntryType] = useState('all');
     const [reportOpen, setReportOpen] = useState(false);
+    const [summaryModal, setSummaryModal] = useState('');
+    const [savingStatusId, setSavingStatusId] = useState('');
+    const [summaryDrafts, setSummaryDrafts] = useState({});
+    const [selectedSummaryRows, setSelectedSummaryRows] = useState([]);
+    const [bulkSummaryStatus, setBulkSummaryStatus] = useState('');
+    const [statusFeedback, setStatusFeedback] = useState('');
     const [reportStartDate, setReportStartDate] = useState(dateKey(new Date()));
     const [reportEndDate, setReportEndDate] = useState(dateKey(new Date()));
     const [reportCounter, setReportCounter] = useState('all');
@@ -265,6 +271,129 @@ const AdminAtendimentosGuiches = () => {
     });
     const missedAppointments = missedAppointmentIds.size;
     const walkIns = dayAttendances.filter(isWalkIn).length;
+    const missedQueueRows = dayQueueTickets.filter(item => (
+        item.status === 'Ausente' || item.motivoRetornoFila === 'Não compareceu ao guichê'
+    )).map(item => ({ ...item, source: 'queue' }));
+    const missedRequestRows = missedRequests.filter(item => {
+        const previousDate = item.agendamentoAnteriorData || item.appointmentDate || item.dadosSolicitacao?.appointmentDate || '';
+        return String(previousDate).slice(0, 10) === selectedDate && matchesSelectedCounter(item);
+    }).map(item => ({ ...item, source: 'request' }));
+
+    const summaryModalTitles = {
+        attendances: 'Atendimentos do dia',
+        attendants: 'Atendimentos por atendente',
+        counters: 'Atendimentos por guichê',
+        missed: 'Não compareceram',
+        walkIns: 'Encaixes atendidos',
+    };
+    const summaryModalRows = summaryModal === 'missed'
+        ? [...missedQueueRows, ...missedRequestRows]
+        : dayAttendances
+            .filter(item => summaryModal !== 'walkIns' || isWalkIn(item))
+            .filter(item => summaryModal !== 'attendants' || Boolean(item.atendenteUid || item.atendenteNome))
+            .filter(item => summaryModal !== 'counters' || Boolean(item.guicheId || item.guiche))
+            .map(item => ({
+                ...item,
+                source: 'attendance',
+                queueTicket: queueTickets.find(ticket => (
+                    ticket.id === item.ticketId
+                    || ticket.id === item.id
+                    || item.id === `fila:${ticket.id}`
+                )),
+            }));
+
+    const getSummaryRowKey = row => `${row.source}:${row.id}`;
+    const openSummaryModal = key => {
+        setSummaryDrafts({});
+        setSelectedSummaryRows([]);
+        setBulkSummaryStatus('');
+        setStatusFeedback('');
+        setSummaryModal(key);
+    };
+    const persistSummaryStatus = async (row, nextStatus) => {
+        if (row.source === 'request') {
+            await updateDoc(doc(firestore, 'balcao-cidadao', row.id), {
+                statusFila: nextStatus,
+                ultimaAtualizacao: new Date(),
+            });
+            return;
+        }
+
+        const ticket = row.queueTicket || row;
+        if (!ticket.id || !queueTickets.some(item => item.id === ticket.id)) {
+            throw new Error('Este registro histórico não está vinculado a uma senha editável da fila.');
+        }
+        const now = new Date();
+        await updateDoc(doc(firestore, 'atendimento-fila', ticket.id), {
+            status: nextStatus,
+            concluidoEm: nextStatus === 'Concluído' ? now : null,
+            ausenteEm: nextStatus === 'Ausente' ? now : null,
+            atualizadoEm: now,
+            atualizadoPor: users.find(user => user.id === auth.currentUser?.uid)?.nome || auth.currentUser?.email || 'Admin',
+        });
+        if (ticket.guicheId && ['Aguardando', 'Ausente', 'Concluído'].includes(nextStatus)) {
+            await setDoc(doc(firestore, 'atendimento-guiches', ticket.guicheId), {
+                senhaAtual: null,
+                ticketAtualId: null,
+                atualizadoEm: now,
+            }, { merge: true });
+        }
+        const calendarRecord = calendarRecords.find(item => item.ticketId === ticket.id);
+        if (calendarRecord && nextStatus !== 'Concluído') {
+            await deleteDoc(doc(firestore, 'atendimento-calendario', calendarRecord.id));
+        } else if (nextStatus === 'Concluído' && ticket.sessaoGuicheId) {
+            await setDoc(doc(firestore, 'atendimento-calendario', `${ticket.sessaoGuicheId}_${ticket.id}`), {
+                ticketId: ticket.id,
+                nome: ticket.nome || 'Cidadão',
+                cpf: ticket.cpf || '',
+                protocolo: ticket.protocolo || '',
+                setor: ticket.setor || 'Balcão do Cidadão',
+                guicheId: ticket.guicheId || '',
+                guiche: ticket.guiche || '',
+                atendenteUid: ticket.atendenteUid || '',
+                atendenteNome: ticket.atendenteNome || '',
+                semAgendamento: Boolean(ticket.semAgendamento || ticket.tipoEntrada === 'Encaixe'),
+                tipoEntrada: ticket.tipoEntrada || '',
+                dataAtendimento: now,
+                horarioInicio: ticket.atendimentoIniciadoEm || ticket.chamadoEm || now,
+                horarioFim: now,
+                concluidoEm: now,
+            }, { merge: true });
+        }
+    };
+    const handleSaveSummaryStatuses = async () => {
+        const rowsToSave = summaryModalRows.filter(row => (
+            Object.prototype.hasOwnProperty.call(summaryDrafts, getSummaryRowKey(row))
+            && (selectedSummaryRows.length === 0 || selectedSummaryRows.includes(getSummaryRowKey(row)))
+        ));
+        if (!rowsToSave.length) {
+            setStatusFeedback('Selecione pelo menos um registro alterado para salvar.');
+            return;
+        }
+        setStatusFeedback('');
+        const savedKeys = [];
+        const failures = [];
+        for (const row of rowsToSave) {
+            const rowKey = getSummaryRowKey(row);
+            setSavingStatusId(rowKey);
+            try {
+                await persistSummaryStatus(row, summaryDrafts[rowKey]);
+                savedKeys.push(rowKey);
+            } catch (error) {
+                console.error('Erro ao atualizar status pelo resumo dos guichês:', error);
+                failures.push(`${row.protocolo || row.id}: ${error.message || 'falha ao salvar'}`);
+            }
+        }
+        setSavingStatusId('');
+        setSummaryDrafts(current => Object.fromEntries(
+            Object.entries(current).filter(([key]) => !savedKeys.includes(key))
+        ));
+        setSelectedSummaryRows(current => current.filter(key => !savedKeys.includes(key)));
+        setBulkSummaryStatus('');
+        setStatusFeedback(failures.length
+            ? `${savedKeys.length} salvo(s); ${failures.length} falhou/falharam. ${failures.join(' · ')}`
+            : `${savedKeys.length} status salvo(s) com sucesso.`);
+    };
 
     const attendantOptions = useMemo(() => {
         const options = new Map();
@@ -435,11 +564,11 @@ const AdminAtendimentosGuiches = () => {
 
                 <section className="counter-calendar-summary" aria-label="Resumo do dia selecionado">
                     <h2 className="counter-summary-date">Resumo de {toDate(`${selectedDate}T12:00:00`)?.toLocaleDateString('pt-BR')}</h2>
-                    <article><LiaUsersSolid /><div><span>Atendimentos</span><strong>{dayAttendances.length}</strong></div></article>
-                    <article><LiaUserCheckSolid /><div><span>Atendentes ativos</span><strong>{uniqueAttendants}</strong></div></article>
-                    <article><LiaCalendarAltSolid /><div><span>Guichês com atendimentos</span><strong>{activeCounters}</strong></div></article>
-                    <article className="missed"><LiaUserTimesSolid /><div><span>Não compareceram</span><strong>{missedAppointments}</strong></div></article>
-                    <article className="walk-in"><LiaUserPlusSolid /><div><span>Encaixes atendidos</span><strong>{walkIns}</strong></div></article>
+                    <button type="button" className="counter-summary-card" onClick={() => openSummaryModal('attendances')}><LiaUsersSolid /><div><span>Atendimentos</span><strong>{dayAttendances.length}</strong></div></button>
+                    <button type="button" className="counter-summary-card" onClick={() => openSummaryModal('attendants')}><LiaUserCheckSolid /><div><span>Atendentes ativos</span><strong>{uniqueAttendants}</strong></div></button>
+                    <button type="button" className="counter-summary-card" onClick={() => openSummaryModal('counters')}><LiaCalendarAltSolid /><div><span>Guichês com atendimentos</span><strong>{activeCounters}</strong></div></button>
+                    <button type="button" className="counter-summary-card missed" onClick={() => openSummaryModal('missed')}><LiaUserTimesSolid /><div><span>Não compareceram</span><strong>{missedAppointments}</strong></div></button>
+                    <button type="button" className="counter-summary-card walk-in" onClick={() => openSummaryModal('walkIns')}><LiaUserPlusSolid /><div><span>Encaixes atendidos</span><strong>{walkIns}</strong></div></button>
                 </section>
 
                 <section className="counter-calendar-layout">
@@ -516,6 +645,146 @@ const AdminAtendimentosGuiches = () => {
                     </div>
                     <small>Diagnóstico automático operacional. Os tempos ajudam a localizar gargalos e devem ser analisados junto ao tipo e à complexidade de cada atendimento.</small>
                 </section>
+
+                {summaryModal && (
+                    <div className="modal-overlay counter-report-overlay" role="presentation" onMouseDown={event => {
+                        if (event.target === event.currentTarget) setSummaryModal('');
+                    }}>
+                        <section className="modal-content counter-summary-modal" role="dialog" aria-modal="true" aria-labelledby="counter-summary-modal-title">
+                            <header className="modal-header">
+                                <div>
+                                    <h3 id="counter-summary-modal-title">{summaryModalTitles[summaryModal]}</h3>
+                                    <p>{toDate(`${selectedDate}T12:00:00`)?.toLocaleDateString('pt-BR')} · {summaryModalRows.length} registro(s). Selecione as linhas e salve as alterações para confirmar.</p>
+                                </div>
+                                <button type="button" className="modal-close-btn" onClick={() => setSummaryModal('')} aria-label="Fechar"><LiaTimesSolid /></button>
+                            </header>
+                            {statusFeedback && <p className="counter-summary-feedback" role="status">{statusFeedback}</p>}
+                            <div className="counter-summary-bulk-actions">
+                                <label>
+                                    <span>Status para selecionados</span>
+                                    <select
+                                        value={bulkSummaryStatus}
+                                        disabled={!selectedSummaryRows.length || Boolean(savingStatusId)}
+                                        onChange={event => {
+                                            const nextStatus = event.target.value;
+                                            setBulkSummaryStatus(nextStatus);
+                                            if (!nextStatus) return;
+                                            setSummaryDrafts(current => {
+                                                const next = { ...current };
+                                                summaryModalRows.forEach(row => {
+                                                    const rowKey = getSummaryRowKey(row);
+                                                    const requestStatuses = [
+                                                        'Não compareceu',
+                                                        'Aguardando Atendimento Presencial',
+                                                        'Atendimento Presencial Concluído',
+                                                    ];
+                                                    const queueStatuses = [
+                                                        'Aguardando',
+                                                        'Chamando',
+                                                        'Em Atendimento',
+                                                        'Concluído',
+                                                        'Ausente',
+                                                    ];
+                                                    const supportedStatuses = row.source === 'request'
+                                                        ? requestStatuses
+                                                        : queueStatuses;
+                                                    if (selectedSummaryRows.includes(rowKey)
+                                                        && supportedStatuses.includes(nextStatus)) {
+                                                        next[rowKey] = nextStatus;
+                                                    }
+                                                });
+                                                return next;
+                                            });
+                                        }}
+                                    >
+                                        <option value="">Escolha um status...</option>
+                                        {[
+                                            'Aguardando',
+                                            'Chamando',
+                                            'Em Atendimento',
+                                            'Concluído',
+                                            'Ausente',
+                                            'Não compareceu',
+                                            'Aguardando Atendimento Presencial',
+                                            'Atendimento Presencial Concluído',
+                                        ].map(status => <option key={status} value={status}>{status}</option>)}
+                                    </select>
+                                </label>
+                                <span>{selectedSummaryRows.length} selecionado(s)</span>
+                            </div>
+                            <div className="counter-summary-table-wrap">
+                                <table className="counter-summary-table">
+                                    <thead><tr>
+                                        <th><input
+                                            type="checkbox"
+                                            aria-label="Selecionar todos os registros editáveis"
+                                            checked={summaryModalRows.filter(row => row.source === 'request' || row.queueTicket || queueTickets.some(item => item.id === row.id)).length > 0 && summaryModalRows.filter(row => row.source === 'request' || row.queueTicket || queueTickets.some(item => item.id === row.id)).every(row => selectedSummaryRows.includes(getSummaryRowKey(row)))}
+                                            disabled={Boolean(savingStatusId) || !summaryModalRows.some(row => row.source === 'request' || row.queueTicket || queueTickets.some(item => item.id === row.id))}
+                                            onChange={event => {
+                                                const editableRows = summaryModalRows.filter(row => row.source === 'request' || row.queueTicket || queueTickets.some(item => item.id === row.id));
+                                                setSelectedSummaryRows(event.target.checked ? editableRows.map(getSummaryRowKey) : []);
+                                            }}
+                                        /></th>
+                                        <th>Cidadão</th><th>CPF</th><th>Atendente</th><th>Guichê</th><th>Protocolo</th><th>Status</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        {summaryModalRows.map(row => {
+                                            const ticket = row.queueTicket || row;
+                                            const rowKey = getSummaryRowKey(row);
+                                            const currentStatus = row.source === 'request' ? row.statusFila || 'Não compareceu' : ticket.status || row.status || 'Concluído';
+                                            const draftStatus = summaryDrafts[rowKey] || currentStatus;
+                                            const canEdit = row.source === 'request' || Boolean(row.queueTicket || queueTickets.some(item => item.id === row.id));
+                                            const statusOptions = row.source === 'request'
+                                                ? ['Não compareceu', 'Aguardando Atendimento Presencial', 'Atendimento Presencial Concluído']
+                                                : ['Aguardando', 'Chamando', 'Em Atendimento', 'Concluído', 'Ausente'];
+                                            return (
+                                                <tr key={rowKey}>
+                                                    <td><input
+                                                        type="checkbox"
+                                                        aria-label={`Selecionar ${row.protocolo || row.id}`}
+                                                        checked={selectedSummaryRows.includes(rowKey)}
+                                                        disabled={!canEdit || Boolean(savingStatusId)}
+                                                        onChange={event => setSelectedSummaryRows(current => event.target.checked
+                                                            ? [...current, rowKey]
+                                                            : current.filter(key => key !== rowKey))}
+                                                    /></td>
+                                                    <td>{row.nome || row.beneficiarioNome || row.dadosBeneficiario?.name || row.dadosUsuario?.name || 'Não informado'}</td>
+                                                    <td>{row.cpf || row.dadosBeneficiario?.cpf || row.dadosUsuario?.cpf || '—'}</td>
+                                                    <td>{getAttendantName(ticket)}</td>
+                                                    <td>{ticket.guiche || ticket.guicheAtendimento || '—'}</td>
+                                                    <td>{row.protocolo || row.id}</td>
+                                                    <td>
+                                                        <select
+                                                            aria-label={`Status do protocolo ${row.protocolo || row.id}`}
+                                                            value={draftStatus}
+                                                            disabled={!canEdit || Boolean(savingStatusId)}
+                                                            onChange={event => setSummaryDrafts(current => ({ ...current, [rowKey]: event.target.value }))}
+                                                        >
+                                                            {!statusOptions.includes(draftStatus) && <option value={draftStatus}>{draftStatus}</option>}
+                                                            {statusOptions.map(status => <option key={status} value={status}>{status}</option>)}
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                        {summaryModalRows.length === 0 && <tr><td colSpan="7" className="counter-summary-empty">Nenhum registro encontrado para esta categoria nesta data.</td></tr>}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <footer className="counter-report-actions">
+                                <button type="button" className="btn-secondary" onClick={() => setSummaryModal('')}>Fechar</button>
+                                <button
+                                    type="button"
+                                    className="btn-primary"
+                                    onClick={handleSaveSummaryStatuses}
+                                    disabled={Boolean(savingStatusId) || !Object.keys(summaryDrafts).some(key => selectedSummaryRows.length === 0 || selectedSummaryRows.includes(key))}
+                                >
+                                    {savingStatusId ? 'Salvando...' : 'Salvar alterações'}
+                                </button>
+                            </footer>
+                        </section>
+                    </div>
+                )}
 
                 {reportOpen && (
                     <div className="modal-overlay counter-report-overlay" role="presentation" onMouseDown={event => {
