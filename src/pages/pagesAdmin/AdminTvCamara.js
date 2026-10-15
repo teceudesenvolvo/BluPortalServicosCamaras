@@ -27,6 +27,7 @@ import {
 import AdminSidebar from '../../components/AdminSidebar';
 import { auth, firestore } from "../../services/firebaseApi.js";
 import { callFirebaseFunction, requestFirebaseFunction } from '../../services/firebaseApi';
+import { useSystemControl } from '../../contexts/SystemControlContext';
 import {
     buildPlayerUrl,
     extractYoutubeVideoId,
@@ -60,6 +61,8 @@ const plainTextFromTranscript = value => {
 };
 
 const AdminTvCamara = () => {
+    const { settings: systemSettings } = useSystemControl();
+    const youtubeApiEndpoint = String(systemSettings.integrations?.youtubeApiUrl || videosEndpoint).trim();
     const [manualVideos, setManualVideos] = useState([]);
     const [endpointVideos, setEndpointVideos] = useState([]);
     const [logs, setLogs] = useState([]);
@@ -72,6 +75,7 @@ const AdminTvCamara = () => {
     const [oauthAuthUrl, setOauthAuthUrl] = useState('');
     const [oauthResult, setOauthResult] = useState('');
     const [activeLogFunction, setActiveLogFunction] = useState('all');
+    const [activeTab, setActiveTab] = useState('transcription');
     const [error, setError] = useState('');
     const [transcriptionVideoId, setTranscriptionVideoId] = useState('');
     const [transcriptionRunning, setTranscriptionRunning] = useState(false);
@@ -79,6 +83,8 @@ const AdminTvCamara = () => {
     const [transcriptionResult, setTranscriptionResult] = useState(null);
     const [transcriptionError, setTranscriptionError] = useState('');
     const [transcriptionJobId, setTranscriptionJobId] = useState('');
+    const [syncingPlaylist, setSyncingPlaylist] = useState(false);
+    const [playlistSyncFeedback, setPlaylistSyncFeedback] = useState('');
     const [formData, setFormData] = useState({
         url: '',
         title: '',
@@ -132,7 +138,7 @@ const AdminTvCamara = () => {
 
     const handleTranscribeYoutube = async event => {
         event.preventDefault();
-        const video = mergedVideos.find(item => item.videoId === transcriptionVideoId);
+        const video = endpointVideos.find(item => item.videoId === transcriptionVideoId);
         if (!video) {
             setTranscriptionError('Selecione um vídeo disponível na playlist da TV Câmara.');
             return;
@@ -252,7 +258,6 @@ const AdminTvCamara = () => {
     const fetchManualVideos = async () => {
         const videos = await fetchManualPlaylistVideos();
         setManualVideos(videos);
-        setSelectedVideo(current => current || videos[0] || null);
     };
 
     const callYoutubeFunction = async (youtubeFunction, { silent = false } = {}) => {
@@ -313,10 +318,8 @@ const AdminTvCamara = () => {
                 const normalizedVideos = Array.isArray(targetPayload?.videos)
                     ? targetPayload.videos.map(video => normalizeVideo(video, 'endpoint'))
                     : [];
-                if (normalizedVideos.length) {
-                    setEndpointVideos(normalizedVideos);
-                    setSelectedVideo(current => current || normalizedVideos[0] || null);
-                }
+                setEndpointVideos(normalizedVideos);
+                setSelectedVideo(current => normalizedVideos.find(video => video.videoId === current?.videoId) || normalizedVideos[0] || null);
             }
 
             if (!silent) alert(`${youtubeFunction.name} executada com sucesso.`);
@@ -342,15 +345,15 @@ const AdminTvCamara = () => {
         }
     };
 
-    const monitorEndpoint = async ({ silent = false } = {}) => {
+    const monitorEndpoint = async ({ silent = false, fresh = false } = {}) => {
         setMonitoring(true);
         setError('');
         const startedAt = Date.now();
 
         try {
-            const result = await fetchEndpointVideos();
+            const result = await fetchEndpointVideos({ fresh, endpoint: youtubeApiEndpoint });
             setEndpointVideos(result.videos);
-            setSelectedVideo(current => current || result.videos[0] || null);
+            setSelectedVideo(current => result.videos.find(video => video.videoId === current?.videoId) || result.videos[0] || null);
 
             await registerYoutubeLog({
                 functionId: 'listarVideosTvCamara',
@@ -358,7 +361,7 @@ const AdminTvCamara = () => {
                 httpStatus: result.status,
                 durationMs: result.durationMs,
                 videosCount: result.videos.length,
-                endpoint: videosEndpoint,
+                endpoint: youtubeApiEndpoint,
                 message: `Listagem concluída com ${result.videos.length} vídeo(s)` +
                     `${result.payload?.playlistId ? ` da playlist ${result.payload.playlistId}` : ''}` +
                     `${Number.isFinite(result.payload?.apiReportedTotal) ? ` · YouTube informa ${result.payload.apiReportedTotal} item(ns)` : ''}` +
@@ -378,6 +381,7 @@ const AdminTvCamara = () => {
             });
 
             if (!silent) alert('Monitoramento concluído com sucesso.');
+            return result;
         } catch (monitorError) {
             const durationMs = Date.now() - startedAt;
             setError(monitorError.message || 'Erro ao consultar a função.');
@@ -386,12 +390,13 @@ const AdminTvCamara = () => {
                 functionId: 'listarVideosTvCamara',
                 status: 'error',
                 durationMs,
-                endpoint: videosEndpoint,
+                endpoint: youtubeApiEndpoint,
                 message: monitorError.message || 'Erro ao consultar a função listarVideosTvCamara.',
                 details: {
                     errorName: monitorError.name || 'Error',
                 },
             });
+            return null;
         } finally {
             setMonitoring(false);
             refreshYoutubeLogs('listarVideosTvCamara');
@@ -430,17 +435,18 @@ const AdminTvCamara = () => {
         }
     };
 
-    const fetchData = async () => {
+    const fetchData = async ({ freshPlaylist = false } = {}) => {
         setLoading(true);
         setError('');
         try {
             const results = await Promise.allSettled([
                 fetchManualVideos(),
-                monitorEndpoint({ silent: true }),
+                monitorEndpoint({ silent: true, fresh: freshPlaylist }),
                 refreshYoutubeLogs(),
             ]);
             const failed = results.find(result => result.status === 'rejected');
             if (failed) console.warn('Parte dos dados da TV Câmara não pôde ser carregada:', failed.reason);
+            return results[1].status === 'fulfilled' ? results[1].value : null;
         } catch (loadError) {
             console.error('Erro ao carregar admin TV Câmara:', loadError);
             setError('Não foi possível carregar a administração da TV Câmara.');
@@ -452,7 +458,23 @@ const AdminTvCamara = () => {
     useEffect(() => {
         fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [youtubeApiEndpoint]);
+
+    const handleSyncPlaylist = async () => {
+        setSyncingPlaylist(true);
+        setPlaylistSyncFeedback('Consultando a mesma fonte de vídeos configurada para o aplicativo...');
+        setError('');
+        try {
+            const result = await monitorEndpoint({ silent: true, fresh: true });
+            if (!result) throw new Error('Não foi possível consultar a playlist oficial.');
+            setPlaylistSyncFeedback(`Playlist consultada: ${result.videos.length} vídeo(s) retornado(s) pela fonte do aplicativo.`);
+        } catch (syncError) {
+            setPlaylistSyncFeedback('');
+            setError(syncError.message || 'Não foi possível sincronizar a playlist.');
+        } finally {
+            setSyncingPlaylist(false);
+        }
+    };
 
     const handleAddVideo = async (event) => {
         event.preventDefault();
@@ -591,7 +613,7 @@ const AdminTvCamara = () => {
 
             setOauthCallbackUrl('');
             setOauthAuthUrl('');
-            setOauthResult('Refresh token atualizado no Firebase. As funções do YouTube passam a usar o novo secret após reinício, nova implantação ou nova instância fria.');
+            setOauthResult('Refresh token atualizado com segurança no Secret Manager. As Functions passam a usar a nova credencial sem alterar arquivos de ambiente.');
             await refreshYoutubeLogs('all');
         } catch (oauthError) {
             console.error('Erro ao atualizar refresh token YouTube:', oauthError);
@@ -611,15 +633,37 @@ const AdminTvCamara = () => {
                         <h1>Admin TV Câmara</h1>
                         <p>Monitore as funções do YouTube e gerencie vídeos manuais da playlist.</p>
                     </div>
-                    <div className="admin-balcao-header-actions">
-                        <button onClick={fetchData} className="admin-action-button action-refresh" disabled={loading || monitoring}>
+                    {activeTab === 'monitoring' && <div className="admin-balcao-header-actions">
+                        <button
+                            type="button"
+                            onClick={handleSyncPlaylist}
+                            className="admin-action-button"
+                            disabled={syncingPlaylist || loading || monitoring}
+                        >
+                            <LiaSyncSolid />
+                            <span className="admin-action-label">{syncingPlaylist ? 'Buscando vídeos...' : 'Buscar vídeos novos'}</span>
+                        </button>
+                        <button onClick={() => fetchData({ freshPlaylist: true })} className="admin-action-button action-refresh" disabled={loading || monitoring}>
                             <LiaSyncSolid />
                             <span className="admin-action-label">Atualizar</span>
                         </button>
-                    </div>
+                    </div>}
                 </header>
-
-                <section className="admin-tv-camara-metrics">
+                <nav className="admin-tv-camara-tabs" aria-label="Seções da TV Câmara">
+                    <button type="button" className={activeTab === 'transcription' ? 'active' : ''} onClick={() => {
+                        setActiveTab('transcription');
+                        if (!endpointVideos.some(video => video.videoId === selectedVideo?.videoId)) {
+                            setSelectedVideo(endpointVideos[0] || null);
+                        }
+                    }}>
+                        <LiaMicrophoneSolid /> Transcrição de vídeos
+                    </button>
+                    <button type="button" className={activeTab === 'monitoring' ? 'active' : ''} onClick={() => setActiveTab('monitoring')}>
+                        <LiaTvSolid /> Monitoramento
+                    </button>
+                </nav>
+                {playlistSyncFeedback && <p className="admin-tv-camara-settings-feedback" role="status">{playlistSyncFeedback}</p>}
+                {activeTab === 'monitoring' && <section className="admin-tv-camara-metrics">
                     <article>
                         <span>Playlist manual</span>
                         <strong>{manualVideos.length}</strong>
@@ -635,12 +679,19 @@ const AdminTvCamara = () => {
                         <span>Total exibido no portal</span>
                         <strong>{mergedVideos.length}</strong>
                     </article>
-                </section>
+                    <article>
+                        <span>Visualizações no YouTube</span>
+                        <strong>{endpointVideos.some(video => Number.isFinite(video.viewCount))
+                            ? endpointVideos.reduce((total, video) => total + (Number(video.viewCount) || 0), 0).toLocaleString('pt-BR')
+                            : '—'}</strong>
+                        <small>Total dos vídeos da playlist com estatísticas disponíveis.</small>
+                    </article>
+                </section>}
 
                 {error && <div className="error-message-inline">{error}</div>}
 
                 <main className="admin-tv-camara-grid">
-                    <section className="data-card admin-tv-camara-transcription-card">
+                    {activeTab === 'transcription' && <section className="data-card admin-tv-camara-transcription-card">
                         <div className="card-header">
                             <h3><LiaMicrophoneSolid /> Transcrever sessão</h3>
                             <span>YouTube · legenda oficial</span>
@@ -652,17 +703,21 @@ const AdminTvCamara = () => {
                                 <select
                                     id="tv-camara-transcription-video"
                                     value={transcriptionVideoId}
-                                    onChange={event => setTranscriptionVideoId(event.target.value)}
+                                    onChange={event => {
+                                        const videoId = event.target.value;
+                                        setTranscriptionVideoId(videoId);
+                                        setSelectedVideo(endpointVideos.find(video => video.videoId === videoId) || null);
+                                    }}
                                     disabled={transcriptionRunning}
                                 >
-                                    <option value="">{mergedVideos.length ? 'Selecione um vídeo da playlist' : 'Nenhum vídeo disponível'}</option>
-                                    {mergedVideos.map(video => <option key={`${video.source}-${video.id || video.videoId}`} value={video.videoId}>{video.title} · {video.source === 'manual' ? 'Manual' : 'YouTube'}</option>)}
+                                    <option value="">{endpointVideos.length ? 'Selecione um vídeo da playlist do canal' : 'Nenhum vídeo disponível na playlist do canal'}</option>
+                                    {endpointVideos.map(video => <option key={video.videoId} value={video.videoId}>{video.title}</option>)}
                                 </select>
-                                <button type="submit" className="btn-primary" disabled={transcriptionRunning || !transcriptionVideoId}>
+                                <button type="submit" className="btn-primary" disabled={transcriptionRunning || !transcriptionVideoId || !endpointVideos.some(video => video.videoId === transcriptionVideoId)}>
                                     <LiaMicrophoneSolid /> {transcriptionRunning ? 'Processando...' : 'Transcrever sessão'}
                                 </button>
                             </div>
-                            {transcriptionVideoId && <small className="admin-tv-camara-transcription-selected">{mergedVideos.find(video => video.videoId === transcriptionVideoId)?.title || ''}</small>}
+                            {transcriptionVideoId && <small className="admin-tv-camara-transcription-selected">{endpointVideos.find(video => video.videoId === transcriptionVideoId)?.title || ''}</small>}
                         </form>
                         {transcriptionStatus && <p className="admin-tv-camara-transcription-status" role="status">{transcriptionStatus}</p>}
                         {transcriptionError && <div className="error-message-inline" role="alert">{transcriptionError}</div>}
@@ -674,8 +729,8 @@ const AdminTvCamara = () => {
                             {transcriptionResult.language && <dl><div><dt>Idioma</dt><dd>{transcriptionResult.language}</dd></div></dl>}
                             <pre>{plainTextFromTranscript(transcriptionResult) || 'O processamento foi concluído, mas não retornou texto para exibição.'}</pre>
                         </div>}
-                    </section>
-                    <section className="data-card admin-tv-camara-functions-card">
+                    </section>}
+                    {activeTab === 'monitoring' && <section className="data-card admin-tv-camara-functions-card">
                         <div className="card-header">
                             <h3><LiaTvSolid /> Funções YouTube</h3>
                             <span>{youtubeFunctionCards.length} função(ões)</span>
@@ -704,17 +759,17 @@ const AdminTvCamara = () => {
                                 </article>
                             ))}
                         </div>
-                    </section>
+                    </section>}
 
-                    <section className="data-card admin-tv-camara-oauth-card">
+                    {activeTab === 'monitoring' && <section className="data-card admin-tv-camara-oauth-card">
                         <div className="card-header">
                             <h3><LiaKeySolid /> Renovar OAuth YouTube</h3>
                             <span>Seguro via Firebase</span>
                         </div>
                         <div className="admin-tv-camara-oauth-panel">
                             <div className="admin-tv-camara-oauth-copy">
-                                <strong>Client ID e Client Secret continuam protegidos no Firebase.</strong>
-                                <p>A transcrição exige os escopos <code>youtube</code> e <code>youtube.force-ssl</code>. Se a autorização anterior não incluiu esses acessos, remova “Portal de Serviços” das permissões da sua Conta Google, gere uma nova autorização, escolha a conta proprietária do canal, aceite os escopos e cole a URL de retorno. O Google também exige permissão de edição do vídeo para baixar a faixa de legendas.</p>
+                                <strong>Credenciais e token ficam protegidos no Secret Manager do Firebase.</strong>
+                                <p>Configure a API key e o OAuth Client ID/Secret no Controle do Sistema, em Módulos e páginas &gt; TV Câmara. O refresh token é salvo após a autorização nesta tela. A transcrição exige os escopos <code>youtube</code> e <code>youtube.force-ssl</code>. Se a autorização anterior não incluiu esses acessos, remova “Portal de Serviços” das permissões da sua Conta Google, gere uma nova autorização, escolha a conta proprietária do canal, aceite os escopos e cole a URL de retorno. O Google também exige permissão de edição do vídeo para baixar a faixa de legendas.</p>
                             </div>
                             <div className="admin-tv-camara-oauth-actions">
                                 <button
@@ -763,9 +818,9 @@ const AdminTvCamara = () => {
                                 o portal confirma que o Google concedeu <code>youtube.force-ssl</code> antes de salvar. Se o erro persistir, confira os escopos informados pela Function e conecte uma conta com permissão de edição sobre o vídeo.
                             </div>
                         </div>
-                    </section>
+                    </section>}
 
-                    <section className="data-card admin-tv-camara-form-card">
+                    {activeTab === 'monitoring' && <section className="data-card admin-tv-camara-form-card">
                         <div className="card-header"><h3><LiaPlusSolid /> Adicionar vídeo</h3></div>
                         <form onSubmit={handleAddVideo} className="admin-tv-camara-form">
                             <div className="form-group">
@@ -782,9 +837,9 @@ const AdminTvCamara = () => {
                             </div>
                             <button className="btn-primary"><LiaPlusSolid /> Adicionar à playlist</button>
                         </form>
-                    </section>
+                    </section>}
 
-                    <section className="data-card admin-tv-camara-preview-card">
+                    {activeTab === 'transcription' && <section className="data-card admin-tv-camara-preview-card">
                         <div className="card-header"><h3><LiaPlayCircleSolid /> Preview</h3></div>
                         <div className="admin-tv-camara-preview">
                             {playerUrl ? (
@@ -802,38 +857,56 @@ const AdminTvCamara = () => {
                                 </a>
                             </div>
                         )}
-                    </section>
+                    </section>}
 
-                    <section className="data-card admin-tv-camara-list-card">
+                    {activeTab === 'transcription' && <section className="data-card admin-tv-camara-list-card">
                         <div className="card-header">
-                            <h3>Vídeos da playlist</h3>
-                            <span>{mergedVideos.length} vídeo(s)</span>
+                            <h3>Playlist do canal</h3>
+                            <span>{endpointVideos.length} vídeo(s)</span>
                         </div>
+                        <p className="admin-tv-camara-playlist-source">Fonte compartilhada com o aplicativo: <code>{youtubeApiEndpoint}</code></p>
                         <div className="admin-tv-camara-video-list">
-                            {mergedVideos.map(video => (
-                                <article key={`${video.source}-${video.id || video.videoId}`} className={selectedVideo?.videoId === video.videoId ? 'selected' : ''}>
-                                    <button type="button" className="admin-tv-camara-video-main" onClick={() => setSelectedVideo(video)}>
+                            {endpointVideos.map(video => (
+                                <article key={video.videoId} className={selectedVideo?.videoId === video.videoId ? 'selected' : ''}>
+                                    <button type="button" className="admin-tv-camara-video-main" onClick={() => {
+                                        setSelectedVideo(video);
+                                        setTranscriptionVideoId(video.videoId);
+                                    }}>
                                         <img src={video.thumbnailUrl || getYoutubeThumbnail(video.videoId)} alt="" />
                                         <span>
                                             <strong>{video.title}</strong>
-                                            <small>{video.source === 'manual' ? 'Manual' : 'Função'} · {formatVideoDate(video.publishedAt)}</small>
+                                            <small>YouTube · {formatVideoDate(video.publishedAt)}{Number.isFinite(video.viewCount) ? ` · ${video.viewCount.toLocaleString('pt-BR')} visualizações` : ''}</small>
                                         </span>
                                     </button>
-                                    {video.source === 'manual' && (
-                                        <div className="admin-tv-camara-video-actions">
-                                            <button type="button" className="btn-secondary" onClick={() => handleToggleVideo(video)}>
-                                                {video.active === false ? 'Ativar' : 'Ocultar'}
-                                            </button>
-                                            <button type="button" className="btn-danger" onClick={() => handleDeleteVideo(video)}><LiaTrashAltSolid /></button>
-                                        </div>
-                                    )}
                                 </article>
                             ))}
-                            {!loading && mergedVideos.length === 0 && <p>Nenhum vídeo encontrado.</p>}
+                            {!loading && endpointVideos.length === 0 && <p>Nenhum vídeo retornado pela playlist configurada em Controle do Sistema.</p>}
                         </div>
-                    </section>
+                    </section>}
 
-                    <section className="data-card admin-tv-camara-logs-card">
+                    {activeTab === 'monitoring' && <section className="data-card admin-tv-camara-list-card">
+                        <div className="card-header">
+                            <h3>Vídeos adicionados manualmente</h3>
+                            <span>{manualVideos.length} vídeo(s)</span>
+                        </div>
+                        <div className="admin-tv-camara-video-list">
+                            {manualVideos.map(video => (
+                                <article key={video.id || video.videoId} className={selectedVideo?.videoId === video.videoId ? 'selected' : ''}>
+                                    <button type="button" className="admin-tv-camara-video-main" onClick={() => setSelectedVideo(video)}>
+                                        <img src={video.thumbnailUrl || getYoutubeThumbnail(video.videoId)} alt="" />
+                                        <span><strong>{video.title}</strong><small>Adicionado manualmente · {formatVideoDate(video.publishedAt)}</small></span>
+                                    </button>
+                                    <div className="admin-tv-camara-video-actions">
+                                        <button type="button" className="btn-secondary" onClick={() => handleToggleVideo(video)}>{video.active === false ? 'Ativar' : 'Ocultar'}</button>
+                                        <button type="button" className="btn-danger" onClick={() => handleDeleteVideo(video)}><LiaTrashAltSolid /></button>
+                                    </div>
+                                </article>
+                            ))}
+                            {!loading && manualVideos.length === 0 && <p>Nenhum vídeo adicionado manualmente.</p>}
+                        </div>
+                    </section>}
+
+                    {activeTab === 'monitoring' && <section className="data-card admin-tv-camara-logs-card">
                         <div className="card-header">
                             <h3>Logs das funções YouTube</h3>
                             <button type="button" className="btn-secondary" onClick={() => refreshYoutubeLogs(activeLogFunction)}><LiaSyncSolid /> Atualizar logs</button>
@@ -864,7 +937,7 @@ const AdminTvCamara = () => {
                             ))}
                             {filteredLogs.length === 0 && <p>Nenhum log registrado para este filtro. Clique em Testar Função.</p>}
                         </div>
-                    </section>
+                    </section>}
                 </main>
             </div>
         </div>

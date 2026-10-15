@@ -12714,4 +12714,77 @@ color: #fff !important;
 .admin-tv-camara-transcription-result dt{color:#6b8096;font-size:.72rem;font-weight:800;text-transform:uppercase}
 .admin-tv-camara-transcription-result dd{margin:0;color:#23435f;font-size:.84rem}
 .admin-tv-camara-transcription-result pre{max-height:480px;overflow:auto;margin:0;padding:16px;border:1px solid #e0e9f0;border-radius:10px;background:#fff;color:#304b65;font:inherit;line-height:1.6;white-space:pre-wrap}
+.admin-tv-camara-settings-card{width:min(1180px,96%);margin:0 auto 22px;padding:22px}
+.admin-tv-camara-settings-card>.card-header{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.admin-tv-camara-settings-card>.card-header h3{display:flex;align-items:center;gap:9px;margin:0;color:#17324f}
+.admin-tv-camara-settings-card>.card-header h3 svg{color:#0788c5}
+.admin-tv-camara-settings-card>.card-header>span{color:#657b91;font-size:.8rem;font-weight:800}
+.admin-tv-camara-settings-help{margin:12px 0 18px;color:#657b91;line-height:1.5}
+.admin-tv-camara-settings-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:end;gap:14px}
+.admin-tv-camara-settings-form label{display:grid;gap:7px;min-width:0;color:#34536f;font-size:.88rem;font-weight:800}
+.admin-tv-camara-settings-form .form-input{width:100%;min-height:46px;box-sizing:border-box;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.admin-tv-camara-settings-form button{grid-column:1/-1;justify-self:start;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.admin-tv-camara-settings-form>.admin-tv-camara-settings-help{grid-column:1/-1;margin:0}
+.admin-tv-camara-settings-feedback{margin:14px 0 0;color:#087bb9;font-weight:750}
+.admin-tv-camara-tabs{display:flex;gap:10px;margin:0 0 20px;padding:8px;border:1px solid #d8e6f2;border-radius:15px;background:rgba(255,255,255,.72)}
+.admin-tv-camara-tabs button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:9px 16px;border:1px solid #d4e3ef;border-radius:11px;background:#fff;color:#45627d;font:inherit;font-weight:750;cursor:pointer}
+.admin-tv-camara-tabs button.active{border-color:#0788c5;background:#0788c5;color:#fff;box-shadow:0 5px 14px rgba(7,136,197,.18)}
+[data-theme="dark"] .admin-tv-camara-tabs{border-color:rgba(125,190,232,.2);background:rgba(8,39,64,.72)}
+[data-theme="dark"] .admin-tv-camara-tabs button{border-color:rgba(125,190,232,.22);background:rgba(8,39,64,.9);color:#c5d9eb}
+[data-theme="dark"] .admin-tv-camara-tabs button.active{border-color:#0788c5;background:#0788c5;color:#fff}
+@media(max-width:600px){.admin-tv-camara-tabs{display:grid;grid-template-columns:1fr 1fr}.admin-tv-camara-tabs button{padding:9px 8px;font-size:.9rem}}
+[data-theme="dark"] .admin-tv-camara-settings-card>.card-header h3{color:#e9f5ff}
+[data-theme="dark"] .admin-tv-camara-settings-card>.card-header>span,
+[data-theme="dark"] .admin-tv-camara-settings-help,
+[data-theme="dark"] .admin-tv-camara-settings-form label{color:#b7c9dc}
+[data-theme="dark"] .admin-tv-camara-settings-form .form-input{border-color:rgba(125,190,232,.24);background:rgba(8,39,64,.9);color:#f8fafc}
+@media(max-width:700px){.admin-tv-camara-settings-card{width:100%;padding:16px;box-sizing:border-box}.admin-tv-camara-settings-form{grid-template-columns:1fr}.admin-tv-camara-settings-form button{grid-column:auto;width:100%}}
 @media(max-width:650px){.admin-tv-camara-transcription-card{padding:16px}.admin-tv-camara-transcription-entry,.admin-tv-camara-transcription-result-header{align-items:stretch;flex-direction:column}.admin-tv-camara-transcription-entry .btn-primary{width:100%}}
+
+/* Keep TV Câmara content aligned with the shared page header container. */
+.dashboard-layout .dashboard-content.admin-tv-camara-page > .admin-tv-camara-tabs,
+.dashboard-layout .dashboard-content.admin-tv-camara-page > .admin-tv-camara-settings-feedback,
+.dashboard-layout .dashboard-content.admin-tv-camara-page > .admin-tv-camara-metrics,
+.dashboard-layout .dashboard-content.admin-tv-camara-page > .admin-tv-camara-grid {
+  width: min(95%, 1720px);
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.dashboard-layout .dashboard-content.admin-tv-camara-page > .admin-tv-camara-tabs {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.dashboard-layout .dashboard-content.admin-tv-camara-page > .admin-tv-camara-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-tv-camara-playlist-source {
+  margin: -6px 0 14px;
+  color: #647b91;
+  font-size: .82rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.admin-tv-camara-playlist-source code {
+  color: #315571;
+  font-size: .92em;
+}
+
+[data-theme="dark"] .admin-tv-camara-playlist-source,
+[data-theme="dark"] .admin-tv-camara-playlist-source code {
+  color: #b8cadd;
+}
+
+@media (max-width: 700px) {
+  .dashboard-layout .dashboard-content.admin-tv-camara-page > .admin-tv-camara-tabs,
+  .dashboard-layout .dashboard-content.admin-tv-camara-page > .admin-tv-camara-settings-feedback,
+  .dashboard-layout .dashboard-content.admin-tv-camara-page > .admin-tv-camara-metrics,
+  .dashboard-layout .dashboard-content.admin-tv-camara-page > .admin-tv-camara-grid {
+    width: 100%;
+  }
+}

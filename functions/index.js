@@ -5,7 +5,6 @@ const {
 } = require("firebase-functions/v2/firestore");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onCall, onRequest, HttpsError} = require("firebase-functions/v2/https");
-const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin"); // Keep admin for database operations
 const {Logging} = require("@google-cloud/logging");
 const {SecretManagerServiceClient} = require("@google-cloud/secret-manager");
@@ -22,8 +21,6 @@ Object.assign(exports, require("./videoConference"));
 Object.assign(exports, require("./administrative"));
 Object.assign(exports, require("./ouvidoria"));
 
-const youtubeClientId = defineSecret("YOUTUBE_CLIENT_ID");
-const youtubeClientSecret = defineSecret("YOUTUBE_CLIENT_SECRET");
 const whatsappAccessTokenSecretName = "WHATSAPP_ACCESS_TOKEN";
 const whatsappVerifyTokenSecretName = "WHATSAPP_VERIFY_TOKEN";
 
@@ -235,7 +232,6 @@ exports.processTvCamaraTranscription = onDocumentCreated({
   region: "us-central1",
   timeoutSeconds: 540,
   memory: "1GiB",
-  secrets: [youtubeClientId, youtubeClientSecret],
 }, async (event) => {
   const jobSnapshot = event.data;
   if (!jobSnapshot || jobSnapshot.data().status !== "queued") return;
@@ -547,8 +543,10 @@ const appFunctionsBaseUrl =
   `https://us-central1-${youtubeProjectId}.cloudfunctions.net`;
 const youtubeFunctionsBaseUrl =
   `https://southamerica-east1-${youtubeProjectId}.cloudfunctions.net`;
-const tvCamaraPublicPlaylistId = "PL2jvfc9q3EZ0CXi2qg5aDPydeCYdCsq59";
+const defaultTvCamaraPublicPlaylistId = "PL2jvfc9q3EZ0CXi2qg5aDPydeCYdCsq59";
 let tvCamaraPlaylistCache = {
+  channelId: "",
+  playlistId: "",
   expiresAt: 0,
   result: {videos: [], pageCount: 0, apiReportedTotal: 0},
 };
@@ -560,6 +558,282 @@ const youtubeOAuthScopes = [
   "https://www.googleapis.com/auth/youtube",
   youtubeOAuthScope,
 ].join(" ");
+
+/**
+ * Reads the public YouTube IDs configured by a portal administrator.
+ * @return {Promise<object>} TV Câmara YouTube settings
+ */
+async function getTvCamaraYoutubeSettings() {
+  const [systemSnapshot, legacySnapshot] = await Promise.all([
+    admin.firestore().collection("system-control").doc("portal").get(),
+    admin.firestore().collection("tv-camara-settings").doc("youtube").get(),
+  ]);
+  const centralSettings = systemSnapshot.data()?.modules?.tvCamara?.youtube ||
+    {};
+  const legacySettings = legacySnapshot.data() || {};
+  return {
+    channelId: String(centralSettings.channelId ||
+      legacySettings.channelId || "").trim(),
+    playlistId: String(centralSettings.playlistId ||
+      legacySettings.playlistId || defaultTvCamaraPublicPlaylistId).trim(),
+  };
+}
+
+exports.saveTvCamaraSettings = onCall(
+    {cors: true}, async (request) => {
+      const {email} = await requireTvCamaraAdmin(request);
+      const channelId = String(request.data?.channelId || "").trim();
+      const playlistId = String(request.data?.playlistId || "").trim();
+      const credentials = {
+        YOUTUBE_API_KEY: String(request.data?.apiKey || "").trim(),
+        YOUTUBE_CLIENT_ID: String(request.data?.clientId || "").trim(),
+        YOUTUBE_CLIENT_SECRET: String(
+            request.data?.clientSecret || "",
+        ).trim(),
+      };
+      if (!/^UC[A-Za-z0-9_-]{22}$/.test(channelId)) {
+        throw new HttpsError(
+            "invalid-argument",
+            "Informe um ID de canal do YouTube válido (inicia com UC).",
+        );
+      }
+      if (!/^[A-Za-z0-9_-]{10,80}$/.test(playlistId)) {
+        throw new HttpsError(
+            "invalid-argument", "Informe um ID de playlist válido.");
+      }
+      if (credentials.YOUTUBE_API_KEY.length > 512 ||
+          credentials.YOUTUBE_CLIENT_ID.length > 512 ||
+          credentials.YOUTUBE_CLIENT_SECRET.length > 512) {
+        throw new HttpsError(
+            "invalid-argument",
+            "Uma das credenciais informadas excede o tamanho permitido.",
+        );
+      }
+      if (credentials.YOUTUBE_CLIENT_ID &&
+          !credentials.YOUTUBE_CLIENT_ID.endsWith(
+              ".apps.googleusercontent.com")) {
+        throw new HttpsError(
+            "invalid-argument",
+            "O Client ID OAuth do Google não parece válido.",
+        );
+      }
+      for (const [secretName, value] of Object.entries(credentials)) {
+        if (value) await saveSecretManagerValue(secretName, value);
+      }
+      const [savedApiKey, savedClientId, savedClientSecret, savedRefreshToken] =
+        await Promise.all([
+          readSecretManagerValue("YOUTUBE_API_KEY"),
+          readSecretManagerValue("YOUTUBE_CLIENT_ID"),
+          readSecretManagerValue("YOUTUBE_CLIENT_SECRET"),
+          readSecretManagerValue("YOUTUBE_REFRESH_TOKEN"),
+        ]);
+      const credentialStatus = {
+        apiKeyConfigured: Boolean(savedApiKey),
+        clientIdConfigured: Boolean(savedClientId),
+        clientSecretConfigured: Boolean(savedClientSecret),
+        refreshTokenConfigured: Boolean(savedRefreshToken),
+      };
+      await admin.firestore().collection("tv-camara-settings")
+          .doc("youtube").set({
+            channelId,
+            playlistId,
+            credentialStatus,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedBy: request.auth.uid,
+            updatedByEmail: email,
+          }, {merge: true});
+      tvCamaraPlaylistCache.expiresAt = 0;
+      return {
+        saved: true,
+        channelId,
+        playlistId,
+        credentialStatus,
+      };
+    });
+
+exports.getTvCamaraSettingsStatus = onCall(
+    {cors: true}, async (request) => {
+      await requireTvCamaraAdmin(request);
+      const {channelId, playlistId} = await getTvCamaraYoutubeSettings();
+      const [apiKey, clientId, clientSecret, refreshToken] =
+        await Promise.all([
+          readSecretManagerValue("YOUTUBE_API_KEY"),
+          readSecretManagerValue("YOUTUBE_CLIENT_ID"),
+          readSecretManagerValue("YOUTUBE_CLIENT_SECRET"),
+          readSecretManagerValue("YOUTUBE_REFRESH_TOKEN"),
+        ]);
+      return {
+        channelId,
+        playlistId,
+        credentialStatus: {
+          apiKeyConfigured: Boolean(apiKey),
+          clientIdConfigured: Boolean(clientId),
+          clientSecretConfigured: Boolean(clientSecret),
+          refreshTokenConfigured: Boolean(refreshToken),
+        },
+      };
+    });
+
+exports.syncTvCamaraPlaylist = onCall(
+    {
+      cors: true,
+      timeoutSeconds: 300,
+    }, async (request) => {
+      const {email} = await requireTvCamaraAdmin(request);
+      const startedAt = Date.now();
+      const {channelId, playlistId} = await getTvCamaraYoutubeSettings();
+      if (!channelId) {
+        throw new HttpsError(
+            "failed-precondition",
+            "Configure o ID do canal do YouTube na Administração da TV Câmara.",
+        );
+      }
+
+      try {
+        const accessToken = await getTvCamaraYoutubeAccessToken();
+        const apiRequest = async (resource, params, method = "GET", body) => {
+          const url = new URL(
+              `https://youtube.googleapis.com/youtube/v3/${resource}`,
+          );
+          Object.entries(params).forEach(([key, value]) =>
+            url.searchParams.set(key, String(value)));
+          const response = await fetch(url, {
+            method,
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: body ? JSON.stringify(body) : undefined,
+            signal: AbortSignal.timeout(30000),
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(payload.error?.message ||
+              `YouTube Data API retornou HTTP ${response.status}.`);
+          }
+          return payload;
+        };
+
+        const channelPayload = await apiRequest("channels", {
+          part: "contentDetails",
+          id: channelId,
+        });
+        const uploadsPlaylistId = channelPayload.items?.[0]?.contentDetails
+            ?.relatedPlaylists?.uploads;
+        if (!uploadsPlaylistId) {
+          throw new Error(
+              "Não foi possível localizar os vídeos enviados pelo canal " +
+              "configurado.",
+          );
+        }
+
+        const targetPlaylistPayload = await apiRequest("playlists", {
+          part: "snippet",
+          id: playlistId,
+        });
+        const targetPlaylist = targetPlaylistPayload.items?.[0];
+        if (!targetPlaylist) {
+          throw new Error(
+              "A playlist configurada não foi encontrada no YouTube.",
+          );
+        }
+        if (targetPlaylist.snippet?.channelId !== channelId) {
+          throw new Error(
+              "A playlist configurada não pertence ao canal informado.",
+          );
+        }
+
+        const fetchPlaylistIds = async (
+            targetId,
+            {maxPages = 100, requireComplete = true} = {},
+        ) => {
+          const ids = new Set();
+          let pageToken = "";
+          let pageCount = 0;
+          do {
+            const params = {
+              part: "contentDetails",
+              playlistId: targetId,
+              maxResults: 50,
+            };
+            if (pageToken) params.pageToken = pageToken;
+            const payload = await apiRequest("playlistItems", params);
+            (payload.items || []).forEach((item) => {
+              const videoId = item.contentDetails?.videoId;
+              if (videoId) ids.add(videoId);
+            });
+            pageToken = payload.nextPageToken || "";
+            pageCount += 1;
+          } while (pageToken && pageCount < maxPages);
+          if (pageToken && requireComplete) {
+            throw new Error("A playlist excedeu o limite seguro de paginação.");
+          }
+          return ids;
+        };
+
+        const [uploadsIds, existingIds] = await Promise.all([
+          fetchPlaylistIds(uploadsPlaylistId, {
+            maxPages: 1,
+            requireComplete: false,
+          }),
+          fetchPlaylistIds(playlistId),
+        ]);
+        const newVideoIds = [...uploadsIds].filter(
+            (videoId) => !existingIds.has(videoId),
+        );
+        let addedCount = 0;
+        for (const videoId of newVideoIds) {
+          await apiRequest("playlistItems", {part: "snippet"}, "POST", {
+            snippet: {
+              playlistId,
+              resourceId: {kind: "youtube#video", videoId},
+            },
+          });
+          addedCount += 1;
+        }
+
+        tvCamaraPlaylistCache.expiresAt = 0;
+        const summary = {
+          channelId,
+          playlistId,
+          scannedCount: uploadsIds.size,
+          addedCount,
+          alreadyPresentCount: uploadsIds.size - addedCount,
+        };
+        await saveYoutubeFunctionLog({
+          status: "success",
+          functionId: "syncTvCamaraPlaylist",
+          functionName: "syncTvCamaraPlaylist",
+          functionLabel: "Sincronizar playlist da TV Câmara",
+          endpoint: "Admin TV Câmara",
+          durationMs: Date.now() - startedAt,
+          videosCount: addedCount,
+          message: addedCount ?
+            `${addedCount} vídeo(s) novo(s) adicionado(s) à playlist.` :
+            "Nenhum vídeo novo encontrado no canal.",
+          details: summary,
+          createdBy: email,
+        });
+        return summary;
+      } catch (error) {
+        await saveYoutubeFunctionLog({
+          status: "error",
+          functionId: "syncTvCamaraPlaylist",
+          functionName: "syncTvCamaraPlaylist",
+          functionLabel: "Sincronizar playlist da TV Câmara",
+          endpoint: "Admin TV Câmara",
+          durationMs: Date.now() - startedAt,
+          message: error.message || "Falha ao sincronizar a playlist.",
+          details: {channelId, playlistId},
+          createdBy: email,
+        }).catch((logError) => console.error(
+            "Falha ao registrar log de sincronização TV Câmara:", logError));
+        throw new HttpsError(
+            "internal",
+            error.message || "Falha ao sincronizar a playlist do YouTube.",
+        );
+      }
+    });
 
 const allowedYoutubeFunctions = {
   listarVideosTvCamara: {
@@ -820,25 +1094,70 @@ function extractYoutubeOAuthCode(value) {
 }
 
 /**
- * Persists a new Secret Manager version for YOUTUBE_REFRESH_TOKEN.
- * @param {string} refreshToken New OAuth refresh token
+ * Saves a secret value in Secret Manager, creating the secret if necessary.
+ * @param {string} secretId Secret Manager secret ID
+ * @param {string} value Secret value
  * @return {Promise<string>} Secret version name
  */
-async function saveYoutubeRefreshTokenSecret(refreshToken) {
+async function saveSecretManagerValue(secretId, value) {
   const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
   if (!projectId) {
     throw new Error("Projeto Google Cloud não identificado.");
   }
 
-  const parent = `projects/${projectId}/secrets/YOUTUBE_REFRESH_TOKEN`;
+  const client = getSecretManagerClient();
+  const projectName = `projects/${projectId}`;
+  const parent = `${projectName}/secrets/${secretId}`;
+  try {
+    await client.getSecret({name: parent});
+  } catch (error) {
+    if (error.code !== 5) throw error;
+    try {
+      await client.createSecret({
+        parent: projectName,
+        secretId,
+        secret: {replication: {automatic: {}}},
+      });
+    } catch (createError) {
+      if (createError.code !== 6) throw createError;
+    }
+  }
   const [version] = await getSecretManagerClient().addSecretVersion({
     parent,
     payload: {
-      data: Buffer.from(refreshToken, "utf8"),
+      data: Buffer.from(value, "utf8"),
     },
   });
 
   return version.name || parent;
+}
+
+/**
+ * Reads the latest Secret Manager version, returning empty for missing secrets.
+ * @param {string} secretId Secret Manager secret ID
+ * @return {Promise<string>} Secret value
+ */
+async function readSecretManagerValue(secretId) {
+  const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+  if (!projectId) throw new Error("Projeto Google Cloud não identificado.");
+  const name = `projects/${projectId}/secrets/${secretId}/versions/latest`;
+  try {
+    const [version] = await getSecretManagerClient()
+        .accessSecretVersion({name});
+    return version.payload?.data?.toString("utf8").trim() || "";
+  } catch (error) {
+    if (error.code === 5) return "";
+    throw error;
+  }
+}
+
+/**
+ * Persists a new Secret Manager version for the OAuth refresh token.
+ * @param {string} refreshToken New OAuth refresh token
+ * @return {Promise<string>} Secret version name
+ */
+async function saveYoutubeRefreshTokenSecret(refreshToken) {
+  return saveSecretManagerValue("YOUTUBE_REFRESH_TOKEN", refreshToken);
 }
 
 /**
@@ -850,16 +1169,22 @@ async function getTvCamaraYoutubeAccessToken() {
   if (!projectId) {
     throw new Error("Projeto Google Cloud não identificado.");
   }
-  const secretName = `projects/${projectId}/secrets/` +
-    "YOUTUBE_REFRESH_TOKEN/versions/latest";
-  const [refreshTokenVersion] = await getSecretManagerClient()
-      .accessSecretVersion({name: secretName});
-  const refreshToken = refreshTokenVersion.payload.data.toString("utf8")
-      .trim().replace(/[\r\n]+/g, "");
-  const clientId = youtubeClientId.value()?.trim();
-  const clientSecret = youtubeClientSecret.value()?.trim();
-  if (!refreshToken || !clientId || !clientSecret) {
-    throw new Error("Configure as credenciais OAuth do YouTube no portal.");
+  const [refreshToken, clientId, clientSecret] = await Promise.all([
+    readSecretManagerValue("YOUTUBE_REFRESH_TOKEN"),
+    readSecretManagerValue("YOUTUBE_CLIENT_ID"),
+    readSecretManagerValue("YOUTUBE_CLIENT_SECRET"),
+  ]);
+  if (!refreshToken) {
+    throw new Error(
+        "O refresh token OAuth do YouTube não está configurado no " +
+        "Secret Manager. Autorize novamente o canal no Admin TV Câmara.",
+    );
+  }
+  if (!clientId || !clientSecret) {
+    throw new Error(
+        "Configure o OAuth Client ID e o Client Secret em Admin TV Câmara " +
+        "antes de autorizar a conta do canal.",
+    );
   }
 
   const response = await fetch("https://oauth2.googleapis.com/token", {
@@ -903,12 +1228,49 @@ async function getTvCamaraYoutubeAccessToken() {
  * Lists every item in the configured public playlist, following page tokens.
  * @return {Promise<object[]>} Normalized YouTube playlist videos
  */
-async function fetchAllTvCamaraPlaylistVideos() {
-  if (tvCamaraPlaylistCache.expiresAt > Date.now()) {
+async function fetchAllTvCamaraPlaylistVideos({forceRefresh = false} = {}) {
+  const {channelId, playlistId} = await getTvCamaraYoutubeSettings();
+  if (!forceRefresh && tvCamaraPlaylistCache.channelId === channelId &&
+    tvCamaraPlaylistCache.playlistId === playlistId &&
+    tvCamaraPlaylistCache.expiresAt > Date.now()) {
     return tvCamaraPlaylistCache.result;
   }
 
-  const accessToken = await getTvCamaraYoutubeAccessToken();
+  const apiKey = await readSecretManagerValue("YOUTUBE_API_KEY");
+  const accessToken = apiKey ? "" : await getTvCamaraYoutubeAccessToken();
+  const requestHeaders = accessToken ?
+    {Authorization: `Bearer ${accessToken}`} : {};
+  if (channelId) {
+    const channelPlaylistParams = new URLSearchParams({
+      part: "snippet",
+      id: playlistId,
+    });
+    if (apiKey) channelPlaylistParams.set("key", apiKey);
+    const channelPlaylistResponse = await fetch(
+        `https://youtube.googleapis.com/youtube/v3/playlists?${channelPlaylistParams}`,
+        {
+          headers: requestHeaders,
+          signal: AbortSignal.timeout(30000),
+        },
+    );
+    const channelPlaylistPayload = await channelPlaylistResponse.json();
+    if (!channelPlaylistResponse.ok) {
+      throw new Error(channelPlaylistPayload.error?.message ||
+        `YouTube Data API retornou HTTP ${channelPlaylistResponse.status}.`);
+    }
+    const playlistChannelId =
+      channelPlaylistPayload.items?.[0]?.snippet?.channelId;
+    if (!playlistChannelId) {
+      throw new Error("A playlist configurada não foi encontrada no YouTube.");
+    }
+    if (playlistChannelId !== channelId) {
+      throw new Error(
+          "A playlist configurada pertence a outro canal do YouTube. " +
+          "Confira o ID do canal e da playlist na Administração da TV " +
+          "Câmara.",
+      );
+    }
+  }
   const videos = [];
   let pageToken = "";
   let pageCount = 0;
@@ -916,14 +1278,15 @@ async function fetchAllTvCamaraPlaylistVideos() {
   do {
     const params = new URLSearchParams({
       part: "snippet,contentDetails",
-      playlistId: tvCamaraPublicPlaylistId,
+      playlistId,
       maxResults: "50",
     });
+    if (apiKey) params.set("key", apiKey);
     if (pageToken) params.set("pageToken", pageToken);
     const response = await fetch(
         `https://youtube.googleapis.com/youtube/v3/playlistItems?${params}`,
         {
-          headers: {Authorization: `Bearer ${accessToken}`},
+          headers: requestHeaders,
           signal: AbortSignal.timeout(30000),
         },
     );
@@ -967,12 +1330,48 @@ async function fetchAllTvCamaraPlaylistVideos() {
     const secondTime = second.publishedAt ? Date.parse(second.publishedAt) : 0;
     return secondTime - firstTime;
   });
+  const viewCounts = new Map();
+  for (let offset = 0; offset < uniqueVideos.length; offset += 50) {
+    const videoIds = uniqueVideos.slice(offset, offset + 50)
+        .map((video) => video.videoId);
+    const statisticsParams = new URLSearchParams({
+      part: "statistics",
+      id: videoIds.join(","),
+    });
+    if (apiKey) statisticsParams.set("key", apiKey);
+    try {
+      const statisticsResponse = await fetch(
+          `https://youtube.googleapis.com/youtube/v3/videos?${statisticsParams}`,
+          {
+            headers: requestHeaders,
+            signal: AbortSignal.timeout(30000),
+          },
+      );
+      const statisticsPayload = await statisticsResponse.json();
+      if (!statisticsResponse.ok) {
+        throw new Error(statisticsPayload.error?.message ||
+          `YouTube Data API retornou HTTP ${statisticsResponse.status}.`);
+      }
+      for (const item of statisticsPayload.items || []) {
+        viewCounts.set(item.id, Number(item.statistics?.viewCount || 0));
+      }
+    } catch (statisticsError) {
+      console.warn("Não foi possível consultar visualizações do YouTube:",
+          statisticsError.message);
+    }
+  }
+  const videosWithViews = uniqueVideos.map((video) => ({
+    ...video,
+    viewCount: viewCounts.get(video.videoId) ?? null,
+  }));
   const result = {
-    videos: uniqueVideos,
+    videos: videosWithViews,
     pageCount,
     apiReportedTotal,
   };
   tvCamaraPlaylistCache = {
+    channelId,
+    playlistId,
     expiresAt: Date.now() + youtubePlaylistCacheTtlMs,
     result,
   };
@@ -1420,7 +1819,6 @@ exports.generateNews = onRequest(
 
 exports.listarVideosTvCamaraFallback = onRequest(
     {
-      secrets: [youtubeClientId, youtubeClientSecret],
       timeoutSeconds: 300,
     },
     async (req, res) => {
@@ -1434,13 +1832,16 @@ exports.listarVideosTvCamaraFallback = onRequest(
       }
 
       try {
-        const result = await fetchAllTvCamaraPlaylistVideos();
+        const forceRefresh = req.query?.refresh === "1";
+        const result = await fetchAllTvCamaraPlaylistVideos({forceRefresh});
+        const {playlistId} = await getTvCamaraYoutubeSettings();
         const {videos} = result;
-        res.set("Cache-Control", "public, max-age=300, s-maxage=300");
+        res.set("Cache-Control", forceRefresh ? "no-store" :
+          "public, max-age=300, s-maxage=300");
         return res.json({
           ok: true,
           source: "youtube-data-api-paginated",
-          playlistId: tvCamaraPublicPlaylistId,
+          playlistId,
           total: videos.length,
           apiReportedTotal: result.apiReportedTotal,
           pageCount: result.pageCount,
@@ -2157,9 +2558,7 @@ exports.notifyNewsNow = onRequest(
 );
 
 exports.getYoutubeOAuthUrl = onRequest(
-    {
-      secrets: [youtubeClientId],
-    },
+    {},
     async (req, res) => {
       applyCors(res);
 
@@ -2172,7 +2571,7 @@ exports.getYoutubeOAuthUrl = onRequest(
 
       try {
         const adminUser = await requireAdminUser(req);
-        const clientId = youtubeClientId.value()?.trim();
+        const clientId = await readSecretManagerValue("YOUTUBE_CLIENT_ID");
         if (!clientId) {
           return res.status(500).json({
             ok: false,
@@ -2219,9 +2618,7 @@ exports.getYoutubeOAuthUrl = onRequest(
 );
 
 exports.updateYoutubeRefreshToken = onRequest(
-    {
-      secrets: [youtubeClientId, youtubeClientSecret],
-    },
+    {},
     async (req, res) => {
       applyCors(res);
 
@@ -2246,8 +2643,10 @@ exports.updateYoutubeRefreshToken = onRequest(
           });
         }
 
-        const clientId = youtubeClientId.value()?.trim();
-        const clientSecret = youtubeClientSecret.value()?.trim();
+        const [clientId, clientSecret] = await Promise.all([
+          readSecretManagerValue("YOUTUBE_CLIENT_ID"),
+          readSecretManagerValue("YOUTUBE_CLIENT_SECRET"),
+        ]);
         if (!clientId || !clientSecret) {
           return res.status(500).json({
             ok: false,
@@ -2309,6 +2708,15 @@ exports.updateYoutubeRefreshToken = onRequest(
         }
 
         const versionName = await saveYoutubeRefreshTokenSecret(refreshToken);
+        await admin.firestore().collection("tv-camara-settings")
+            .doc("youtube").set({
+              credentialStatus: {
+                refreshTokenConfigured: true,
+              },
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              updatedBy: adminUser.uid,
+              updatedByEmail: adminUser.email || "",
+            }, {merge: true});
         const durationMs = Date.now() - startedAt;
 
         await saveYoutubeFunctionLog({

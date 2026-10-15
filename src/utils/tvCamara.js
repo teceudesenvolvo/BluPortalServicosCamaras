@@ -4,6 +4,7 @@ import {
     firebaseFunctionsRegion,
     getFirebaseFunctionUrl,
     getFirebaseFunctionsBaseUrl,
+    requestFirebaseRest,
     requestFirebaseFunction,
 } from '../services/firebaseApi';
 
@@ -16,8 +17,7 @@ export const youtubeFunctionInvokerEndpoint = getFirebaseFunctionUrl('invokeYout
 export const youtubeSyncLogsEndpoint = getFirebaseFunctionUrl('syncYoutubeFunctionLogs');
 export const youtubeOAuthUrlEndpoint = getFirebaseFunctionUrl('getYoutubeOAuthUrl');
 export const youtubeRefreshTokenEndpoint = getFirebaseFunctionUrl('updateYoutubeRefreshToken');
-export const videosEndpoint = getFirebaseFunctionUrl('listarVideosTvCamaraFallback');
-export const fallbackVideosEndpoint = getFirebaseFunctionUrl('listarVideosTvCamara', youtubeFunctionsRegion);
+export const videosEndpoint = getFirebaseFunctionUrl('listarVideosTvCamara', youtubeFunctionsRegion);
 export const tvCamaraPlaylistCollection = 'tv-camara-playlist';
 export const tvCamaraLogsCollection = 'tv-camara-logs';
 
@@ -144,45 +144,56 @@ export const normalizeVideo = (video = {}, source = 'endpoint') => {
         title: video.title || video.titulo || 'Vídeo da TV Câmara',
         description: video.description || video.descricao || '',
         thumbnailUrl: video.thumbnailUrl || video.thumbnail || getYoutubeThumbnail(videoId),
-        publishedAt: video.publishedAt || video.createdAt || new Date().toISOString(),
+        publishedAt: video.publishedAt || (source === 'manual' ? video.createdAt : null) || null,
         source,
     };
 };
 
-const requestVideosEndpoint = async (functionName, region, source = 'endpoint') => {
+const requestVideosEndpoint = async ({ endpoint = '', functionName, region, source = 'endpoint', fresh = false }) => {
     const startedAt = Date.now();
-    const response = await requestFirebaseFunction(functionName, { region });
+    let requestUrl = endpoint;
+    let request;
+    if (requestUrl) {
+        const url = new URL(requestUrl);
+        if (fresh) {
+            url.searchParams.set('refresh', '1');
+            url.searchParams.set('ts', String(Date.now()));
+        }
+        requestUrl = url.toString();
+        request = requestFirebaseRest(requestUrl, { cache: fresh ? 'no-store' : 'default' });
+    } else {
+        const endpointName = fresh ? `${functionName}?refresh=1&ts=${Date.now()}` : functionName;
+        request = requestFirebaseFunction(endpointName, {
+            region,
+            ...(fresh ? { cache: 'no-store' } : {}),
+        });
+    }
+    const response = await request;
     const durationMs = Date.now() - startedAt;
 
-    if (!response.ok) {
-        throw new Error(`Falha HTTP ${response.status}`);
+    const responseText = await response.text();
+    let payload = {};
+    try {
+        payload = responseText ? JSON.parse(responseText) : {};
+    } catch {
+        payload = { error: responseText };
+    }
+    if (!response.ok || payload?.ok === false) {
+        throw new Error(
+            payload?.error || `Falha HTTP ${response.status} ao carregar a playlist.`,
+        );
+    }
+    if (!Array.isArray(payload?.videos)) {
+        throw new Error('A Function da playlist retornou uma resposta inválida.');
     }
 
-    const payload = await response.json();
     const videos = Array.isArray(payload?.videos) ? payload.videos.map(video => normalizeVideo(video, source)) : [];
 
     return { payload, videos, durationMs, status: response.status };
 };
 
-export const fetchEndpointVideos = async () => {
-    try {
-        return await requestVideosEndpoint(
-            'listarVideosTvCamaraFallback',
-            firebaseFunctionsRegion,
-            'youtube-data-api',
-        );
-    } catch (primaryError) {
-        const fallbackResult = await requestVideosEndpoint(
-            'listarVideosTvCamara',
-            youtubeFunctionsRegion,
-            'remote-endpoint',
-        );
-        return {
-            ...fallbackResult,
-            primaryError: primaryError.message || 'Falha ao carregar endpoint principal.',
-            fallback: true,
-        };
-    }
+export const fetchEndpointVideos = async ({ fresh = false, endpoint = videosEndpoint } = {}) => {
+    return requestVideosEndpoint({ endpoint, source: 'youtube-channel-playlist', fresh });
 };
 
 export const fetchManualPlaylistVideos = async () => {
@@ -193,14 +204,28 @@ export const fetchManualPlaylistVideos = async () => {
 };
 
 export const mergeTvCamaraVideos = (manualVideos = [], endpointVideos = []) => {
-    const seen = new Set();
-    return [...manualVideos, ...endpointVideos]
-        .filter((video) => {
-            if (!video.videoId || seen.has(video.videoId)) return false;
-            seen.add(video.videoId);
-            return true;
-        })
-        .sort((firstVideo, secondVideo) => getVideoTimestamp(secondVideo) - getVideoTimestamp(firstVideo));
+    const byVideoId = new Map();
+    [...manualVideos, ...endpointVideos].forEach(video => {
+        if (!video.videoId) return;
+        const existing = byVideoId.get(video.videoId);
+        if (!existing) {
+            byVideoId.set(video.videoId, video);
+            return;
+        }
+
+        const manual = existing.source === 'manual' ? existing : video;
+        const published = existing.source === 'manual' ? video : existing;
+        byVideoId.set(video.videoId, {
+            ...published,
+            ...manual,
+            publishedAt: published.publishedAt || manual.publishedAt || null,
+            viewCount: published.viewCount ?? manual.viewCount ?? null,
+        });
+    });
+
+    return [...byVideoId.values()].sort((firstVideo, secondVideo) => (
+        getVideoTimestamp(secondVideo) - getVideoTimestamp(firstVideo)
+    ));
 };
 
 export const fetchTvCamaraVideos = async () => {
