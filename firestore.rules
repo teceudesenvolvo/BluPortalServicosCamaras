@@ -728,6 +728,7 @@ service cloud.firestore {
           || hasModuleAdminAccess('whatsapp', ['Admin', 'Administrador']));
     }
     match /whatsappSettings/{settingId} { allow read, write: if canManageWhatsapp(); }
+    match /whatsappRuntime/{runtimeId} { allow read: if canManageWhatsapp(); allow write: if false; }
     match /whatsappAutomaticMessages/{messageId} { allow read, write: if canManageWhatsapp(); }
     match /whatsappFlows/{flowId} { allow read, write: if canManageWhatsapp(); }
     match /whatsappConversations/{conversationId} {
@@ -738,6 +739,10 @@ service cloud.firestore {
       allow read: if canManageWhatsapp();
       allow create: if canManageWhatsapp() && request.resource.data.direction == 'outbound';
       allow update, delete: if false;
+    }
+    match /whatsappServiceRequests/{requestId} {
+      allow read: if canManageWhatsapp();
+      allow write: if false;
     }
     match /institutionalEmails/{messageId} {
       allow read, write: if isConfiguredRoot() || isAdminProfile();
@@ -1001,7 +1006,7 @@ service cloud.firestore {
         'fleetTires', 'fleetDocuments', 'fleetIncidents', 'fleetFines',
         'fleetEvents', 'whatsappSettings',
         'whatsappAutomaticMessages', 'whatsappFlows',
-        'whatsappConversations', 'whatsappMessages', 'gedDocuments',
+        'whatsappConversations', 'whatsappMessages', 'whatsappServiceRequests', 'gedDocuments',
         'gedFolders', 'gedAuditLogs', 'tv-camara-settings',
         'tv-camara-transcriptions'
       ] || collectionName.matches('legislativo_.*');

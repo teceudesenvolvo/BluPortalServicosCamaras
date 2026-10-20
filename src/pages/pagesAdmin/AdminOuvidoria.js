@@ -29,7 +29,7 @@ const ManifestacaoModal = ({ manifestacao, onClose, onStatusChange, onSendMessag
             const fetchConsumerProfile = async () => {
                 const userId = manifestacao.userId;
                 if (!userId || userId === 'anonimo') {
-                    setConsumerProfile({ name: 'Anônimo' });
+                    setConsumerProfile(manifestacao.dadosUsuario || { name: 'Anônimo' });
                     setLoadingProfile(false);
                     return;
                 }
@@ -37,7 +37,7 @@ const ManifestacaoModal = ({ manifestacao, onClose, onStatusChange, onSendMessag
                 const userRef = doc(firestore, 'users', userId);
                 try {
                     const snapshot = await getDoc(userRef);
-                    setConsumerProfile(snapshot.exists() ? snapshot.data() : manifestacao.dadosUsuario);
+                    setConsumerProfile(snapshot.exists() ? { ...snapshot.data(), ...(manifestacao.dadosUsuario || {}) } : manifestacao.dadosUsuario);
                 } catch (error) {
                     console.error("Erro ao buscar perfil:", error);
                     setConsumerProfile(manifestacao.dadosUsuario);
@@ -77,9 +77,10 @@ const ManifestacaoModal = ({ manifestacao, onClose, onStatusChange, onSendMessag
                         <div className="card-header"><h3>Dados do Manifestante</h3></div>
                         {loadingProfile ? <p>Carregando...</p> : (
                             <>
-                                <div className="detail-item"><strong>Identificação:</strong> {manifestacao.dadosManifestacao?.identificacao || 'N/A'}</div>
-                                <div className="detail-item"><strong>Nome:</strong> {consumerProfile?.name || 'Anônimo'}</div>
+                                <div className="detail-item"><strong>Identificação:</strong> {manifestacao.dadosUsuario?.source === 'whatsapp' ? 'WhatsApp' : manifestacao.dadosManifestacao?.identificacao || 'N/A'}</div>
+                                <div className="detail-item"><strong>Nome:</strong> {consumerProfile?.name || consumerProfile?.nome || 'Anônimo'}</div>
                                 <div className="detail-item"><strong>Email:</strong> {consumerProfile?.email || 'N/A'}</div>
+                                {consumerProfile?.phone && <div className="detail-item"><strong>Telefone:</strong> {consumerProfile.phone}</div>}
                             </>
                         )}
                     </div>

@@ -76,15 +76,19 @@ const InstallationWizard = () => {
     if (!root.name.trim() || !/^\S+@\S+\.\S+$/.test(root.email)) { setError('Informe o nome e um e-mail válido para o usuário root.'); return; }
     if (root.password.length < 6 || root.password !== root.confirmation) { setError('Use uma senha com pelo menos 6 caracteres e confirme-a corretamente.'); return; }
     setWorking(true);
+    let stage = 'criação do usuário no Authentication';
     try {
       let credential;
       try { credential = await createUserWithEmailAndPassword(auth, root.email.trim().toLowerCase(), root.password); }
       catch (authError) {
         if (authError.code !== 'auth/email-already-in-use') throw authError;
+        stage = 'login do usuário já existente no Authentication';
         credential = await signInWithEmailAndPassword(auth, root.email.trim().toLowerCase(), root.password);
       }
       const email = credential.user.email.toLowerCase();
+      stage = 'gravação do perfil no Firestore';
       await setDoc(doc(firestore, 'users', credential.user.uid), { name: root.name.trim(), email, tipo: 'Admin', role: 'root', createdAt: serverTimestamp() }, { merge: true });
+      stage = 'gravação das configurações da Câmara no Firestore';
       await setDoc(doc(firestore, 'system-control', 'portal'), {
         ...DEFAULT_CMS_SETTINGS,
         modules: buildDefaultModuleSettings(),
@@ -97,10 +101,20 @@ const InstallationWizard = () => {
       }, { merge: true });
       sessionStorage.removeItem(STORAGE_KEY); setStep(4);
     } catch (installError) {
-      console.error('Falha na instalação:', installError);
-      setError(installError.code === 'permission-denied'
-        ? 'O Firebase recusou a gravação. Publique as regras do projeto e tente novamente.'
-        : 'Não foi possível concluir. Confira o Authentication, o Firestore e as credenciais informadas.');
+      console.error(`Falha na instalação durante ${stage}:`, installError);
+      const code = installError.code || 'erro-desconhecido';
+      const guidance = {
+        'auth/operation-not-allowed': 'Ative o provedor E-mail/senha em Authentication → Método de login.',
+        'auth/invalid-credential': 'Este e-mail já existe; confirme a senha da conta ou use outro e-mail.',
+        'auth/weak-password': 'Use uma senha com pelo menos 6 caracteres.',
+        'auth/invalid-email': 'Confira o formato do e-mail informado.',
+        'auth/network-request-failed': 'Verifique a conexão com o Firebase e tente novamente.',
+        'permission-denied': 'Publique as regras do Firestore neste projeto e tente novamente.',
+        'firestore/permission-denied': 'Publique as regras do Firestore neste projeto e tente novamente.',
+        'firestore/failed-precondition': 'Confira se o Firestore está criado neste projeto.',
+        'firestore/unavailable': 'O Firestore está indisponível. Verifique a conexão e tente novamente.',
+      };
+      setError(`Falha na ${stage} (${code}). ${guidance[code] || 'Confira o serviço indicado e os logs do navegador.'}`);
     } finally { setWorking(false); }
   };
 

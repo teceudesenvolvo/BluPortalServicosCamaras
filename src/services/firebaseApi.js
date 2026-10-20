@@ -4,6 +4,7 @@ import {
     arrayUnion,
     collection,
     deleteDoc,
+    deleteField,
     doc,
     getDoc,
     getDocs,
@@ -71,6 +72,7 @@ export const getFirebaseFunctionUrl = (name, region = defaultFunctionsRegion) =>
     return `${getFirebaseFunctionsBaseUrl(region)}/${functionName}`;
 };
 
+
 export const getFirebaseFirestoreCollectionUrl = (collectionName) => {
     const collectionPath = String(collectionName || "").trim().replace(/^\/+|\/+$/g, "");
     if (!collectionPath) throw new Error("Informe o nome da coleção Firestore.");
@@ -99,6 +101,7 @@ export {
     databaseRef,
     db,
     deleteDoc,
+    deleteField,
     deleteObject,
     doc,
     EmailAuthProvider,

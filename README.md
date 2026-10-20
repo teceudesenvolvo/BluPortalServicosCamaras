@@ -142,4 +142,5 @@ Use tenant e CMS para trocar nome, cor, marca ou endpoint. Mudanças úteis para
 - [Arquitetura white-label](docs/WHITE_LABEL_ARCHITECTURE.md)
 - [Firebase por projeto Vercel](docs/firebase-vercel-clones.md)
 - [Atualização das instalações](docs/UPDATING_INSTALLATIONS.md)
+- [Integração do chatbot WhatsApp com Baileys](docs/whatsapp-baileys.md)
 - [Versão e schema](platform.json)

@@ -141,12 +141,21 @@ service firebase.storage {
       allow update, delete: if false;
     }
 
+    match /whatsapp-service-requests/{requestId}/{fileName=**} {
+      allow read: if isConfiguredRoot() || (request.auth != null
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.tipo in ['Admin', 'Administrador']);
+      // Uploads are performed only by the authenticated Baileys bridge using
+      // the Admin SDK; clients cannot place arbitrary files in this namespace.
+      allow write: if false;
+    }
+
     match /{topLevel}/{allPaths=**} {
       allow read, write: if topLevel != 'system-control'
         && topLevel != 'esic'
         && topLevel != 'administrativo'
         && topLevel != 'fornecedores'
         && topLevel != 'contracts'
+        && topLevel != 'whatsapp-service-requests'
         && request.auth != null;
     }
 
