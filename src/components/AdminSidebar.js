@@ -33,6 +33,7 @@ import {
     LiaCarSolid,
     LiaFileDownloadSolid,
 } from "react-icons/lia";
+import { FaWhatsapp } from 'react-icons/fa';
 import { onAuthStateChanged } from "../services/firebaseApi.js";
 import { auth, firestore } from "../services/firebaseApi.js";
 import { collection, doc, getDoc, getDocs, limit, query } from "../services/firebaseApi.js";
@@ -157,7 +158,7 @@ const AdminSidebar = () => {
         { title: 'Balcão do Cidadão', icon: <LiaUserFriendsSolid />, path: '/admin-balcao', roles: ['Admin', 'Balcão'] },
         { title: 'Recepção', icon: <LiaClipboardListSolid />, path: '/recepcao', roles: ['Admin', 'Balcão', 'Recepção', 'Microempreendedor'] },
         { title: 'Mensagens', icon: <LiaCommentsSolid />, path: '/admin-mensagens', roles: ['Admin', 'Administrador', 'Balcão', 'Ouvidoria', 'Procuradoria'] },
-        { title: 'Chatbot WhatsApp', icon: <LiaCommentsSolid />, path: '/admin-whatsapp', roles: ['Admin', 'Administrador'] },
+        { title: 'Whatsapp Câmara', icon: <FaWhatsapp />, path: '/admin-whatsapp', roles: ['Admin', 'Administrador'] },
         { title: 'E-mail institucional', icon: <LiaEnvelopeSolid />, path: '/admin-mail', roles: ['Admin', 'Administrador'] },
         { title: 'Ouvidoria', icon: <LiaUserAstronautSolid />, path: '/admin-ouvidoria', roles: ['Admin', 'Ouvidoria'] },
         { title: 'e-SIC', icon: <LiaFileAltSolid />, path: '/admin-esic', roles: ['Admin', 'Administrador', 'Ouvidoria'] },
