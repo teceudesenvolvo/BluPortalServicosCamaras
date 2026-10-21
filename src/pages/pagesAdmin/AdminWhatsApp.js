@@ -120,6 +120,9 @@ const AdminWhatsApp = () => {
     const [flows, setFlows] = useState([]);
     const chatbotLoaded = useRef(false);
     const [conversations, setConversations] = useState([]);
+    const [conversationsLoaded, setConversationsLoaded] = useState(false);
+    const [humanNotificationsEnabled, setHumanNotificationsEnabled] = useState(false);
+    const seenHumanUnreadRef = useRef(null);
     const [serviceRequests, setServiceRequests] = useState([]);
     const [settings, setSettings] = useState({ enabled: false, provider: 'Baileys', bridgeUrl: '', greetingMessage: '', fallbackMessage: '', handoffMessage: '' });
     const [runtimeStatus, setRuntimeStatus] = useState({ status: 'disconnected', qrCode: '' });
@@ -146,6 +149,52 @@ const AdminWhatsApp = () => {
         }).catch(() => setAttendantName(currentUser.displayName || currentUser.email?.split('@')[0] || 'Atendente'));
         return () => { active = false; };
     }, [currentUser]);
+
+    useEffect(() => {
+        setHumanNotificationsEnabled(Boolean(currentUser?.uid && window.localStorage.getItem(`whatsapp-human-notifications:${currentUser.uid}`) === 'enabled'));
+    }, [currentUser?.uid]);
+
+    const toggleHumanNotifications = async () => {
+        if (humanNotificationsEnabled) {
+            window.localStorage.removeItem(`whatsapp-human-notifications:${currentUser?.uid}`);
+            setHumanNotificationsEnabled(false);
+            setNotice('Notificações de atendimento humano desativadas neste navegador.');
+            return;
+        }
+        if (!('Notification' in window)) {
+            setNotice('Este navegador não oferece suporte a notificações.');
+            return;
+        }
+        const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+        if (permission !== 'granted') {
+            setNotice(permission === 'denied' ? 'Notificações bloqueadas pelo navegador. Altere a permissão do site nas configurações do navegador.' : 'Permita notificações do navegador para receber avisos da fila humana.');
+            return;
+        }
+        window.localStorage.setItem(`whatsapp-human-notifications:${currentUser?.uid}`, 'enabled');
+        setHumanNotificationsEnabled(true);
+        setNotice('Notificações de novos pedidos de atendimento humano ativadas neste navegador.');
+    };
+
+    useEffect(() => {
+        if (!conversationsLoaded) return;
+        const unreadById = new Map(conversations
+            .filter(item => item.status === 'waiting_human' && Number(item.unreadCount) > 0)
+            .map(item => [item.id, Number(item.unreadCount)]));
+        const previousUnread = seenHumanUnreadRef.current;
+        if (humanNotificationsEnabled && previousUnread && 'Notification' in window && Notification.permission === 'granted') {
+            conversations.forEach(item => {
+                const unreadCount = unreadById.get(item.id) || 0;
+                if (item.status !== 'waiting_human' || unreadCount <= (previousUnread.get(item.id) || 0)) return;
+                const title = 'Novo pedido de atendimento humano';
+                const body = `${item.name || item.phone || 'Um contato'} está aguardando na fila do WhatsApp.`;
+                const options = { body, icon: '/logo192.png', badge: '/logo192.png', tag: `whatsapp-human-${item.id}`, renotify: true, data: { url: '/admin-whatsapp' } };
+                navigator.serviceWorker?.getRegistration()
+                    .then(registration => registration?.showNotification ? registration.showNotification(title, options) : new Notification(title, options))
+                    .catch(() => new Notification(title, options));
+            });
+        }
+        seenHumanUnreadRef.current = unreadById;
+    }, [conversations, conversationsLoaded, humanNotificationsEnabled]);
 
     useEffect(() => {
         const timer = setInterval(() => setQueueClock(Date.now()), 60000);
@@ -180,7 +229,7 @@ const AdminWhatsApp = () => {
                     chatbotLoaded.current = true;
                 }
             }, onReadError('chatbot')),
-            onSnapshot(collection(firestore, 'whatsappConversations'), snap => { const next = snap.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0)); setConversations(next); setSelectedConversation(current => current ? next.find(item => item.id === current.id) || current : current); }, onReadError('conversas')),
+            onSnapshot(collection(firestore, 'whatsappConversations'), snap => { const next = snap.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0)); setConversations(next); setConversationsLoaded(true); setSelectedConversation(current => current ? next.find(item => item.id === current.id) || current : current); }, onReadError('conversas')),
             onSnapshot(collection(firestore, 'whatsappMessages'), snap => setThreadMessages(snap.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0))), onReadError('mensagens')),
             onSnapshot(collection(firestore, 'whatsappServiceRequests'), snap => setServiceRequests(snap.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))), onReadError('solicitações dos serviços')),
             onSnapshot(doc(firestore, 'whatsappSettings', 'config'), snap => snap.exists() && setSettings(current => ({ ...current, ...snap.data() })), onReadError('configuração')),
@@ -191,6 +240,7 @@ const AdminWhatsApp = () => {
 
     const stats = useMemo(() => ({ received: conversations.reduce((total, item) => total + (item.unreadCount || 0), 0), open: conversations.filter(item => item.status !== 'closed').length, activeMessages: messages.filter(item => item.active !== false).length, activeFlows: flows.some(item => item.id === 'main' && item.active !== false) || (!flows.some(item => item.id === 'main') && flows.some(item => item.active !== false)) ? 1 : 0 }), [conversations, flows, messages]);
     const humanQueue = useMemo(() => conversations.filter(item => item.status === 'waiting_human').sort((a, b) => timestampMillis(a.handoffRequestedAt || a.updatedAt) - timestampMillis(b.handoffRequestedAt || b.updatedAt)), [conversations]);
+    const unreadHumanConversations = useMemo(() => conversations.filter(item => item.status === 'waiting_human' && Number(item.unreadCount) > 0).length, [conversations]);
     const dashboard = useMemo(() => {
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const inboundToday = threadMessages.filter(item => item.direction === 'inbound' && timestampMillis(item.createdAt) >= today.getTime()).length;
@@ -401,7 +451,7 @@ const AdminWhatsApp = () => {
 
     return <div className="dashboard-layout admin-whatsapp-shell"><AdminSidebar /><main className="dashboard-content admin-whatsapp-main">
         <header className="admin-whatsapp-header"><div><span className="eyebrow">ATENDIMENTO DIGITAL</span><h1>Whatsapp Câmara</h1><p>Configure respostas automáticas, fluxos e acompanhe as mensagens da Câmara.</p></div><span className={`wa-status ${runtimeStatus.status === 'connected' ? 'is-on' : ''}`}>{runtimeStatus.status === 'connected' ? 'WhatsApp conectado' : `WhatsApp: ${runtimeStatus.status || 'desconectado'}`}</span></header>
-        <nav className="wa-tabs">{[['overview','Visão geral',LiaCommentsSolid],['conversations','Fila e mensagens',LiaCommentsSolid],['requests','Solicitações de serviço',LiaPaperPlane],['flows','Mindmap do chatbot',LiaProjectDiagramSolid],['settings','Configuração',LiaCogSolid]].map(([id,label,Icon]) => <button className={tab === id ? 'active' : ''} onClick={() => setTab(id)} key={id}><Icon />{label}</button>)}</nav>
+        <nav className="wa-tabs">{[['overview','Visão geral',LiaCommentsSolid],['conversations','Fila e mensagens',LiaCommentsSolid],['requests','Solicitações de serviço',LiaPaperPlane],['flows','Mindmap do chatbot',LiaProjectDiagramSolid],['settings','Configuração',LiaCogSolid]].map(([id,label,Icon]) => <React.Fragment key={id}><button className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon />{label}{id === 'conversations' && unreadHumanConversations > 0 && <span className="wa-tab-badge" aria-label={`${unreadHumanConversations} conversas não lidas solicitando atendimento humano`}>{unreadHumanConversations > 99 ? '99+' : unreadHumanConversations}</span>}</button>{id === 'conversations' && <button type="button" className={`wa-notification-toggle ${humanNotificationsEnabled ? 'enabled' : ''}`} aria-pressed={humanNotificationsEnabled} onClick={toggleHumanNotifications}>{humanNotificationsEnabled ? 'Desativar notificações' : 'Ativar notificações'}</button>}</React.Fragment>)}</nav>
         {tab === 'overview' && <section className="wa-dashboard">
             <div className="wa-dashboard-heading"><div><span className="wa-map-kicker">PAINEL OPERACIONAL</span><h2>Visão geral do atendimento</h2><p>Indicadores atualizados conforme as conversas e mensagens chegam.</p></div><button className="wa-secondary" onClick={() => setTab('settings')}>Configurar integração</button></div>
             <div className="wa-dashboard-metrics">
