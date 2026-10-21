@@ -143,21 +143,21 @@ body{
 
 .portal-theme-toggle:hover { transform: translateY(-2px) scale(1.03); }
 .portal-theme-toggle.is-light { background: #073d6b; color: #d8edff; }
-.portal-theme-toggle.is-dark { background: #fbbf24; color: #10233f; border-color: rgba(255,255,255,.7); }
+.portal-theme-toggle.is-dark { background: var(--cms-dark-accent, #fbbf24); color: var(--cms-dark-background, #10233f); border-color: rgba(255,255,255,.7); }
 .portal-theme-toggle svg { font-size: 1.5rem; }
 
 [data-theme="dark"] body,
 [data-theme="dark"] #root {
-  background: linear-gradient(135deg, #071827 0%, #0a2c49 48%, #123b5c 100%) !important;
-  color: #e8f2fb;
+  background: var(--cms-dark-background, #071827) !important;
+  color: var(--cms-dark-text, #e8f2fb);
 }
 
 [data-theme="dark"] .dashboard-layout,
 [data-theme="dark"] .home-page,
 [data-theme="dark"] .login-page,
 [data-theme="dark"] .profile-page {
-  background: linear-gradient(135deg, #071827 0%, #0a2c49 48%, #123b5c 100%) !important;
-  color: #e8f2fb;
+  background: var(--cms-dark-background, #071827) !important;
+  color: var(--cms-dark-text, #e8f2fb);
 }
 
 [data-theme="dark"] .page-header-container,
@@ -167,9 +167,9 @@ body{
 [data-theme="dark"] .modal-content,
 [data-theme="dark"] .admin-balcao-audience-summary article,
 [data-theme="dark"] .sector-appointment-card {
-  background: linear-gradient(145deg, rgba(19, 52, 80, .9), rgba(8, 34, 57, .82)) !important;
-  border-color: rgba(115, 190, 241, .22) !important;
-  color: #e8f2fb !important;
+  background: var(--cms-dark-surface, #133450) !important;
+  border-color: var(--cms-dark-border, #315d7d) !important;
+  color: var(--cms-dark-text, #e8f2fb) !important;
   box-shadow: 0 18px 48px rgba(0, 0, 0, .24) !important;
 }
 
@@ -185,31 +185,42 @@ body{
 [data-theme="dark"] .admin-balcao-audience-summary article strong,
 [data-theme="dark"] .admin-balcao-audience-summary article span,
 [data-theme="dark"] .dashboard-layout .form-group label {
-  color: #f4f9fd !important;
+  color: var(--cms-dark-strong-text, #f4f9fd) !important;
 }
 
 [data-theme="dark"] .page-header-container p,
 [data-theme="dark"] .item-main-info span,
 [data-theme="dark"] .detail-description,
 [data-theme="dark"] .admin-balcao-audience-summary article small,
-[data-theme="dark"] .user-type-display { color: #b9cee0 !important; }
+[data-theme="dark"] .user-type-display { color: var(--cms-dark-muted-text, #b9cee0) !important; }
 
 [data-theme="dark"] .data-list-item {
-  background: rgba(20, 57, 87, .78) !important;
-  border-color: rgba(119, 188, 235, .18) !important;
+  background: var(--cms-dark-raised-surface, #143957) !important;
+  border-color: var(--cms-dark-border, #315d7d) !important;
 }
 
 [data-theme="dark"] input,
 [data-theme="dark"] select,
 [data-theme="dark"] textarea,
 [data-theme="dark"] .form-input {
-  background: #102f49 !important;
-  border-color: #315d7d !important;
-  color: #f5faff !important;
+  background: var(--cms-dark-input-background, #102f49) !important;
+  border-color: var(--cms-dark-border, #315d7d) !important;
+  color: var(--cms-dark-text, #f5faff) !important;
 }
 
 [data-theme="dark"] input::placeholder,
-[data-theme="dark"] textarea::placeholder { color: #91abc0 !important; }
+[data-theme="dark"] textarea::placeholder { color: var(--cms-dark-muted-text, #91abc0) !important; }
+
+.system-dark-design-section { display: grid; gap: 16px; margin-top: 24px; padding-top: 22px; border-top: 1px solid #dce7f0; }
+.system-dark-design-section h3 { margin: 0; color: #173452; }
+.system-dark-design-section p { margin: 5px 0 0; color: #647b93; }
+.system-dark-design-layout { display: grid; grid-template-columns: minmax(0,1fr) minmax(280px,.72fr); gap: 22px; align-items: start; }
+.system-theme-preview.is-dark-preview { color: var(--preview-text) !important; }
+.system-theme-preview.is-dark-preview > span,
+.system-theme-preview.is-dark-preview p { color: var(--preview-muted) !important; }
+.system-theme-preview.is-dark-preview h3 { color: var(--preview-title) !important; }
+.system-theme-preview.is-dark-preview b { background: color-mix(in srgb,var(--preview-accent) 22%,var(--preview-bg)); color: var(--preview-accent) !important; }
+@media (max-width: 900px) { .system-dark-design-layout { grid-template-columns: 1fr; } }
 
 .sector-availability-modal { max-width: 760px; }
 .sector-availability-days { display: grid; gap: 12px; margin: 18px 0; }
@@ -12787,4 +12798,32 @@ color: #fff !important;
   .dashboard-layout .dashboard-content.admin-tv-camara-page > .admin-tv-camara-grid {
     width: 100%;
   }
+}
+
+/* The dark palette is configured in System Control and shared by the portal and installed app. */
+[data-theme="dark"] .dashboard-layout,
+[data-theme="dark"] .dashboard-content,
+[data-theme="dark"] .home-page,
+[data-theme="dark"] .login-page,
+[data-theme="dark"] .profile-page,
+[data-theme="dark"] .page-header-container,
+[data-theme="dark"] .data-card,
+[data-theme="dark"] .data-list-container,
+[data-theme="dark"] .form-container,
+[data-theme="dark"] .modal-content {
+  color: var(--cms-dark-text, #e8f2fb) !important;
+}
+
+[data-theme="dark"] .dashboard-content :is(h1, h2, h3, h4, h5, h6, strong, b, legend),
+[data-theme="dark"] .page-header-container :is(h1, h2, h3, h4, h5, h6, strong, b),
+[data-theme="dark"] .data-card :is(h1, h2, h3, h4, h5, h6, strong, b),
+[data-theme="dark"] .modal-content :is(h1, h2, h3, h4, h5, h6, strong, b) {
+  color: var(--cms-dark-strong-text, #f4f9fd) !important;
+}
+
+[data-theme="dark"] .dashboard-content :is(p, small, .description, .helper-text, .subtitle),
+[data-theme="dark"] .page-header-container :is(p, small),
+[data-theme="dark"] .data-card :is(p, small),
+[data-theme="dark"] .modal-content :is(p, small) {
+  color: var(--cms-dark-muted-text, #b9cee0) !important;
 }

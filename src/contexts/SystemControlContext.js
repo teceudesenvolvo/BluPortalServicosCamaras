@@ -49,6 +49,16 @@ export const SystemControlProvider = ({ children }) => {
         root.style.setProperty('--cms-accent', design.accentColor);
         root.style.setProperty('--cms-background', design.backgroundColor);
         root.style.setProperty('--cms-text', design.textColor);
+        root.style.setProperty('--cms-dark-background', design.darkBackgroundColor || '#071827');
+        root.style.setProperty('--cms-dark-surface', design.darkSurfaceColor || '#133450');
+        root.style.setProperty('--cms-dark-raised-surface', design.darkRaisedSurfaceColor || '#143957');
+        root.style.setProperty('--cms-dark-text', design.darkTextColor || '#e8f2fb');
+        root.style.setProperty('--cms-dark-strong-text', design.darkStrongTextColor || '#f4f9fd');
+        root.style.setProperty('--cms-dark-muted-text', design.darkMutedTextColor || '#b9cee0');
+        root.style.setProperty('--cms-dark-border', design.darkBorderColor || '#315d7d');
+        root.style.setProperty('--cms-dark-input-background', design.darkInputBackgroundColor || '#102f49');
+        root.style.setProperty('--cms-dark-primary', design.darkPrimaryColor || '#42a9d5');
+        root.style.setProperty('--cms-dark-accent', design.darkAccentColor || '#fbbf24');
         root.style.setProperty('--cms-radius', `${design.borderRadius}px`);
         root.style.setProperty('--cms-font', design.fontFamily);
         root.style.setProperty('--admin-premium-bg', design.backgroundColor);

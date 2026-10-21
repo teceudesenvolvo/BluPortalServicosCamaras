@@ -100,7 +100,7 @@ export const DEFAULT_CMS_SETTINGS = {
     appBottomBarModules: DEFAULT_APP_BOTTOM_BAR_MODULES,
     security: { rootEmails: INITIAL_SYSTEM_ROOT_EMAILS, roleRoutes: DEFAULT_MOBILE_ROLE_ROUTES },
     tenant: { name: 'Câmara Municipal de Paraipaba', shortName: 'Câmara de Paraipaba', slug: 'paraipaba', city: 'Paraipaba', state: 'CE', portalTitle: 'Portal de Serviços', address: 'Av. Domingos Barroso, 350 - Monte Alverne', postalCode: '62685-000', phone: '', email: '', website: '' },
-    design: { primaryColor: '#025AA1', secondaryColor: '#0284C7', accentColor: '#F59E0B', backgroundColor: '#F3F8FE', textColor: '#10233F', borderRadius: 14, fontFamily: 'Inter, system-ui, sans-serif' },
+    design: { primaryColor: '#025AA1', secondaryColor: '#0284C7', accentColor: '#F59E0B', backgroundColor: '#F3F8FE', textColor: '#10233F', darkBackgroundColor: '#071827', darkSurfaceColor: '#133450', darkRaisedSurfaceColor: '#143957', darkTextColor: '#E8F2FB', darkStrongTextColor: '#F4F9FD', darkMutedTextColor: '#B9CEE0', darkBorderColor: '#315D7D', darkInputBackgroundColor: '#102F49', darkPrimaryColor: '#42A9D5', darkAccentColor: '#FBBF24', borderRadius: 14, fontFamily: 'Inter, system-ui, sans-serif' },
     home: {
         appPopupEnabled: true,
         appPopupTitle: 'Baixe nosso App!',

@@ -58,10 +58,17 @@ async function requireAdmin(req, res, next) {
       db.collection('users').doc(decoded.uid).get(),
       db.collection('system-control').doc('portal').get(),
     ]);
-    const roots = (portal.data()?.security?.rootEmails || [])
+    const userData = user.data() || {};
+    const portalData = portal.data() || {};
+    const role = String(userData.tipo || userData.role || '').trim();
+    const roots = (portalData.security?.rootEmails || [])
         .map(email => String(email).trim().toLowerCase());
     const isRoot = roots.includes(String(decoded.email || '').trim().toLowerCase());
-    if (!isRoot && !['Admin', 'Administrador'].includes(user.data()?.tipo)) {
+    const configuredRoleAccess = portalData.security?.rolePermissions?.[role]?.whatsapp?.admin;
+    const roleCanManageWhatsApp = typeof configuredRoleAccess === 'boolean' ?
+      configuredRoleAccess : ['admin', 'administrador'].includes(role.toLocaleLowerCase('pt-BR'));
+    const moduleEnabled = portalData.modules?.whatsapp?.admin !== false;
+    if (!moduleEnabled || (!isRoot && !roleCanManageWhatsApp)) {
       return res.status(403).json({error: 'Apenas administradores podem gerenciar o WhatsApp.'});
     }
     req.user = decoded;
