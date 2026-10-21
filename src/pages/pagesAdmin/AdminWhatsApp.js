@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { addDoc, auth, collection, deleteDoc, deleteField, doc, firestore, getDoc, onSnapshot, runTransaction, serverTimestamp, setDoc, writeBatch } from "../../services/firebaseApi.js";
 import { LiaCommentsSolid, LiaCogSolid, LiaProjectDiagramSolid, LiaPaperPlane, LiaPlusSolid, LiaSyncSolid, LiaTrashAltSolid } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
-import { SYSTEM_MODULES } from '../../config/systemModules';
+import { isSystemRootEmail, SYSTEM_MODULES } from '../../config/systemModules';
 import { useSystemControl } from '../../contexts/SystemControlContext';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import './AdminWhatsApp.css';
@@ -112,7 +112,8 @@ const FlowMapPreview = ({ flow, selectedStepId, pendingConnection, onAddStep, on
 };
 const AdminWhatsApp = () => {
     const { settings: systemSettings } = useSystemControl();
-    const { currentUser } = useAuth();
+    const { currentUser, role } = useAuth();
+    const canManageChatbot = isSystemRootEmail(systemSettings, currentUser?.email) || ['Admin', 'Administrador'].includes(role);
     const [attendantName, setAttendantName] = useState('');
     const availableServices = useMemo(() => SYSTEM_MODULES.filter(module => (module.userPaths || []).length > 0 && (systemSettings.modules?.[module.id]?.portal === true || systemSettings.modules?.[module.id]?.admin === true || systemSettings.modules?.[module.id]?.app === true)), [systemSettings.modules]);
     const [tab, setTab] = useState('overview');
@@ -138,6 +139,10 @@ const AdminWhatsApp = () => {
     const [notice, setNotice] = useState('');
     const [conversationMenuId, setConversationMenuId] = useState(null);
     const [, setQueueClock] = useState(Date.now());
+
+    useEffect(() => {
+        if (!canManageChatbot && ['flows', 'settings'].includes(tab)) setTab('overview');
+    }, [canManageChatbot, tab]);
 
     useEffect(() => {
         let active = true;
@@ -241,6 +246,7 @@ const AdminWhatsApp = () => {
     const stats = useMemo(() => ({ received: conversations.reduce((total, item) => total + (item.unreadCount || 0), 0), open: conversations.filter(item => item.status !== 'closed').length, activeMessages: messages.filter(item => item.active !== false).length, activeFlows: flows.some(item => item.id === 'main' && item.active !== false) || (!flows.some(item => item.id === 'main') && flows.some(item => item.active !== false)) ? 1 : 0 }), [conversations, flows, messages]);
     const humanQueue = useMemo(() => conversations.filter(item => item.status === 'waiting_human').sort((a, b) => timestampMillis(a.handoffRequestedAt || a.updatedAt) - timestampMillis(b.handoffRequestedAt || b.updatedAt)), [conversations]);
     const unreadHumanConversations = useMemo(() => conversations.filter(item => item.status === 'waiting_human' && Number(item.unreadCount) > 0).length, [conversations]);
+    const pendingSectorRequests = useMemo(() => serviceRequests.filter(item => item.moduleId && item.status === 'received' && (item.moduleId !== 'ouvidoria' || !item.ouvidoriaId)).length, [serviceRequests]);
     const dashboard = useMemo(() => {
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const inboundToday = threadMessages.filter(item => item.direction === 'inbound' && timestampMillis(item.createdAt) >= today.getTime()).length;
@@ -451,9 +457,9 @@ const AdminWhatsApp = () => {
 
     return <div className="dashboard-layout admin-whatsapp-shell"><AdminSidebar /><main className="dashboard-content admin-whatsapp-main">
         <header className="admin-whatsapp-header"><div><span className="eyebrow">ATENDIMENTO DIGITAL</span><h1>Whatsapp Câmara</h1><p>Configure respostas automáticas, fluxos e acompanhe as mensagens da Câmara.</p></div><span className={`wa-status ${runtimeStatus.status === 'connected' ? 'is-on' : ''}`}>{runtimeStatus.status === 'connected' ? 'WhatsApp conectado' : `WhatsApp: ${runtimeStatus.status || 'desconectado'}`}</span></header>
-        <nav className="wa-tabs">{[['overview','Visão geral',LiaCommentsSolid],['conversations','Fila e mensagens',LiaCommentsSolid],['requests','Solicitações de serviço',LiaPaperPlane],['flows','Mindmap do chatbot',LiaProjectDiagramSolid],['settings','Configuração',LiaCogSolid]].map(([id,label,Icon]) => <React.Fragment key={id}><button className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon />{label}{id === 'conversations' && unreadHumanConversations > 0 && <span className="wa-tab-badge" aria-label={`${unreadHumanConversations} conversas não lidas solicitando atendimento humano`}>{unreadHumanConversations > 99 ? '99+' : unreadHumanConversations}</span>}</button>{id === 'conversations' && <button type="button" className={`wa-notification-toggle ${humanNotificationsEnabled ? 'enabled' : ''}`} aria-pressed={humanNotificationsEnabled} onClick={toggleHumanNotifications}>{humanNotificationsEnabled ? 'Desativar notificações' : 'Ativar notificações'}</button>}</React.Fragment>)}</nav>
+        <nav className="wa-tabs">{[['overview','Visão geral',LiaCommentsSolid],['conversations','Fila e mensagens',LiaCommentsSolid],['requests','Solicitações de serviço',LiaPaperPlane],['flows','Mindmap do chatbot',LiaProjectDiagramSolid],['settings','Configuração',LiaCogSolid]].filter(([id]) => canManageChatbot || !['flows', 'settings'].includes(id)).map(([id,label,Icon]) => <React.Fragment key={id}><button className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon />{label}{id === 'conversations' && unreadHumanConversations > 0 && <span className="wa-tab-badge" aria-label={`${unreadHumanConversations} conversas não lidas solicitando atendimento humano`}>{unreadHumanConversations > 99 ? '99+' : unreadHumanConversations}</span>}{id === 'requests' && pendingSectorRequests > 0 && <span className="wa-tab-badge" aria-label={`${pendingSectorRequests} solicitações novas aguardando encaminhamento ao setor`}>{pendingSectorRequests > 99 ? '99+' : pendingSectorRequests}</span>}</button>{id === 'conversations' && <button type="button" className={`wa-notification-toggle ${humanNotificationsEnabled ? 'enabled' : ''}`} aria-pressed={humanNotificationsEnabled} onClick={toggleHumanNotifications}>{humanNotificationsEnabled ? 'Desativar notificações' : 'Ativar notificações'}</button>}</React.Fragment>)}</nav>
         {tab === 'overview' && <section className="wa-dashboard">
-            <div className="wa-dashboard-heading"><div><span className="wa-map-kicker">PAINEL OPERACIONAL</span><h2>Visão geral do atendimento</h2><p>Indicadores atualizados conforme as conversas e mensagens chegam.</p></div><button className="wa-secondary" onClick={() => setTab('settings')}>Configurar integração</button></div>
+            <div className="wa-dashboard-heading"><div><span className="wa-map-kicker">PAINEL OPERACIONAL</span><h2>Visão geral do atendimento</h2><p>Indicadores atualizados conforme as conversas e mensagens chegam.</p></div>{canManageChatbot && <button className="wa-secondary" onClick={() => setTab('settings')}>Configurar integração</button>}</div>
             <div className="wa-dashboard-metrics">
                 <article className="wa-metric-card queue"><span>Fila humana</span><strong>{humanQueue.length}</strong><small>{humanQueue.length ? `Mais antiga: ${waitDuration(humanQueue[0].handoffRequestedAt || humanQueue[0].updatedAt)}` : 'Nenhum atendimento aguardando'}</small></article>
                 <article className="wa-metric-card wait"><span>Espera média atual</span><strong>{dashboard.averageWait === null ? '—' : `${dashboard.averageWait} min`}</strong><small>{humanQueue.length ? `Maior espera: ${dashboard.longestWait} min` : 'Sem fila no momento'}</small></article>
