@@ -608,7 +608,7 @@ async function startSocket() {
     console.info('Iniciando socket Baileys.');
     await setStatus('connecting', {lastError: ''});
     const auth = await loadAuthState();
-    socket = makeWASocket({
+    const activeSocket = makeWASocket({
       auth,
       browser: Browsers.macOS('BluPortal'),
       logger,
@@ -616,12 +616,14 @@ async function startSocket() {
       syncFullHistory: false,
       generateHighQualityLinkPreview: false,
     });
-    socket.ev.on('creds.update', () => {
+    socket = activeSocket;
+    activeSocket.ev.on('creds.update', () => {
       saveCreds(auth.creds).catch(error =>
         console.error('Falha ao salvar as credenciais da sessão:', error.message));
     });
-    socket.ev.on('messages.upsert', handleIncomingBatch);
-    socket.ev.on('connection.update', async update => {
+    activeSocket.ev.on('messages.upsert', handleIncomingBatch);
+    activeSocket.ev.on('connection.update', async update => {
+      if (socket !== activeSocket) return;
       try {
         console.info('Estado da conexão Baileys atualizado.', {
           connection: update.connection || 'pending',
@@ -716,11 +718,22 @@ app.get('/api/session/status', requireAdmin, async (_req, res) => {
 
 app.post('/api/session/start', requireAdmin, async (_req, res) => {
   try {
-    const [statusSnapshot, authSnapshot] = await Promise.all([statusRef.get(), authRef.get()]);
-    if (statusSnapshot.data()?.status === 'logged_out' && authSnapshot.data()?.creds?.registered) {
+    const statusSnapshot = await statusRef.get();
+    if (statusSnapshot.data()?.status === 'logged_out') {
+      manualDisconnect = true;
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+      const staleSocket = socket;
+      socket = null;
+      try { staleSocket?.end(undefined); } catch (error) {
+        console.warn('Socket antigo finalizado com aviso:', error.message);
+      }
       await clearAuthState();
       connectionState = 'disconnected';
       qrDataUrl = '';
+      reconnectAttempt = 0;
+      await setStatus('disconnected', {phone: '', lastError: ''});
+      manualDisconnect = false;
     }
     await startSocket();
     return res.json({status: connectionState});
