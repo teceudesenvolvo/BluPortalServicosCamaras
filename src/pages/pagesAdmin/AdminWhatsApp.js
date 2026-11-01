@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { addDoc, auth, collection, deleteDoc, deleteField, doc, firestore, getDoc, onSnapshot, runTransaction, serverTimestamp, setDoc, writeBatch } from "../../services/firebaseApi.js";
+import { addDoc, auth, callFirebaseFunction, collection, deleteDoc, deleteField, doc, firestore, getDoc, onSnapshot, query, runTransaction, serverTimestamp, setDoc, where, writeBatch } from "../../services/firebaseApi.js";
 import { LiaCommentsSolid, LiaCogSolid, LiaProjectDiagramSolid, LiaPaperPlane, LiaPlusSolid, LiaSyncSolid, LiaTrashAltSolid } from 'react-icons/lia';
 import AdminSidebar from '../../components/AdminSidebar';
 import { isSystemRootEmail, SYSTEM_MODULES } from '../../config/systemModules';
@@ -128,6 +128,7 @@ const AdminWhatsApp = () => {
     const [settings, setSettings] = useState({ enabled: false, provider: 'Baileys', bridgeUrl: '', greetingMessage: '', fallbackMessage: '', handoffMessage: '' });
     const [runtimeStatus, setRuntimeStatus] = useState({ status: 'disconnected', qrCode: '' });
     const [runtimeLoaded, setRuntimeLoaded] = useState(false);
+    const [openCounterSessions, setOpenCounterSessions] = useState([]);
     const [messageForm, setMessageForm] = useState(emptyMessage);
     const [flowForm, setFlowForm] = useState(emptyFlow);
     const [selectedStepId, setSelectedStepId] = useState('inicio');
@@ -239,6 +240,7 @@ const AdminWhatsApp = () => {
             onSnapshot(collection(firestore, 'whatsappServiceRequests'), snap => setServiceRequests(snap.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))), onReadError('solicitações dos serviços')),
             onSnapshot(doc(firestore, 'whatsappSettings', 'config'), snap => snap.exists() && setSettings(current => ({ ...current, ...snap.data() })), onReadError('configuração')),
             onSnapshot(doc(firestore, 'whatsappRuntime', 'session'), snap => { setRuntimeStatus(snap.exists() ? snap.data() : { status: 'disconnected', qrCode: '' }); setRuntimeLoaded(true); }, onReadError('estado da sessão')),
+            onSnapshot(query(collection(firestore, 'atendimento-guiche-relatorios'), where('status', '==', 'Aberta')), snap => setOpenCounterSessions(snap.docs.map(item => ({ id: item.id, ...item.data() }))), onReadError('sessões abertas dos guichês')),
         ];
         return () => unsubs.forEach(unsubscribe => unsubscribe());
     }, []);
@@ -355,6 +357,19 @@ const AdminWhatsApp = () => {
         catch (error) { setNotice(error.message || 'Não foi possível controlar a sessão.'); }
         finally { setSaving(false); }
     };
+    const manageAttendance = async action => {
+        if (action === 'stop' && !window.confirm('Encerrar todos os guichês abertos e parar o WhatsApp? Atendimentos em andamento voltarão para a fila.')) return;
+        setSaving(true);
+        setNotice('');
+        try {
+            const result = await callFirebaseFunction('whatsappAttendanceControl', { action });
+            setNotice(result.data?.message || (action === 'start' ? 'Atendimento iniciado.' : 'Atendimento encerrado.'));
+        } catch (error) {
+            setNotice(error.message || 'Não foi possível alterar o atendimento.');
+        } finally {
+            setSaving(false);
+        }
+    };
     const sendReply = async event => {
         event.preventDefault();
         if (!selectedConversation || !reply.trim()) return;
@@ -457,6 +472,7 @@ const AdminWhatsApp = () => {
 
     return <div className="dashboard-layout admin-whatsapp-shell"><AdminSidebar /><main className="dashboard-content admin-whatsapp-main">
         <header className="admin-whatsapp-header"><div><span className="eyebrow">ATENDIMENTO DIGITAL</span><h1>Whatsapp Câmara</h1><p>Configure respostas automáticas, fluxos e acompanhe as mensagens da Câmara.</p></div><span className={`wa-status ${runtimeStatus.status === 'connected' ? 'is-on' : ''}`}>{runtimeStatus.status === 'connected' ? 'WhatsApp conectado' : `WhatsApp: ${runtimeStatus.status || 'desconectado'}`}</span></header>
+        {canManageChatbot && <section className="wa-operations-control" aria-label="Controle do atendimento WhatsApp"><div><span className="wa-map-kicker">OPERAÇÃO DO ATENDIMENTO</span><strong>{openCounterSessions.length} guichê(s) aberto(s)</strong><p>{runtimeStatus.instanceAvailability === 'closed_by_daily_cutoff' ? 'Atendimento encerrado automaticamente às 15h.' : openCounterSessions.length ? 'O WhatsApp acompanha os guichês abertos.' : 'Você pode iniciar o atendimento manualmente ou abrir um guichê para ativar o WhatsApp.'}</p></div><div className="wa-operations-actions"><button type="button" className="wa-primary" disabled={saving || !runtimeLoaded} onClick={() => manageAttendance('start')}>{saving ? 'Aguarde…' : 'Iniciar atendimento'}</button><button type="button" className="wa-stop-attendance" disabled={saving || !runtimeLoaded} onClick={() => manageAttendance('stop')}>{saving ? 'Aguarde…' : 'Encerrar atendimento'}</button></div></section>}
         <nav className="wa-tabs">{[['overview','Visão geral',LiaCommentsSolid],['conversations','Fila e mensagens',LiaCommentsSolid],['requests','Solicitações de serviço',LiaPaperPlane],['flows','Mindmap do chatbot',LiaProjectDiagramSolid],['settings','Configuração',LiaCogSolid]].filter(([id]) => canManageChatbot || !['flows', 'settings'].includes(id)).map(([id,label,Icon]) => <React.Fragment key={id}><button className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon />{label}{id === 'conversations' && unreadHumanConversations > 0 && <span className="wa-tab-badge" aria-label={`${unreadHumanConversations} conversas não lidas solicitando atendimento humano`}>{unreadHumanConversations > 99 ? '99+' : unreadHumanConversations}</span>}{id === 'requests' && pendingSectorRequests > 0 && <span className="wa-tab-badge" aria-label={`${pendingSectorRequests} solicitações novas aguardando encaminhamento ao setor`}>{pendingSectorRequests > 99 ? '99+' : pendingSectorRequests}</span>}</button>{id === 'conversations' && <button type="button" className={`wa-notification-toggle ${humanNotificationsEnabled ? 'enabled' : ''}`} aria-pressed={humanNotificationsEnabled} onClick={toggleHumanNotifications}>{humanNotificationsEnabled ? 'Desativar notificações' : 'Ativar notificações'}</button>}</React.Fragment>)}</nav>
         {tab === 'overview' && <section className="wa-dashboard">
             <div className="wa-dashboard-heading"><div><span className="wa-map-kicker">PAINEL OPERACIONAL</span><h2>Visão geral do atendimento</h2><p>Indicadores atualizados conforme as conversas e mensagens chegam.</p></div>{canManageChatbot && <button className="wa-secondary" onClick={() => setTab('settings')}>Configurar integração</button>}</div>

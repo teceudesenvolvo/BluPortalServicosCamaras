@@ -51,17 +51,19 @@ O comando retorna uma URL HTTPS. No portal, atualize **Administração → Whats
 
 ### Ativação vinculada à abertura dos guichês
 
-A instância do WhatsApp acompanha o funcionamento real dos guichês, sem horário fixo. Cada abertura cria uma sessão com status `Aberta` na coleção `atendimento-guiche-relatorios`; a Function `whatsappBridgeSyncWithCounterSessions` consulta se existe ao menos uma sessão aberta e inicia a instância. Ao encerrar um guichê, ela consulta as demais sessões e só para a instância quando a última for encerrada. Abrir ou fechar um guichê não interrompe atendimentos dos outros guichês.
+A instância do WhatsApp acompanha o funcionamento real dos guichês. Cada abertura cria uma sessão com status `Aberta` na coleção `atendimento-guiche-relatorios`; a Function `whatsappBridgeSyncWithCounterSessions` consulta se existe ao menos uma sessão aberta e inicia a instância. Ao encerrar um guichê, ela consulta as demais sessões e só para a instância quando a última for encerrada. Abrir ou fechar um guichê não interrompe atendimentos dos outros guichês.
+
+Administradores também têm os botões **Iniciar atendimento** e **Encerrar atendimento** no topo de **WhatsApp Câmara**. O início manual aciona a instância. O encerramento fecha todas as sessões de guichê, devolve à fila os atendimentos em chamada e para a instância. Como proteção contra esquecimento, a Function `whatsappAttendanceDailyCutoff` repete esse encerramento todos os dias às 15:00 no fuso `America/Fortaleza`, inclusive fechando guichês que tenham ficado abertos.
 
 A Function executa em `us-central1`, usa a conta `whatsapp-bridge-scheduler@blu-app-camara.iam.gserviceaccount.com` e chama a API de ciclo de vida da instância em `southamerica-east1`. Essa conta precisa ler o Firestore e ter as permissões `run.instances.get`, `run.instances.start` e `run.instances.stop` por papel personalizado. Os antigos agendamentos de horário fixo devem ser excluídos; não se usa mais calendário de dias úteis ou feriados para controlar o WhatsApp.
 
-Publique a Function com repetição de eventos habilitada (`--force` confirma essa política ao Firebase CLI). A implantação removeu as funções antigas de horário fixo:
+Publique as três Functions com repetição de eventos habilitada (`--force` confirma essa política ao Firebase CLI):
 
 ```sh
-firebase deploy --only functions:whatsappBridgeSyncWithCounterSessions --project blu-app-camara --force
+firebase deploy --only functions:whatsappBridgeSyncWithCounterSessions,functions:whatsappAttendanceControl,functions:whatsappAttendanceDailyCutoff --project blu-app-camara --force
 ```
 
-Confirme que não existem mais os agendamentos `firebase-schedule-whatsappBridgeStartForBusinessHours-us-central1` e `firebase-schedule-whatsappBridgeStopAfterBusinessHours-us-central1`. Depois, abra um guichê e confirme nos logs da Function que a instância recebeu `start_requested` ou `already_running`. Feche todos os guichês e confirme `stop_requested` ou `already_stopped`. O campo `whatsappRuntime/session.status` registra `active_with_open_counter` ou `stopped_no_open_counters`.
+Confirme que não existem os agendamentos antigos de horário fixo e que `firebase-schedule-whatsappAttendanceDailyCutoff-us-central1` está habilitado. O controle operacional fica em `whatsappRuntime/session.instanceAvailability`; o campo `status` continua reservado à conexão Baileys (`connected`, `disconnected` etc.).
 
 Se a criação ou a validação falhar, restaure temporariamente o serviço anterior usando a mesma imagem, sem Cloud Build, e investigue antes de tentar novamente. Substitua o marcador pela imagem completa copiada acima. A URL da instância é diferente da URL do serviço e precisa ser atualizada no portal.
 
@@ -81,7 +83,7 @@ O bridge usa o serviço de conta padrão do Cloud Run. Garanta que a identidade 
 
 ### Sobre o custo
 
-A instância única reduz bastante o custo fixo em relação ao serviço anterior com `--min 1` e `--no-cpu-throttling`. Com esse controle, ela fica ativa somente enquanto houver ao menos um guichê aberto; fora desse período não há execução da instância. O valor de US$ 5,70/mês divulgado pelo Google é uma referência para 1 vCPU e 1 GiB contínuos; o preço real da instância de 512 MiB em `southamerica-east1` depende dos SKUs aplicados. Rede, armazenamento da imagem e logs também podem gerar valores. A camada gratuita é compartilhada pela conta de faturamento e não garante R$ 0,00 ([preços do Cloud Run](https://cloud.google.com/run/pricing)).
+A instância única reduz bastante o custo fixo em relação ao serviço anterior com `--min 1` e `--no-cpu-throttling`. Com esse controle, ela fica ativa somente durante os atendimentos; às 15h o corte diário a desliga como redundância. O valor de US$ 5,70/mês divulgado pelo Google é uma referência para 1 vCPU e 1 GiB contínuos; o preço real da instância de 512 MiB em `southamerica-east1` depende dos SKUs aplicados. Rede, armazenamento da imagem, logs e a tarefa diária do Cloud Scheduler também podem gerar valores. A camada gratuita é compartilhada pela conta de faturamento e não garante R$ 0,00 ([preços do Cloud Run](https://cloud.google.com/run/pricing)).
 
 Para procurar cobranças adicionais do projeto, confira no Billing os custos por SKU de Cloud Run, Cloud Build, Artifact Registry, Cloud Logging e tráfego de saída. Configure também um orçamento com alertas; orçamento alerta, mas não interrompe automaticamente a cobrança.
 
