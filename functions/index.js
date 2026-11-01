@@ -20,6 +20,7 @@ admin.initializeApp();
 Object.assign(exports, require("./videoConference"));
 Object.assign(exports, require("./administrative"));
 Object.assign(exports, require("./ouvidoria"));
+Object.assign(exports, require("./whatsappBridgeRuntime"));
 
 /**
  * Verifies the authenticated portal administrator and the TV Câmara flag.
