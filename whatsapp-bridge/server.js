@@ -107,7 +107,7 @@ async function loadAuthState() {
           const stored = snapshot.exists ? snapshot.data()?.value : null;
           let value = stored ? deserialize(stored) : null;
           if (type === 'app-state-sync-key' && value) {
-            value = proto.Message.AppStateSyncKeyData.fromObject(value);
+            value = proto.Message.AppStateSyncKeyData.create(value);
           }
           values[ids[index]] = value;
         });
@@ -779,7 +779,9 @@ async function superviseSocket() {
   if (manualDisconnect || startPromise || reconnectTimer || socket || connectionState === 'connected') return;
   try {
     const snapshot = await authRef.get();
-    if (!snapshot.data()?.creds?.registered) {
+    const credentials = snapshot.data()?.creds;
+    const hasSavedAccount = Boolean(credentials?.me?.id);
+    if (!hasSavedAccount) {
       if (!['qr_required', 'logged_out'].includes(connectionState)) {
         await setStatus('disconnected', {phone: '', lastError: 'Sessão WhatsApp ainda não pareada.'});
       }

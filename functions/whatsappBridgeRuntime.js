@@ -169,9 +169,9 @@ async function getSavedWhatsAppSession() {
     db.collection("whatsappRuntime").doc("session").get(),
   ]);
   const creds = authSnapshot.data() && authSnapshot.data().creds;
-  const registered = Boolean(
-      creds && creds.registered && creds.me && creds.me.id,
-  );
+  // Baileys may preserve a valid account identity with registered=false after
+  // a reconnect. The persisted account JID is the durable pairing indicator.
+  const registered = Boolean(creds && creds.me && creds.me.id);
   const status = String(runtimeSnapshot.data()?.status || "disconnected");
   return {registered, status};
 }
