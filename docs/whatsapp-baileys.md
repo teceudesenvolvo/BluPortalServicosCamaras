@@ -53,14 +53,24 @@ O comando retorna uma URL HTTPS. No portal, atualize **Administração → Whats
 
 A instância do WhatsApp acompanha o funcionamento real dos guichês. Cada abertura cria uma sessão com status `Aberta` na coleção `atendimento-guiche-relatorios`; a Function `whatsappBridgeSyncWithCounterSessions` consulta se existe ao menos uma sessão aberta e inicia a instância. Ao encerrar um guichê, ela consulta as demais sessões e só para a instância quando a última for encerrada. Abrir ou fechar um guichê não interrompe atendimentos dos outros guichês.
 
-Administradores também têm os botões **Iniciar atendimento** e **Encerrar atendimento** no topo de **WhatsApp Câmara**. Antes de iniciar, as Functions verificam se há credenciais Baileys pareadas no Firestore. Depois que a instância sobe, consultam o `/health` real do bridge; se a conexão Baileys não ficar `connected` em até 45 segundos, a instância é parada. Sem credenciais pareadas, ela não é iniciada. O botão de QR Code em **Configuração** é a ação explícita para primeiro pareamento ou reparo da sessão. O encerramento fecha todas as sessões de guichê, devolve à fila os atendimentos em chamada e para a instância. Como proteção contra esquecimento, a Function `whatsappAttendanceDailyCutoff` repete esse encerramento todos os dias às 15:00 no fuso `America/Fortaleza`, inclusive fechando guichês que tenham ficado abertos.
+O atendimento WhatsApp funciona de segunda a sexta-feira, das 08:00 às 14:00, no fuso `America/Fortaleza`, exceto feriados nacionais, Sexta-feira Santa e datas de São José/Data Magna do Ceará. A Function `whatsappAttendanceMorningStart` verifica às 08:00 se existe guichê aberto; só então tenta iniciar o bridge e confirma a conexão real pelo `/health`. A abertura de um guichê dentro da janela também pode iniciar o bridge. Fora da janela, incluindo o pareamento, a instância é mantida desligada.
+
+Para o teste de 04/11/2026, há uma extensão excepcional até 17:00 no mesmo fuso, com corte automático nesse horário. O agendamento `whatsappAttendanceTestDayCutoff` só executa a ação nessa data; depois do teste, remova o job recorrente `firebase-schedule-whatsappAttendanceTestDayCutoff-us-central1` para não manter um agendamento anual sem uso.
+
+Administradores têm os botões **Iniciar atendimento** e **Encerrar atendimento** no topo de **WhatsApp Câmara**. Antes de iniciar, as Functions verificam se há credenciais Baileys pareadas no Firestore. Depois que a instância sobe, consultam o `/health` real do bridge; se a conexão Baileys não ficar `connected` em até 45 segundos, a instância é parada. O botão de QR Code em **Configuração** é a ação explícita para primeiro pareamento ou reparo da sessão, disponível somente dentro do horário. O encerramento manual fecha as sessões de guichê e devolve à fila os atendimentos em chamada. Como proteção contra esquecimento, `whatsappAttendanceDailyCutoff` fecha sessões esquecidas e para a instância todos os dias às 14:00, inclusive se um guichê tiver sido deixado aberto em fim de semana ou feriado.
 
 A Function executa em `us-central1`, usa a conta `whatsapp-bridge-scheduler@blu-app-camara.iam.gserviceaccount.com` e chama a API de ciclo de vida da instância em `southamerica-east1`. Essa conta precisa ler o Firestore e ter as permissões `run.instances.get`, `run.instances.start`, `run.instances.stop` e `run.instances.update` por papel personalizado. A API de ciclo de vida exige `run.instances.update` nas chamadas `:start` e `:stop`; sem ela, `whatsappAttendanceControl` retorna erro 500 e a instância continua desligada. Os antigos agendamentos de horário fixo devem ser excluídos; não se usa mais calendário de dias úteis ou feriados para controlar o WhatsApp.
 
 Publique as três Functions com repetição de eventos habilitada (`--force` confirma essa política ao Firebase CLI):
 
 ```sh
-firebase deploy --only functions:whatsappBridgeSyncWithCounterSessions,functions:whatsappAttendanceControl,functions:whatsappAttendanceDailyCutoff --project blu-app-camara --force
+firebase deploy --only functions:whatsappBridgeSyncWithCounterSessions,functions:whatsappAttendanceControl,functions:whatsappAttendanceMorningStart,functions:whatsappAttendanceDailyCutoff --project blu-app-camara --force
+```
+
+O corte excepcional de teste é publicado separadamente e não deve ser incluído em futuras publicações de rotina:
+
+```sh
+firebase deploy --only functions:whatsappAttendanceTestDayCutoff --project blu-app-camara --force
 ```
 
 Confirme que não existem os agendamentos antigos de horário fixo e que `firebase-schedule-whatsappAttendanceDailyCutoff-us-central1` está habilitado. O controle operacional fica em `whatsappRuntime/session.instanceAvailability`; o campo `status` continua reservado à conexão Baileys (`connected`, `disconnected` etc.).
@@ -83,7 +93,7 @@ O bridge usa o serviço de conta padrão do Cloud Run. Garanta que a identidade 
 
 ### Sobre o custo
 
-A instância única reduz bastante o custo fixo em relação ao serviço anterior com `--min 1` e `--no-cpu-throttling`. Com esse controle, ela fica ativa somente durante os atendimentos; às 15h o corte diário a desliga como redundância. O valor de US$ 5,70/mês divulgado pelo Google é uma referência para 1 vCPU e 1 GiB contínuos; o preço real da instância de 512 MiB em `southamerica-east1` depende dos SKUs aplicados. Rede, armazenamento da imagem, logs e a tarefa diária do Cloud Scheduler também podem gerar valores. A camada gratuita é compartilhada pela conta de faturamento e não garante R$ 0,00 ([preços do Cloud Run](https://cloud.google.com/run/pricing)).
+A instância única reduz bastante o custo fixo em relação ao serviço anterior com `--min 1` e `--no-cpu-throttling`. Com esse controle, ela só pode funcionar durante os atendimentos entre 08h e 14h em dias úteis; o corte diário das 14h a desliga como redundância. O valor de US$ 5,70/mês divulgado pelo Google é uma referência para 1 vCPU e 1 GiB contínuos; o preço real da instância de 512 MiB em `southamerica-east1` depende dos SKUs aplicados. Rede, armazenamento da imagem, logs e as tarefas diárias do Cloud Scheduler também podem gerar valores. A camada gratuita é compartilhada pela conta de faturamento e não garante R$ 0,00 ([preços do Cloud Run](https://cloud.google.com/run/pricing)).
 
 Para procurar cobranças adicionais do projeto, confira no Billing os custos por SKU de Cloud Run, Cloud Build, Artifact Registry, Cloud Logging e tráfego de saída. Configure também um orçamento com alertas; orçamento alerta, mas não interrompe automaticamente a cobrança.
 

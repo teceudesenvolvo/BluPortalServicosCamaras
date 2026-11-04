@@ -10,12 +10,107 @@ const INSTANCE = "bluportal-whatsapp-bridge-lowcost";
 const TIME_ZONE = "America/Fortaleza";
 const SERVICE_ACCOUNT =
   "whatsapp-bridge-scheduler@blu-app-camara.iam.gserviceaccount.com";
+const ATTENDANCE_START_MINUTE = 8 * 60;
+const ATTENDANCE_END_MINUTE = 14 * 60;
+const TEST_EXTENSION_DATE = "2026-11-04";
+const TEST_EXTENSION_END_MINUTE = 17 * 60;
 const API_BASE = `https://run.googleapis.com/v2/projects/${
   process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT
 }/locations/${INSTANCE_REGION}/instances/${INSTANCE}`;
 const googleAuth = new GoogleAuth({
   scopes: ["https://www.googleapis.com/auth/cloud-platform"],
 });
+
+/**
+ * Returns calendar and clock values in the attendance timezone.
+ * @param {Date} date Current instant
+ * @return {{year: number, month: number, day: number, weekday: string,
+ *   hour: number, minute: number}} Fortaleza date/time parts
+ */
+function getFortalezaDateParts(date = new Date()) {
+  const values = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date).reduce((result, part) => {
+    result[part.type] = part.value;
+    return result;
+  }, {});
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+    dateKey: `${values.year}-${values.month}-${values.day}`,
+    weekday: values.weekday,
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+  };
+}
+
+/**
+ * Calculates Easter Sunday in the Gregorian calendar.
+ * @param {number} year Calendar year
+ * @return {Date} Easter Sunday at UTC midnight
+ */
+function getEasterSunday(year) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+/**
+ * Checks national holidays and Ceará dates previously selected for the portal.
+ * @param {{year: number, month: number, day: number}} parts Local date parts
+ * @return {boolean} Whether the date is a configured holiday
+ */
+function isAttendanceHoliday({year, month, day}) {
+  const monthDay = `${String(month).padStart(2, "0")}-` +
+    String(day).padStart(2, "0");
+  const fixedHolidays = new Set([
+    "01-01", "03-19", "03-25", "04-21", "05-01", "09-07",
+    "10-12", "11-02", "11-15", "11-20", "12-25",
+  ]);
+  if (fixedHolidays.has(monthDay)) return true;
+
+  // Include Good Friday as a local religious no-service day.
+  const goodFriday = new Date(getEasterSunday(year).getTime() - 2 * 86400000);
+  return goodFriday.getUTCMonth() + 1 === month &&
+    goodFriday.getUTCDate() === day;
+}
+
+/**
+ * Attendance may run Monday-Friday from 08:00 until (but not including) 14:00.
+ * @param {Date} date Current instant
+ * @return {boolean} Whether the WhatsApp service is within its allowed window
+ */
+function isWithinAttendanceWindow(date = new Date()) {
+  const parts = getFortalezaDateParts(date);
+  const weekday = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+      .includes(parts.weekday);
+  const minuteOfDay = parts.hour * 60 + parts.minute;
+  const endMinute = parts.dateKey === TEST_EXTENSION_DATE ?
+    TEST_EXTENSION_END_MINUTE : ATTENDANCE_END_MINUTE;
+  return weekday && !isAttendanceHoliday(parts) &&
+    minuteOfDay >= ATTENDANCE_START_MINUTE &&
+    minuteOfDay < endMinute;
+}
 
 /**
  * Reads the current Cloud Run instance state.
@@ -112,6 +207,22 @@ async function startBridgeForPairedWhatsApp() {
   const db = admin.firestore();
   const runtimeRef = db.collection("whatsappRuntime").doc("session");
   const savedSession = await getSavedWhatsAppSession();
+  if (!isWithinAttendanceWindow()) {
+    const stopResult = await setBridgeState(false);
+    const message = "O WhatsApp só pode funcionar em dias úteis, " +
+      "das 08h às 14h (horário de Fortaleza).";
+    await runtimeRef.set({
+      status: savedSession.status === "logged_out" ? "logged_out" :
+        "disconnected",
+      instanceAvailability: "outside_attendance_window",
+      instanceRunning: false,
+      lastInstanceAction: stopResult,
+      lastInstancePreflightAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastError: message,
+    }, {merge: true});
+    return {ok: false, result: "outside_attendance_window", message};
+  }
+
   const settingsSnapshot = await db.collection("whatsappSettings")
       .doc("config").get();
   const baseUrl = String(settingsSnapshot.data()?.bridgeUrl || "")
@@ -368,6 +479,22 @@ exports.whatsappAttendanceControl = onCall({
   }
 
   if (action === "pairing") {
+    if (!isWithinAttendanceWindow()) {
+      const result = await setBridgeState(false);
+      const message = "O pareamento do WhatsApp fica disponível em dias " +
+        "úteis, das 08h às 14h (horário de Fortaleza).";
+      await runtimeRef.set({
+        status: "disconnected",
+        instanceAvailability: "outside_attendance_window",
+        instanceRunning: false,
+        lastInstanceAction: result,
+        lastInstanceActionAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastInstanceActionBy: actor.email,
+        lastError: message,
+      }, {merge: true});
+      return {ok: false, result: "outside_attendance_window", message};
+    }
+
     const result = await setBridgeState(true);
     await runtimeRef.set({
       instanceAvailability: "pairing_setup",
@@ -406,26 +533,97 @@ exports.whatsappAttendanceControl = onCall({
 });
 
 /**
- * Closes forgotten sessions and stops the WhatsApp instance every day at 15h.
+ * Closes forgotten sessions and stops WhatsApp at 14h every day.
  */
 exports.whatsappAttendanceDailyCutoff = onSchedule({
-  schedule: "0 15 * * *",
+  schedule: "0 14 * * *",
   timeZone: TIME_ZONE,
   region: REGION,
   serviceAccount: SERVICE_ACCOUNT,
   invoker: SERVICE_ACCOUNT,
   retryCount: 1,
 }, async () => {
+  const nowInFortaleza = getFortalezaDateParts();
+  const minuteOfDay = nowInFortaleza.hour * 60 + nowInFortaleza.minute;
+  if (nowInFortaleza.dateKey === TEST_EXTENSION_DATE &&
+      minuteOfDay < TEST_EXTENSION_END_MINUTE) {
+    console.log("Corte das 14h adiado pela extensão de teste até 17h.");
+    return;
+  }
+
   const closed = await closeAllCounterSessions(
-      "Encerramento automático diário às 15h", "Sistema",
+      "Encerramento automático diário às 14h", "Sistema",
   );
   const result = await setBridgeState(false);
   await recordBridgeStopped("closed_by_daily_cutoff", result, {
     dailyCutoffAt: admin.firestore.FieldValue.serverTimestamp(),
   });
-  console.log("Corte diário do atendimento WhatsApp concluído.", {
+  console.log("Corte diário das 14h do atendimento WhatsApp concluído.", {
     closed,
     result,
+  });
+});
+
+/**
+ * Temporary test-day cutoff. The guard makes the annual cron a no-op in later
+ * years; remove the Cloud Scheduler job after the November 4, 2026 run.
+ */
+exports.whatsappAttendanceTestDayCutoff = onSchedule({
+  schedule: "0 17 4 11 *",
+  timeZone: TIME_ZONE,
+  region: REGION,
+  serviceAccount: SERVICE_ACCOUNT,
+  invoker: SERVICE_ACCOUNT,
+  retryCount: 1,
+}, async () => {
+  if (getFortalezaDateParts().dateKey !== TEST_EXTENSION_DATE) return;
+
+  const closed = await closeAllCounterSessions(
+      "Encerramento extraordinário de teste às 17h", "Sistema",
+  );
+  const result = await setBridgeState(false);
+  await recordBridgeStopped("closed_after_test_extension", result, {
+    testExtensionCutoffAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  console.log("Corte excepcional do teste às 17h concluído.", {
+    closed,
+    result,
+  });
+});
+
+/**
+ * Starts WhatsApp at 08h on weekdays only when a counter session is open.
+ */
+exports.whatsappAttendanceMorningStart = onSchedule({
+  schedule: "0 8 * * 1-5",
+  timeZone: TIME_ZONE,
+  region: REGION,
+  serviceAccount: SERVICE_ACCOUNT,
+  invoker: SERVICE_ACCOUNT,
+  timeoutSeconds: 120,
+  retryCount: 1,
+}, async () => {
+  const openSessions = await admin.firestore()
+      .collection("atendimento-guiche-relatorios")
+      .where("status", "==", "Aberta")
+      .limit(1)
+      .get();
+  if (openSessions.empty) {
+    const result = await setBridgeState(false);
+    await recordBridgeStopped("stopped_no_open_counters", result, {
+      morningCheckAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log("Nenhum guichê aberto às 08h; WhatsApp mantido desligado.", {
+      result,
+    });
+    return;
+  }
+
+  const result = await startBridgeForPairedWhatsApp();
+  console.log("Verificação de abertura do atendimento WhatsApp às 08h.", {
+    openCounterSession: true,
+    result: result.result,
+    connected: result.ok,
   });
 });
 

@@ -182,7 +182,8 @@ async function saveOutboundMessage(jid, text, conversationId, messageId = '') {
 
 async function getActiveFlow() {
   const singleton = await db.collection('whatsappFlows').doc('main').get();
-  if (singleton.exists && singleton.data()?.active === true) return {id: singleton.id, data: singleton.data()};
+  const singletonData = singleton.data() || {};
+  if (singleton.exists && singletonData.active === true) return {id: singleton.id, data: singletonData};
   // Use an existing published flow until the legacy configuration is migrated
   // to the single `main` document. Publishing the singleton deactivates these.
   const legacy = await db.collection('whatsappFlows').where('active', '==', true).get();
@@ -497,7 +498,11 @@ async function chooseReplyForConversation(text, conversation, conversationRef, s
     const flowDoc = await getActiveFlow();
     if (flowDoc) {
       const flow = flowDoc.data;
-      const firstStep = (flow.steps || []).find(step => step.message);
+      const firstStep = (flow.steps || []).find(step => String(step.message || '').trim() || (step.options || []).length);
+      if (!firstStep) {
+        console.error('Fluxo publicado sem etapa inicial com mensagem/opções.', {flowId: flowDoc.id});
+        return settings.fallbackMessage || 'O atendimento automático está temporariamente indisponível. Tente novamente mais tarde.';
+      }
       if (firstStep?.type === 'informative') return [settings.greetingMessage, await enterFlowStep(firstStep, flow, flowDoc.id, conversationRef)].filter(Boolean).join('\n\n');
       if (firstStep.type !== 'message' || (firstStep.options || []).length) {
         await conversationRef.set({activeFlowId: flowDoc.id, activeFlowStepId: firstStep.id}, {merge: true});
@@ -514,7 +519,11 @@ async function chooseReplyForConversation(text, conversation, conversationRef, s
   const flowDoc = await getActiveFlow();
   if (flowDoc) {
     const flow = flowDoc.data;
-    const firstStep = (flow.steps || []).find(step => step.message);
+    const firstStep = (flow.steps || []).find(step => String(step.message || '').trim() || (step.options || []).length);
+    if (!firstStep) {
+      console.error('Fluxo publicado sem etapa inicial com mensagem/opções.', {flowId: flowDoc.id});
+      return settings.fallbackMessage || 'O atendimento automático está temporariamente indisponível. Tente novamente mais tarde.';
+    }
     if (firstStep?.type === 'informative') return await enterFlowStep(firstStep, flow, flowDoc.id, conversationRef);
     if (firstStep.type !== 'message' || (firstStep.options || []).length) {
       await conversationRef.set({activeFlowId: flowDoc.id, activeFlowStepId: firstStep.id}, {merge: true});
@@ -581,11 +590,32 @@ async function processIncomingMessage(message, allowAutomaticReply = false) {
     messageId: String(message.key?.id || ''),
   });
 
-  if (!allowAutomaticReply || !settings.enabled || connectionState !== 'connected' || !socket) return;
+  if (!allowAutomaticReply || !settings.enabled || connectionState !== 'connected' || !socket) {
+    console.info('Resposta automática ignorada pelas condições de execução.', {
+      eventAllowsReply: allowAutomaticReply,
+      chatbotEnabled: settings.enabled === true,
+      connection: connectionState,
+      socketReady: Boolean(socket),
+      messageId: String(message.key?.id || ''),
+    });
+    return;
+  }
   const answer = await chooseReplyForConversation(text, conversation, conversationRef, settings, message);
-  if (!answer) return;
+  if (!answer) {
+    console.info('Fluxo não enviou resposta para esta mensagem.', {
+      flowStepActive: Boolean(conversation.data()?.activeFlowId),
+      conversationStatus: conversation.data()?.status || 'new',
+      messageId: String(message.key?.id || ''),
+    });
+    return;
+  }
   const sent = await socket.sendMessage(jid, {text: answer});
   await saveOutboundMessage(jid, answer, conversationId, sent?.key?.id || '');
+  console.info('Resposta automática enviada pelo WhatsApp.', {
+    messageId: String(message.key?.id || ''),
+    conversationId,
+    flowId: conversation.data()?.activeFlowId || '',
+  });
 }
 
 async function handleIncomingBatch(batch) {
@@ -594,9 +624,13 @@ async function handleIncomingBatch(batch) {
     count: (batch.messages || []).length,
   });
   for (const message of batch.messages || []) {
+    const isNotification = batch.type === 'notify';
     messageQueue = messageQueue
-        .then(() => processIncomingMessage(message, batch.type === 'notify'))
-        .catch(error => console.error('Falha ao processar mensagem WhatsApp:', error.message));
+        .then(() => processIncomingMessage(message, isNotification))
+        .catch(error => console.error('Falha ao processar mensagem WhatsApp:', error.message, {
+          eventType: batch.type || 'unknown',
+          messageId: String(message.key?.id || ''),
+        }));
   }
 }
 
