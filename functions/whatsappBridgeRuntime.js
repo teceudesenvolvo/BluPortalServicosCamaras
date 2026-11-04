@@ -119,12 +119,16 @@ function isWithinAttendanceWindow(date = new Date()) {
  */
 async function getInstanceState(client) {
   const response = await client.request({url: API_BASE, method: "GET"});
-  const terminalCondition = response.data && response.data.terminalCondition;
-  if (!terminalCondition || terminalCondition.type !== "Running") {
+  const instance = response.data || {};
+  const terminalCondition = instance.terminalCondition;
+  if (!terminalCondition || instance.reconciling) {
     return "UNKNOWN";
   }
   if (terminalCondition.state === "CONDITION_SUCCEEDED") return "RUNNING";
-  if (terminalCondition.state === "CONDITION_FAILED") return "STOPPED";
+  if (terminalCondition.instanceReason === "INSTANCE_STOPPED" ||
+      terminalCondition.instanceReason === "INSTANCE_STOPPING") {
+    return "STOPPED";
+  }
   return "UNKNOWN";
 }
 

@@ -345,10 +345,11 @@ const AdminWhatsApp = () => {
         return result;
     };
     const startBridgeForPairing = async () => {
-        await callFirebaseFunction('whatsappAttendanceControl', { action: 'pairing' });
+        const operation = await callFirebaseFunction('whatsappAttendanceControl', { action: 'pairing' });
+        if (operation.data?.ok === false) throw new Error(operation.data.message || 'Não foi possível iniciar a instância do WhatsApp.');
         const baseUrl = String(settings.bridgeUrl || '').trim().replace(/\/+$/, '');
         if (!baseUrl) throw new Error('Informe e salve o endereço do serviço de conexão primeiro.');
-        for (let attempt = 0; attempt < 20; attempt += 1) {
+        for (let attempt = 0; attempt < 60; attempt += 1) {
             try {
                 const response = await fetch(`${baseUrl}/health`);
                 if (response.ok) return;
@@ -357,7 +358,7 @@ const AdminWhatsApp = () => {
             }
             await new Promise(resolve => window.setTimeout(resolve, 1500));
         }
-        throw new Error('A instância não ficou pronta para gerar o QR Code. Tente novamente em instantes.');
+        throw new Error('A instância do WhatsApp não respondeu em até 90 segundos. Verifique o estado e os logs do Cloud Run antes de tentar novamente.');
     };
     const saveSettings = async event => {
         event.preventDefault(); setSaving(true); setNotice('');
