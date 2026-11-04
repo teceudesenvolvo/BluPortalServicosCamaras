@@ -34,6 +34,7 @@ let reconnectAttempt = 0;
 let manualDisconnect = false;
 let messageQueue = Promise.resolve();
 let watchdogTimer = null;
+const recentDeliveryAcks = new Map();
 
 app.disable('x-powered-by');
 app.use(express.json({limit: '256kb'}));
@@ -161,6 +162,37 @@ function safeDocumentId(value) {
   return String(value || '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 900);
 }
 
+function deliveryStatusFromAck(status) {
+  if (typeof status === 'string') {
+    const normalized = status.toLowerCase();
+    if (/^\d+$/.test(normalized)) return ({0: 'failed', 1: 'pending', 2: 'sent', 3: 'delivered', 4: 'read', 5: 'played'})[Number(normalized)] || '';
+    if (['error', 'failed', 'failure'].includes(normalized)) return 'failed';
+    if (['server_ack', 'serverack', 'sent'].includes(normalized)) return 'sent';
+    if (['delivery_ack', 'deliveryack', 'delivered'].includes(normalized)) return 'delivered';
+    if (['read', 'read_ack', 'readack'].includes(normalized)) return 'read';
+    if (['played', 'played_ack', 'playedack'].includes(normalized)) return 'played';
+    if (['pending', 'queued'].includes(normalized)) return 'pending';
+    return '';
+  }
+  const numeric = Number(status);
+  return ({0: 'failed', 1: 'pending', 2: 'sent', 3: 'delivered', 4: 'read', 5: 'played'})[numeric] || '';
+}
+
+async function applyOutboundDeliveryStatus(messageId, deliveryStatus) {
+  if (!messageId || !deliveryStatus) return;
+  recentDeliveryAcks.set(messageId, {deliveryStatus, recordedAt: Date.now()});
+  for (const [id, ack] of recentDeliveryAcks) {
+    if (Date.now() - ack.recordedAt > 10 * 60 * 1000) recentDeliveryAcks.delete(id);
+  }
+  const matches = await db.collection('whatsappMessages')
+      .where('providerMessageId', '==', messageId).limit(1).get();
+  if (matches.empty) return;
+  const currentStatus = matches.docs[0].data()?.deliveryStatus;
+  const rank = {pending: 0, sent: 1, delivered: 2, read: 3, played: 4, failed: 5};
+  if (rank[deliveryStatus] < rank[currentStatus]) return;
+  await matches.docs[0].ref.set({deliveryStatus, deliveryUpdatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+}
+
 async function saveOutboundMessage(jid, text, conversationId, messageId = '') {
   const now = admin.firestore.FieldValue.serverTimestamp();
   await db.collection('whatsappMessages').add({
@@ -169,6 +201,7 @@ async function saveOutboundMessage(jid, text, conversationId, messageId = '') {
     text,
     direction: 'outbound',
     status: 'sent',
+    deliveryStatus: 'pending',
     provider: 'Baileys',
     providerMessageId: messageId,
     createdAt: now,
@@ -178,6 +211,22 @@ async function saveOutboundMessage(jid, text, conversationId, messageId = '') {
     lastMessage: text,
     updatedAt: now,
   }, {merge: true});
+  const earlyAck = recentDeliveryAcks.get(messageId);
+  if (earlyAck) await applyOutboundDeliveryStatus(messageId, earlyAck.deliveryStatus);
+}
+
+async function handleMessageUpdates(updates) {
+  for (const update of updates || []) {
+    if (!update.key?.fromMe || !update.key?.id) continue;
+    const status = deliveryStatusFromAck(update.update?.status ?? update.status);
+    if (!status) continue;
+    try {
+      await applyOutboundDeliveryStatus(String(update.key.id), status);
+      console.info('Confirmação de entrega WhatsApp recebida.', {messageId: String(update.key.id), deliveryStatus: status});
+    } catch (error) {
+      console.error('Falha ao registrar confirmação de entrega WhatsApp:', error.message, {messageId: String(update.key.id)});
+    }
+  }
 }
 
 async function getActiveFlow() {
@@ -656,6 +705,7 @@ async function startSocket() {
         console.error('Falha ao salvar as credenciais da sessão:', error.message));
     });
     activeSocket.ev.on('messages.upsert', handleIncomingBatch);
+    activeSocket.ev.on('messages.update', handleMessageUpdates);
     activeSocket.ev.on('connection.update', async update => {
       if (socket !== activeSocket) return;
       try {
@@ -884,8 +934,10 @@ app.post('/api/messages/send', requireAdmin, async (req, res) => {
   }
   try {
     const sent = await socket.sendMessage(jid, {text});
+    if (!sent?.key?.id) throw new Error('O WhatsApp não retornou o identificador da mensagem.');
     await saveOutboundMessage(jid, text, conversationId, sent?.key?.id || '');
-    return res.json({sent: true});
+    console.info('Mensagem aceita para envio pelo WhatsApp.', {messageId: sent.key.id, jidType: jid.split('@').pop()});
+    return res.json({sent: true, deliveryStatus: 'pending', messageId: sent.key.id});
   } catch (error) {
     console.error('Falha ao enviar mensagem WhatsApp:', error.message);
     return res.status(502).json({error: 'O WhatsApp não aceitou o envio da mensagem.'});
