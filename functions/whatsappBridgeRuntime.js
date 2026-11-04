@@ -60,6 +60,167 @@ async function setBridgeState(shouldRun) {
 }
 
 /**
+ * Checks the persisted Baileys registration without starting Cloud Run.
+ * @return {Promise<{registered: boolean, status: string}>} Saved session state
+ */
+async function getSavedWhatsAppSession() {
+  const db = admin.firestore();
+  const [authSnapshot, runtimeSnapshot] = await Promise.all([
+    db.collection("whatsappPrivate").doc("baileysAuth").get(),
+    db.collection("whatsappRuntime").doc("session").get(),
+  ]);
+  const creds = authSnapshot.data() && authSnapshot.data().creds;
+  const registered = Boolean(
+      creds && creds.registered && creds.me && creds.me.id,
+  );
+  const status = String(runtimeSnapshot.data()?.status || "disconnected");
+  return {registered, status};
+}
+
+/**
+ * Reads live Baileys health from the bridge process.
+ * @param {string} baseUrl Configured Cloud Run URL
+ * @return {Promise<{status: string}|null>} Live connection state if reachable
+ */
+async function getLiveBridgeStatus(baseUrl) {
+  if (!baseUrl) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(`${baseUrl}/health`, {
+      method: "GET",
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    const health = await response.json();
+    return {status: String(health.status || "disconnected")};
+  } catch (error) {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Starts only a previously paired WhatsApp and stops Cloud Run if it cannot
+ * establish a live Baileys connection.
+ * @return {Promise<{ok: boolean, result: string, message: string}>}
+ *   Start result
+ */
+async function startBridgeForPairedWhatsApp() {
+  const db = admin.firestore();
+  const runtimeRef = db.collection("whatsappRuntime").doc("session");
+  const savedSession = await getSavedWhatsAppSession();
+  const settingsSnapshot = await db.collection("whatsappSettings")
+      .doc("config").get();
+  const baseUrl = String(settingsSnapshot.data()?.bridgeUrl || "")
+      .trim().replace(/\/+$/, "");
+  if (!savedSession.registered ||
+      ["logged_out", "qr_required"].includes(savedSession.status) || !baseUrl) {
+    const stopResult = await setBridgeState(false);
+    const message = savedSession.status === "logged_out" ?
+      "O WhatsApp encerrou o pareamento. Gere um QR Code na Configuração." :
+      savedSession.status === "qr_required" ?
+        "O WhatsApp precisa ser pareado. Gere um QR Code na Configuração." :
+      !baseUrl ?
+        "Configure o endereço do WhatsApp antes de iniciar o atendimento." :
+        "Nenhum WhatsApp pareado. Conecte um aparelho na Configuração.";
+    const blockedStatus = savedSession.status === "logged_out" ?
+      "logged_out" : "disconnected";
+    await runtimeRef.set({
+      status: blockedStatus,
+      instanceAvailability: "blocked_no_paired_whatsapp",
+      instanceRunning: false,
+      lastInstanceAction: stopResult,
+      lastInstancePreflightAt: admin.firestore.FieldValue.serverTimestamp(),
+      ...(!savedSession.registered ? {phone: "", qrCode: ""} : {}),
+      lastError: message,
+    }, {merge: true});
+    return {ok: false, result: "not_started_no_paired_whatsapp", message};
+  }
+
+  const startRequestedAt = admin.firestore.Timestamp.now();
+  await runtimeRef.set({
+    instanceAvailability: "starting_after_pairing_check",
+    instanceRunning: true,
+    connectionStartRequestedAt: startRequestedAt,
+    lastInstancePreflightAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, {merge: true});
+
+  const result = await setBridgeState(true);
+  const timeoutAt = Date.now() + 45000;
+  let liveStatus = null;
+  while (Date.now() < timeoutAt) {
+    liveStatus = await getLiveBridgeStatus(baseUrl);
+    if (liveStatus?.status === "connected") {
+      await runtimeRef.set({
+        status: "connected",
+        instanceAvailability: "connected",
+        instanceRunning: true,
+        lastInstanceAction: result,
+        lastConnectionVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastError: "",
+      }, {merge: true});
+      return {
+        ok: true,
+        result,
+        message: "WhatsApp conectado; atendimento iniciado.",
+      };
+    }
+    if (["logged_out", "qr_required"].includes(liveStatus?.status)) break;
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+
+  await setBridgeState(false);
+  const disconnectedMessage = liveStatus?.status === "logged_out" ?
+    "O WhatsApp encerrou o pareamento. A Cloud Run foi desligada; " +
+    "gere um novo QR Code na Configuração." :
+    liveStatus?.status === "qr_required" ?
+      "O WhatsApp precisa ser pareado. A Cloud Run foi desligada; " +
+      "gere o QR Code na Configuração." :
+      "A conexão do WhatsApp não foi confirmada. A Cloud Run foi desligada.";
+  await runtimeRef.set({
+    status: liveStatus?.status === "logged_out" ? "logged_out" : "disconnected",
+    instanceAvailability: "stopped_whatsapp_not_connected",
+    instanceRunning: false,
+    openCounterSession: false,
+    lastInstanceAction: "stopped_without_live_whatsapp",
+    lastConnectionCheckAt: admin.firestore.FieldValue.serverTimestamp(),
+    lastError: disconnectedMessage,
+  }, {merge: true});
+  return {
+    ok: false,
+    result: "stopped_without_live_whatsapp",
+    message: disconnectedMessage,
+  };
+}
+
+/**
+ * Records the actual disconnected state after stopping the server process.
+ * @param {string} availability Operational reason for stopping
+ * @param {string} action Result of the Cloud Run stop request
+ * @param {object} extra Extra runtime fields
+ * @return {Promise<void>} Completion
+ */
+async function recordBridgeStopped(availability, action, extra = {}) {
+  const runtimeRef = admin.firestore()
+      .collection("whatsappRuntime").doc("session");
+  const snapshot = await runtimeRef.get();
+  const previousStatus = String(snapshot.data()?.status || "");
+  await runtimeRef.set({
+    ...extra,
+    status: previousStatus === "logged_out" ? "logged_out" : "disconnected",
+    qrCode: "",
+    instanceAvailability: availability,
+    instanceRunning: false,
+    openCounterSession: false,
+    lastInstanceAction: action,
+    lastInstanceStoppedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, {merge: true});
+}
+
+/**
  * Closes every open counter session and returns any active ticket to the queue.
  * @param {string} reason Why the sessions are being closed
  * @param {string} actor Who initiated the close
@@ -182,6 +343,7 @@ async function requireWhatsAppAdmin(request) {
 exports.whatsappAttendanceControl = onCall({
   region: REGION,
   serviceAccount: SERVICE_ACCOUNT,
+  timeoutSeconds: 120,
 }, async (request) => {
   const actor = await requireWhatsAppAdmin(request);
   const action = String((request.data && request.data.action) || "");
@@ -189,9 +351,26 @@ exports.whatsappAttendanceControl = onCall({
       .collection("whatsappRuntime").doc("session");
 
   if (action === "start") {
-    const result = await setBridgeState(true);
+    const result = await startBridgeForPairedWhatsApp();
+    if (!result.ok) return result;
     await runtimeRef.set({
       instanceAvailability: "manually_started",
+      instanceRunning: true,
+      lastInstanceAction: result.result,
+      lastInstanceActionAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastInstanceActionBy: actor.email,
+    }, {merge: true});
+    return {
+      ok: true,
+      result: result.result,
+      message: result.message,
+    };
+  }
+
+  if (action === "pairing") {
+    const result = await setBridgeState(true);
+    await runtimeRef.set({
+      instanceAvailability: "pairing_setup",
       instanceRunning: true,
       lastInstanceAction: result,
       lastInstanceActionAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -200,7 +379,7 @@ exports.whatsappAttendanceControl = onCall({
     return {
       ok: true,
       result,
-      message: "Atendimento iniciado e Cloud Run acionado.",
+      message: "Instância iniciada para gerar ou atualizar o pareamento.",
     };
   }
 
@@ -209,14 +388,10 @@ exports.whatsappAttendanceControl = onCall({
         "Encerramento manual do atendimento", actor.email,
     );
     const result = await setBridgeState(false);
-    await runtimeRef.set({
-      instanceAvailability: "manually_closed",
-      instanceRunning: false,
-      openCounterSession: false,
-      lastInstanceAction: result,
+    await recordBridgeStopped("manually_closed", result, {
       lastInstanceActionAt: admin.firestore.FieldValue.serverTimestamp(),
       lastInstanceActionBy: actor.email,
-    }, {merge: true});
+    });
     return {
       ok: true,
       result,
@@ -245,13 +420,9 @@ exports.whatsappAttendanceDailyCutoff = onSchedule({
       "Encerramento automático diário às 15h", "Sistema",
   );
   const result = await setBridgeState(false);
-  await admin.firestore().collection("whatsappRuntime").doc("session").set({
-    instanceAvailability: "closed_by_daily_cutoff",
-    instanceRunning: false,
-    openCounterSession: false,
+  await recordBridgeStopped("closed_by_daily_cutoff", result, {
     dailyCutoffAt: admin.firestore.FieldValue.serverTimestamp(),
-    lastInstanceAction: result,
-  }, {merge: true});
+  });
   console.log("Corte diário do atendimento WhatsApp concluído.", {
     closed,
     result,
@@ -284,22 +455,20 @@ exports.whatsappBridgeSyncWithCounterSessions = onDocumentWritten({
       .limit(1)
       .get();
   const shouldRun = !openSessions.empty;
-  const result = await setBridgeState(shouldRun);
-  const instanceAvailability = shouldRun ?
-    "active_with_open_counter" : "stopped_no_open_counters";
-
-  await admin.firestore().collection("whatsappRuntime").doc("session").set({
-    instanceAvailability,
-    instanceRunning: shouldRun,
-    openCounterSession: shouldRun,
-    lastCounterSessionId: event.params.sessionId,
-    lastCounterSessionChangeAt: admin.firestore.FieldValue.serverTimestamp(),
-    lastInstanceAction: result,
-  }, {merge: true});
+  const result = shouldRun ?
+    await startBridgeForPairedWhatsApp() :
+    {ok: true, result: await setBridgeState(false)};
+  if (!shouldRun) {
+    await recordBridgeStopped(
+        "stopped_no_open_counters", result.result,
+        {lastCounterSessionId: event.params.sessionId},
+    );
+  }
 
   console.log("Estado do WhatsApp sincronizado com os guichês.", {
     sessionId: event.params.sessionId,
     openCounterSession: shouldRun,
-    result,
+    result: result.result,
+    connected: result.ok,
   });
 });

@@ -343,6 +343,21 @@ const AdminWhatsApp = () => {
         if (!response.ok) throw new Error(result.error || 'Não foi possível concluir esta operação. Tente novamente.');
         return result;
     };
+    const startBridgeForPairing = async () => {
+        await callFirebaseFunction('whatsappAttendanceControl', { action: 'pairing' });
+        const baseUrl = String(settings.bridgeUrl || '').trim().replace(/\/+$/, '');
+        if (!baseUrl) throw new Error('Informe e salve o endereço do serviço de conexão primeiro.');
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+            try {
+                const response = await fetch(`${baseUrl}/health`);
+                if (response.ok) return;
+            } catch (error) {
+                // The instance is still starting; try again briefly.
+            }
+            await new Promise(resolve => window.setTimeout(resolve, 1500));
+        }
+        throw new Error('A instância não ficou pronta para gerar o QR Code. Tente novamente em instantes.');
+    };
     const saveSettings = async event => {
         event.preventDefault(); setSaving(true); setNotice('');
         try {
@@ -353,7 +368,7 @@ const AdminWhatsApp = () => {
     };
     const manageSession = async action => {
         setSaving(true); setNotice('');
-        try { const result = action === 'start' ? await bridgeRequest('/api/session/start') : await bridgeRequest('/api/session/logout'); setRuntimeStatus(current => ({ ...current, ...result })); setNotice(action === 'start' ? 'Solicitação de conexão enviada. Escaneie o QR Code com o WhatsApp.' : 'Sessão desconectada.'); }
+        try { if (action === 'start') await startBridgeForPairing(); const result = action === 'start' ? await bridgeRequest('/api/session/start') : await bridgeRequest('/api/session/logout'); setRuntimeStatus(current => ({ ...current, ...result })); setNotice(action === 'start' ? 'Solicitação de conexão enviada. Escaneie o QR Code com o WhatsApp.' : 'Sessão desconectada.'); }
         catch (error) { setNotice(error.message || 'Não foi possível controlar a sessão.'); }
         finally { setSaving(false); }
     };
@@ -472,7 +487,7 @@ const AdminWhatsApp = () => {
 
     return <div className="dashboard-layout admin-whatsapp-shell"><AdminSidebar /><main className="dashboard-content admin-whatsapp-main">
         <header className="admin-whatsapp-header"><div><span className="eyebrow">ATENDIMENTO DIGITAL</span><h1>Whatsapp Câmara</h1><p>Configure respostas automáticas, fluxos e acompanhe as mensagens da Câmara.</p></div><span className={`wa-status ${runtimeStatus.status === 'connected' ? 'is-on' : ''}`}>{runtimeStatus.status === 'connected' ? 'WhatsApp conectado' : `WhatsApp: ${runtimeStatus.status || 'desconectado'}`}</span></header>
-        {canManageChatbot && <section className="wa-operations-control" aria-label="Controle do atendimento WhatsApp"><div><span className="wa-map-kicker">OPERAÇÃO DO ATENDIMENTO</span><strong>{openCounterSessions.length} guichê(s) aberto(s)</strong><p>{runtimeStatus.instanceAvailability === 'closed_by_daily_cutoff' ? 'Atendimento encerrado automaticamente às 15h.' : openCounterSessions.length ? 'O WhatsApp acompanha os guichês abertos.' : 'Você pode iniciar o atendimento manualmente ou abrir um guichê para ativar o WhatsApp.'}</p></div><div className="wa-operations-actions"><button type="button" className="wa-primary" disabled={saving || !runtimeLoaded} onClick={() => manageAttendance('start')}>{saving ? 'Aguarde…' : 'Iniciar atendimento'}</button><button type="button" className="wa-stop-attendance" disabled={saving || !runtimeLoaded} onClick={() => manageAttendance('stop')}>{saving ? 'Aguarde…' : 'Encerrar atendimento'}</button></div></section>}
+        {canManageChatbot && <section className="wa-operations-control" aria-label="Controle do atendimento WhatsApp"><div><span className="wa-map-kicker">OPERAÇÃO DO ATENDIMENTO</span><strong>{openCounterSessions.length} guichê(s) aberto(s)</strong><p>{runtimeStatus.instanceAvailability === 'closed_by_daily_cutoff' ? 'Atendimento encerrado automaticamente às 15h.' : runtimeStatus.instanceAvailability === 'blocked_no_paired_whatsapp' || runtimeStatus.instanceAvailability === 'stopped_whatsapp_not_connected' ? runtimeStatus.lastError || 'O WhatsApp não está conectado; a instância foi mantida desligada.' : openCounterSessions.length ? 'O WhatsApp acompanha os guichês abertos.' : 'O WhatsApp só inicia com um pareamento salvo. Para gerar o primeiro QR Code, use Configuração.'}</p></div><div className="wa-operations-actions"><button type="button" className="wa-primary" disabled={saving || !runtimeLoaded} onClick={() => manageAttendance('start')}>{saving ? 'Aguarde…' : 'Iniciar atendimento'}</button><button type="button" className="wa-stop-attendance" disabled={saving || !runtimeLoaded} onClick={() => manageAttendance('stop')}>{saving ? 'Aguarde…' : 'Encerrar atendimento'}</button></div></section>}
         <nav className="wa-tabs">{[['overview','Visão geral',LiaCommentsSolid],['conversations','Fila e mensagens',LiaCommentsSolid],['requests','Solicitações de serviço',LiaPaperPlane],['flows','Mindmap do chatbot',LiaProjectDiagramSolid],['settings','Configuração',LiaCogSolid]].filter(([id]) => canManageChatbot || !['flows', 'settings'].includes(id)).map(([id,label,Icon]) => <React.Fragment key={id}><button className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon />{label}{id === 'conversations' && unreadHumanConversations > 0 && <span className="wa-tab-badge" aria-label={`${unreadHumanConversations} conversas não lidas solicitando atendimento humano`}>{unreadHumanConversations > 99 ? '99+' : unreadHumanConversations}</span>}{id === 'requests' && pendingSectorRequests > 0 && <span className="wa-tab-badge" aria-label={`${pendingSectorRequests} solicitações novas aguardando encaminhamento ao setor`}>{pendingSectorRequests > 99 ? '99+' : pendingSectorRequests}</span>}</button>{id === 'conversations' && <button type="button" className={`wa-notification-toggle ${humanNotificationsEnabled ? 'enabled' : ''}`} aria-pressed={humanNotificationsEnabled} onClick={toggleHumanNotifications}>{humanNotificationsEnabled ? 'Desativar notificações' : 'Ativar notificações'}</button>}</React.Fragment>)}</nav>
         {tab === 'overview' && <section className="wa-dashboard">
             <div className="wa-dashboard-heading"><div><span className="wa-map-kicker">PAINEL OPERACIONAL</span><h2>Visão geral do atendimento</h2><p>Indicadores atualizados conforme as conversas e mensagens chegam.</p></div>{canManageChatbot && <button className="wa-secondary" onClick={() => setTab('settings')}>Configurar integração</button>}</div>
